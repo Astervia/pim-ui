@@ -1,10 +1,11 @@
 ---
 phase: 2
 slug: honest-dashboard-peer-surface
-status: draft
+status: approved
 shadcn_initialized: true
 preset: new-york (manual pim brand override via src/globals.css)
 created: 2026-04-24
+reviewed_at: 2026-04-24
 ---
 
 # Phase 2 — UI Design Contract
