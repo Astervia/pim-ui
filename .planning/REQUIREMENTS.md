@@ -67,6 +67,12 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [ ] **OBS-02**: Log viewer supports text search and time-range filter
 - [ ] **OBS-03**: User can export a debug snapshot (one click) — JSON dump of current status + recent logs
 
+### SETUP — first-run config bootstrap (added Phase 01.1)
+
+- [ ] **SETUP-01**: On first launch (no `pim.toml` at the platform-default path), UI detects missing config and renders a single-screen first-run surface instead of the Dashboard or Limited-mode banner; platform paths match the daemon's `DEFAULT_CONFIG` rules (`/etc/pim/pim.toml` Linux system, `~/.config/pim/pim.toml` Linux user, `~/Library/Application Support/pim/pim.toml` macOS, `%APPDATA%\pim\pim.toml` Windows)
+- [ ] **SETUP-02**: First-run surface captures device name (pre-filled from hostname) + role radio (Join the mesh / Share my internet — the latter disabled outside Linux with honest copy) and offers `[ Start pim ]` primary + `[ Customize… ]` secondary (Phase 3 stub); clicking `[ Start pim ]` writes a sane-default `pim.toml` via a new Tauri command and chains to `daemon_start`
+- [ ] **SETUP-03**: If the daemon exits within 500 ms of `daemon_start` (crash-on-boot, e.g. config validation failure), the UI surfaces a `DAEMON ERROR` banner citing the config path and daemon stderr — never a silent "nothing happened" state; detected via the existing Phase 1 `Sidecar::Terminated` event path
+
 ### UX — onboarding + error states + polish
 
 - [ ] **UX-01**: First-run onboarding completes in ≤ 3 interactions (name device → grant TUN permission → connect or run solo)
@@ -133,6 +139,9 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | DAEMON-03 | Phase 1 | Complete |
 | DAEMON-04 | Phase 1 | Complete |
 | DAEMON-05 | Phase 1 | Pending |
+| SETUP-01 | Phase 01.1 | Pending |
+| SETUP-02 | Phase 01.1 | Pending |
+| SETUP-03 | Phase 01.1 | Pending |
 | STAT-01 | Phase 2 | Complete |
 | STAT-02 | Phase 2 | Complete |
 | STAT-03 | Phase 2 | Complete |
@@ -171,8 +180,8 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | UX-07 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 46 total
-- Mapped to phases: 46 ✓
+- v1 requirements: 49 total (46 original + 3 SETUP-*)
+- Mapped to phases: 49 ✓
 - Unmapped: 0
 
 ---

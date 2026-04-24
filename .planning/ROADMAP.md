@@ -55,6 +55,20 @@ Plans:
 - [x] 01-04-PLAN.md — UptimeCounter + AboutFooter + ReconnectToast + dashboard rewire + human-verify checkpoint for all 6 Phase 1 success criteria (DAEMON-04, RPC-02 surface)
 **UI hint**: yes
 
+### Phase 01.1: First-run config bootstrap (INSERTED)
+**Goal**: On first launch (when no `pim.toml` exists on the platform-default path), the UI shows a single-screen form that captures device name + role, generates a sensible `pim.toml`, and starts the daemon — without the user ever seeing the filesystem, a wizard, or an error. Closes the "click Start, nothing happens" gap discovered during Phase 2 verification.
+**Depends on**: Phase 1
+**Requirements**: SETUP-01, SETUP-02, SETUP-03
+**Success Criteria** (what must be TRUE):
+  1. On first launch (no `pim.toml` at the platform-default path, e.g. `~/.config/pim/pim.toml` on Linux, `~/Library/Application Support/pim/pim.toml` on macOS), the UI renders a single-screen first-run surface — not the Dashboard, not a wizard, not the Limited-mode banner.
+  2. The first-run surface has exactly two form fields (device name pre-filled from hostname; role radio defaulted to "Join the mesh") and two actions: `[ Start pim ]` primary + `[ Customize… ]` secondary-grayed with "(Phase 3)" hint.
+  3. Clicking `[ Start pim ]` writes a default `pim.toml` (sane defaults: broadcast on, BLE off, TOFU policy, no gateway) to the platform path and triggers `daemon_start` — user lands on Dashboard within 3 seconds, no manual file creation, no terminal.
+  4. On macOS / Windows, the `Share my internet` radio option is visibly disabled with honest copy "Gateway mode is Linux-only today. Your device can still join a mesh as a client or relay." — the option is not hidden.
+  5. On subsequent launches (config exists), the first-run surface does NOT appear; the UI boots straight to AppShell + Dashboard as before.
+  6. If `daemon_start` fails after config was written (e.g. daemon crashes within 500 ms), the UI surfaces an honest error banner referencing the config path — the user is never left with a silent "nothing happened" state. No polling; Phase 1 `DaemonState` machine detects the crash via the sidecar's `Terminated` event.
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 2: Honest Dashboard & Peer Surface
 **Goal**: The dashboard shows what the daemon is actually doing via reactive event streams — node identity, mesh address, peer transport per row, forwarded/dropped metrics, nearby peers, and incoming pair approval.
 **Depends on**: Phase 1

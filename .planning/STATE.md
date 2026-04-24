@@ -98,6 +98,10 @@ Recent decisions affecting current work:
 - [Phase 02-honest-dashboard-peer-surface]: useLogsStream exposes errorStream: 'logs' | null on the hook result so Plan 02-06's toast can assemble the D-31 'Couldn't subscribe to {stream}' string without re-deriving it.
 - [Phase 02-honest-dashboard-peer-surface]: Narrowed .gitignore 'logs/' rule to root-anchored '/logs/' so src/components/logs/ (Logs-tab UI folder) tracks. Original rule still covers any future top-level log-output folder.
 
+### Roadmap Evolution
+
+- 2026-04-24: Phase 01.1 inserted after Phase 1 — "First-run config bootstrap" (URGENT). Discovered during Phase 2 runtime verification: clicking [ Start daemon ] silently fails because pim-daemon needs `pim.toml` at platform-default path before it can boot, and the product must not require the user to create that file by hand. Scope: first-run screen (device name + role radio + Start / Customize…) + `bootstrap_config` Tauri command + Sidecar::Terminated-within-500ms detection. 3 new REQs (SETUP-01/02/03). Unblocks Phase 2 live-daemon verify.
+
 ### Pending Todos
 
 None yet.
