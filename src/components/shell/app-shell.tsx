@@ -32,6 +32,8 @@ import { useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { ActiveScreen } from "./active-screen";
 import { useActiveScreen } from "@/hooks/use-active-screen";
+import { ReconnectToast } from "@/components/brand/reconnect-toast";
+import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 
 export function AppShell() {
   const { setActive } = useActiveScreen();
@@ -81,6 +83,12 @@ export function AppShell() {
       >
         <ActiveScreen />
       </main>
+      {/* App-level chrome moved from Dashboard by Plan 02-03 — neither
+          component renders visible UI unless its state triggers it, and
+          both consume useDaemonState directly. They belong at the shell
+          layer rather than inside a specific screen. */}
+      <ReconnectToast />
+      <StopConfirmDialog />
     </div>
   );
 }

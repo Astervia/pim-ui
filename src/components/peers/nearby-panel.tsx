@@ -7,8 +7,8 @@
  *     the UI must preserve the user's mental model of "the app is
  *     listening for peers" (D-19). Empty state renders the D-19 verbatim
  *     copy: `no devices discovered yet · discovery is active`.
- *   - Panel title (via CliPanel's auto-uppercase): `nearby — not paired`
- *     (em-dash U+2014, NOT double hyphen) → rendered as
+ *   - Panel title (CliPanel uppercases internally): `nearby — not paired`
+ *     (em-dash U+2014, NOT double hyphen) — renders as
  *     `NEARBY — NOT PAIRED`.
  *   - Badge reads `[SCANNING]` when the list is empty, `[{n} NEARBY]`
  *     otherwise.
