@@ -47,7 +47,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. When the daemon is killed externally, the UI detects disconnect within 5 seconds, displays the Limited mode banner, and auto-reconnects (restoring any subscriptions) the moment the socket reappears.
   5. After handshake, the About section / footer shows the daemon version string and feature flags reported by `rpc.hello`, and the UI-side TypeScript types match `proximity-internet-mesh/docs/RPC.md` exactly (verified by compile against a fixture).
   6. While the daemon is running, the dashboard displays an uptime counter that ticks forward continuously and survives a UI window close/reopen (reads from daemon, not UI state).
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [x] 01-01-PLAN.md — TypeScript RPC type mirror of docs/RPC.md v1 + typed Tauri invoke wrapper + DaemonState machine (RPC-05)
+- [ ] 01-02-PLAN.md — Rust sidecar spawn + newline-delimited JSON-RPC Unix socket client + 6 Tauri commands + 2 Tauri events + reconnect loop (RPC-01, RPC-02, RPC-04, DAEMON-01, DAEMON-02, DAEMON-05)
+- [ ] 01-03-PLAN.md — useDaemonState hook + DaemonStatusIndicator/DaemonToggle/LimitedModeBanner/TunPermissionModal/StopConfirmDialog components + shadcn Dialog primitive (RPC-03, DAEMON-03)
+- [ ] 01-04-PLAN.md — UptimeCounter + AboutFooter + ReconnectToast + dashboard rewire + human-verify checkpoint for all 6 Phase 1 success criteria (DAEMON-04, RPC-02 surface)
 **UI hint**: yes
 
 ### Phase 2: Honest Dashboard & Peer Surface
@@ -114,7 +119,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RPC Bridge & Daemon Lifecycle | 0/TBD | Not started | - |
+| 1. RPC Bridge & Daemon Lifecycle | 1/4 | In Progress | - |
 | 2. Honest Dashboard & Peer Surface | 0/TBD | Not started | - |
 | 3. Configuration & Peer Management | 0/TBD | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |

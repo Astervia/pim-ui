@@ -14,7 +14,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [ ] **RPC-02**: Connection performs `rpc.hello` handshake and reports daemon version + feature flags in UI
 - [ ] **RPC-03**: UI gracefully handles daemon not running — shows "Limited mode — pim daemon is stopped" banner with Start action
 - [ ] **RPC-04**: UI reconnects automatically on daemon restart, preserving subscriptions
-- [ ] **RPC-05**: UI maintains TypeScript types mirroring kernel `docs/RPC.md` (hand-maintained for v1, `tauri-specta` v2 is a v2 requirement)
+- [x] **RPC-05**: UI maintains TypeScript types mirroring kernel `docs/RPC.md` (hand-maintained for v1, `tauri-specta` v2 is a v2 requirement)
 
 ### DAEMON — lifecycle + sidecar management
 
@@ -127,7 +127,7 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | RPC-02 | Phase 1 | Pending |
 | RPC-03 | Phase 1 | Pending |
 | RPC-04 | Phase 1 | Pending |
-| RPC-05 | Phase 1 | Pending |
+| RPC-05 | Phase 1 | Complete |
 | DAEMON-01 | Phase 1 | Pending |
 | DAEMON-02 | Phase 1 | Pending |
 | DAEMON-03 | Phase 1 | Pending |
