@@ -29,11 +29,13 @@
  */
 
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 import { Sidebar } from "./sidebar";
 import { ActiveScreen } from "./active-screen";
 import { useActiveScreen } from "@/hooks/use-active-screen";
 import { ReconnectToast } from "@/components/brand/reconnect-toast";
 import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
+import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 
 export function AppShell() {
   const { setActive } = useActiveScreen();
@@ -89,6 +91,31 @@ export function AppShell() {
           layer rather than inside a specific screen. */}
       <ReconnectToast />
       <StopConfirmDialog />
+
+      {/* Sonner Toaster — single app-wide toast container. Previously
+          mounted as <ReconnectToaster /> in main.tsx; consolidated here
+          (Plan 02-06) so both Phase-1 ReconnectToast and Phase-2
+          SubscriptionErrorToast share one container, matching the
+          user-critical-invariant "don't conflict with existing toast usage."
+          Position + styling preserved from the Phase-1 ReconnectToaster. */}
+      <Toaster
+        position="bottom-right"
+        offset={16}
+        duration={3000}
+        toastOptions={{
+          className:
+            "font-mono rounded-none border border-border border-l-2 border-l-primary bg-card text-foreground",
+          style: { borderRadius: 0 },
+          classNames: {
+            error: "border-destructive border-l-destructive",
+          },
+        }}
+      />
+      {/* Watchers — null-rendering logical components that read snapshot
+          state and fire toasts on transitions. ReconnectToast (Phase 1)
+          is mounted above; SubscriptionErrorToast (Plan 02-06 / D-31)
+          fires on snapshot.subscriptionError changes. */}
+      <SubscriptionErrorToast />
     </div>
   );
 }
