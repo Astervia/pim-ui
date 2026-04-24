@@ -13,22 +13,23 @@
  *       <main> (axe landmark-unique violation).
  *
  * Extension seams (Wave 2 of Phase 2):
- *   - Plan 02-03 swaps the Dashboard body against real RPC data + adds
+ *   - The dashboard body reads from live RPC selectors and exposes the
  *     onPeerSelect / onNearbyPair prop seams on <Dashboard />.
- *   - Plan 02-04 (this file) threads onPeerSelect / onNearbyPair through
- *     Dashboard, and mounts <PeerDetailSheet /> + <PairApprovalModal />
- *     at shell level so they overlay every screen that displays peers.
- *     Overlays are rendered as siblings of the active-screen <section>
- *     so they are NOT duplicated per tab and their state persists across
- *     ⌘1 / ⌘2 switches.
- *   - Plan 02-05 replaces the "logs" branch with the real Logs screen
- *     and its useLogsStream hook.
- * If a future plan needs additional overlay slots here, add them as
+ *   - This file threads onPeerSelect / onNearbyPair through Dashboard,
+ *     and mounts <PeerDetailSheet /> + <PairApprovalModal /> at shell
+ *     level so they overlay every screen that displays peers. Overlays
+ *     are rendered as siblings of the active-screen <section> so they
+ *     are NOT duplicated per tab and their state persists across ⌘1 /
+ *     ⌘2 switches.
+ *   - The "logs" branch renders <LogsScreen /> (its useLogsStream hook
+ *     owns its own subscription lifecycle on mount / unmount).
+ * If a future phase needs additional overlay slots here, add them as
  * further siblings of <section> — do NOT inline daemon state.
  */
 
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
 import { Dashboard } from "@/screens/dashboard";
+import { LogsScreen } from "@/screens/logs";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
@@ -79,13 +80,9 @@ function renderScreen(
         <Dashboard onPeerSelect={onPeerSelect} onNearbyPair={onNearbyPair} />
       );
     case "logs":
-      // Phase-2 stub — Plan 02-05 will replace this with the real Logs
-      // screen (useLogsStream + virtualized list + level/peer filter bar).
-      return (
-        <p className="font-code text-sm text-muted-foreground">
-          Logs tab will be wired by Plan 02-05.
-        </p>
-      );
+      // Real Logs screen: useLogsStream + LogFilterBar + virtualized
+      // LogList + D-28 auto-scroll pill.
+      return <LogsScreen />;
     default:
       return assertNever(active);
   }
