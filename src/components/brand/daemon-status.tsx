@@ -20,6 +20,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import type { DaemonState } from "@/lib/daemon-state";
+import { formatUptime } from "./uptime-counter";
 
 export interface DaemonStatusIndicatorProps {
   state: DaemonState;
@@ -71,24 +72,6 @@ const VISUALS: Record<DaemonState, Visual> = {
     ariaLabel: "error",
   },
 };
-
-function formatUptime(seconds: number): string {
-  if (seconds < 0) seconds = 0;
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}m ${String(s).padStart(2, "0")}s`;
-  }
-  if (seconds < 86400) {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    return `${h}h ${m}m`;
-  }
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  return `${d}d ${h}h`;
-}
 
 export function DaemonStatusIndicator({
   state,
