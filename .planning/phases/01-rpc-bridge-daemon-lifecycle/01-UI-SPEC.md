@@ -72,7 +72,7 @@ Base 14px, `line-height: 1.6`, Major Third scale (ratio 1.250). Only
 
 | Role | Size | Weight | Line Height | Font Family | Usage in Phase 1 |
 |------|------|--------|-------------|-------------|------------------|
-| Micro | 11px | 500 (medium — metadata only) | 1.4 | Geist Mono, `uppercase tracking-[0.12em]` | Kicker over hero ("proximity internet mesh"), badge content |
+| Micro | 11px | 400 (regular — uppercase + `tracking-[0.12em]` carries visual distinction without a third weight) | 1.4 | Geist Mono, `uppercase tracking-[0.12em]` | Kicker over hero ("proximity internet mesh"), badge content |
 | Body / CLI | 14px | 400 | 1.6 | JetBrains Mono (inside CliPanel) · Geist (prose outside) | Status values, peer rows, banner body copy, uptime counter |
 | Label | 14px | 400 | 1.6 | Geist Mono | Key-value `dt` labels ("mesh ip", "interface", "uptime"), footer legend |
 | Heading | 20px | 600 | 1.3 | Geist Mono | Limited-mode banner headline, modal titles |
@@ -154,7 +154,7 @@ decisions. Declarative, no exclamation marks, names the system state
 | Stop-confirmation headline (peers connected) | `Stop daemon` |
 | Stop-confirmation body (peers connected) | `{N} connected peer{s} will disconnect. Routes will be torn down. You can start the daemon again at any time.` |
 | Stop-confirmation body (solo) | `pim will stop listening on the mesh until you start it again.` |
-| Stop-confirmation actions | `[ STOP DAEMON ]` (destructive) · `[ CANCEL ]` (ghost) |
+| Stop-confirmation actions | `[ STOP DAEMON ]` (destructive) · `[ KEEP RUNNING ]` (ghost — names the system state we preserve, not a generic "cancel") |
 | Empty-state heading (no data yet, handshake in flight) | `Reading daemon state…` |
 | Empty-state body | `rpc.hello handshake in progress.` |
 | Error — handshake version mismatch | `Incompatible daemon version. UI expects rpc_version 1; daemon reports rpc_version {N}. Update pim-daemon to continue. See docs/RPC.md §7.` |
@@ -220,7 +220,7 @@ interface DaemonStatusIndicatorProps {
 **Layout:**
 - `inline-flex items-center gap-2`
 - Glyph font: Geist Mono, 14px, matches label baseline
-- Label font: Geist Mono 500, 14px, `lowercase` (not uppercase — matches UX-PLAN §6a "pim0 · up" style)
+- Label font: Geist Mono 400, 14px, `lowercase` (not uppercase — matches UX-PLAN §6a "pim0 · up" style)
 - Uptime suffix (running only): ` · {formatUptime(s)}` in `--color-muted-foreground`; ticks every 1s client-side from RPC baseline
 
 **Interaction:**
@@ -344,7 +344,7 @@ interface LimitedModeBannerProps {
 
 - Wrapper: `border border-accent bg-card p-6` (24px padding).
 - Left border widened to 2px via a separate inline `border-l-2 border-l-accent` for emphasis — the only element in the UI where border-width deviates from 1px; this is an explicit call-out for system-critical status.
-- Header row: Geist Mono 500, `uppercase tracking-widest`, 14px. Glyph `◐` in amber before the word `LIMITED MODE`.
+- Header row: Geist Mono 400, `uppercase tracking-widest`, 14px. Glyph `◐` in amber before the word `LIMITED MODE`.
 - Divider: `border-t border-border` after the header.
 - Body: Geist Mono 400, 14px, foreground color, max-width `60ch`.
 - Actions row: `[ START DAEMON ]` primary + `[ VIEW LOGS ]` ghost, gap 16px.
@@ -514,7 +514,7 @@ Not fired on initial successful start.
 
 - Bottom-right, 16px inset from viewport edges.
 - `border-l-2 border-l-primary bg-card p-4`.
-- Headline: Geist Mono 500, 14px, signal green `◆` glyph + foreground
+- Headline: Geist Mono 400, 14px, signal green `◆` glyph + foreground
   text.
 - Auto-dismiss after 3000ms; linear fade (100ms).
 - Paused on hover (inherit Sonner default).
