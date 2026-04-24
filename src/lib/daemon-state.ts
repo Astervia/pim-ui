@@ -15,7 +15,13 @@
  * through tree-shaking.
  */
 
-import type { HelloResult, RpcError, Status } from "./rpc-types";
+import type {
+  HelloResult,
+  PeerDiscovered,
+  RpcError,
+  RpcEventName,
+  Status,
+} from "./rpc-types";
 
 /**
  * The 5 UI-SPEC states. Semantics (locked 2026-04-24):
@@ -82,6 +88,20 @@ export interface DaemonSnapshot {
    * recomputing.
    */
   peerCount: number;
+  /**
+   * Nearby-but-unpaired peers — mirrors `peers.discovered` RPC seed +
+   * `peers.event { kind: "discovered" }` stream updates. Used by the
+   * Phase-2 `NEARBY — NOT PAIRED` panel (D-19) and the Pair Approval
+   * modal's outbound path (D-21).
+   */
+  discovered: PeerDiscovered[];
+  /**
+   * Last error raised by a `subscribe(...)` call that exhausted its
+   * retry-once attempt (D-31). Null when all streams are healthy. The
+   * subscription-failure toast (Plan 02-06) reads this field; this plan
+   * only STORES the error — toast rendering is intentionally deferred.
+   */
+  subscriptionError: { stream: RpcEventName; error: RpcError } | null;
 }
 
 /** Initial snapshot used before the Rust shell has reported anything. */
@@ -92,6 +112,8 @@ export const INITIAL_SNAPSHOT: DaemonSnapshot = {
   baselineTimestamp: null,
   lastError: null,
   peerCount: 0,
+  discovered: [],
+  subscriptionError: null,
 };
 
 /**

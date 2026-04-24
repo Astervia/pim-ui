@@ -155,7 +155,10 @@ const _backward: DaemonState = "running" as _DaemonStateExpected;
 // isTransientState returns boolean; compile should infer it.
 const _transient: boolean = isTransientState("starting");
 
-// DaemonSnapshot must embed all required fields from the UI-SPEC.
+// DaemonSnapshot must embed all required fields from the UI-SPEC. Phase 2
+// Plan 01 extended the snapshot with `discovered` + `subscriptionError`;
+// the Phase-1 literal below stays a valid initializer and keeps the
+// existing compile-only regression covered.
 const _snapshot: DaemonSnapshot = {
   state: "stopped",
   hello: null,
@@ -163,6 +166,8 @@ const _snapshot: DaemonSnapshot = {
   baselineTimestamp: null,
   lastError: null,
   peerCount: 0,
+  discovered: [],
+  subscriptionError: null,
 };
 
 // All references are unused in runtime — the whole point is compile-time.
