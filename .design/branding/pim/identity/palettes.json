@@ -1,0 +1,111 @@
+{
+  "brand": "pim",
+  "generated": "2026-04-15",
+  "strategy": "terminal-ansi-neutral-accent",
+  "palettes": {
+    "signal": {
+      "description": "Signal green — primary accent, active/connected states",
+      "hue": 142,
+      "stops": {
+        "50":  { "hex": "#f0fdf4", "oklch": "oklch(99% 0.030 142)" },
+        "100": { "hex": "#dcfce7", "oklch": "oklch(97% 0.052 142)" },
+        "200": { "hex": "#bbf7d0", "oklch": "oklch(93% 0.086 142)" },
+        "300": { "hex": "#86efac", "oklch": "oklch(89% 0.128 142)" },
+        "400": { "hex": "#4ade80", "oklch": "oklch(83% 0.162 142)" },
+        "500": { "hex": "#22c55e", "oklch": "oklch(74% 0.178 142)" },
+        "600": { "hex": "#16a34a", "oklch": "oklch(64% 0.162 142)" },
+        "700": { "hex": "#15803d", "oklch": "oklch(54% 0.138 142)" },
+        "800": { "hex": "#166534", "oklch": "oklch(41% 0.108 142)" },
+        "900": { "hex": "#14532d", "oklch": "oklch(33% 0.082 142)" },
+        "950": { "hex": "#052e16", "oklch": "oklch(18% 0.050 142)" }
+      }
+    },
+    "amber": {
+      "description": "Amber — warnings, relayed states, structural emphasis",
+      "hue": 65,
+      "stops": {
+        "50":  { "hex": "#fffbeb", "oklch": "oklch(99% 0.024 85)" },
+        "100": { "hex": "#fef3c7", "oklch": "oklch(97% 0.058 85)" },
+        "200": { "hex": "#fde68a", "oklch": "oklch(93% 0.112 85)" },
+        "300": { "hex": "#fcd34d", "oklch": "oklch(88% 0.162 85)" },
+        "400": { "hex": "#fbbf24", "oklch": "oklch(82% 0.168 82)" },
+        "500": { "hex": "#f59e0b", "oklch": "oklch(77% 0.158 75)" },
+        "600": { "hex": "#e8a84a", "oklch": "oklch(75% 0.148 65)" },
+        "700": { "hex": "#b45309", "oklch": "oklch(56% 0.148 60)" },
+        "800": { "hex": "#92400e", "oklch": "oklch(44% 0.128 55)" },
+        "900": { "hex": "#78350f", "oklch": "oklch(34% 0.102 52)" },
+        "950": { "hex": "#451a03", "oklch": "oklch(20% 0.078 50)" }
+      }
+    },
+    "ground": {
+      "description": "Neutral near-black ground — surfaces and borders",
+      "hue": 270,
+      "stops": {
+        "50":  { "hex": "#f7f7f8", "oklch": "oklch(97% 0.002 270)" },
+        "100": { "hex": "#ededef", "oklch": "oklch(93% 0.003 270)" },
+        "200": { "hex": "#d4d6d4", "oklch": "oklch(86% 0.003 150)" },
+        "300": { "hex": "#a8aaa9", "oklch": "oklch(71% 0.003 150)" },
+        "400": { "hex": "#7a7d7b", "oklch": "oklch(55% 0.004 150)" },
+        "500": { "hex": "#55585a", "oklch": "oklch(42% 0.004 270)" },
+        "600": { "hex": "#3e4140", "oklch": "oklch(32% 0.003 150)" },
+        "700": { "hex": "#2a2a2e", "oklch": "oklch(26% 0.005 270)" },
+        "800": { "hex": "#1a1a1d", "oklch": "oklch(18% 0.003 270)" },
+        "900": { "hex": "#121214", "oklch": "oklch(14% 0.003 270)" },
+        "950": { "hex": "#0a0a0b", "oklch": "oklch(8% 0.002 270)" }
+      }
+    },
+    "error": {
+      "description": "Error red — failures, disconnected states",
+      "hue": 25,
+      "stops": {
+        "50":  { "hex": "#fff5f5", "oklch": "oklch(98% 0.018 25)" },
+        "100": { "hex": "#ffe3e3", "oklch": "oklch(94% 0.040 25)" },
+        "200": { "hex": "#ffc9c9", "oklch": "oklch(88% 0.078 25)" },
+        "300": { "hex": "#ffa8a8", "oklch": "oklch(80% 0.118 25)" },
+        "400": { "hex": "#ff8787", "oklch": "oklch(72% 0.158 25)" },
+        "500": { "hex": "#ff5555", "oklch": "oklch(66% 0.228 25)" },
+        "600": { "hex": "#fa5252", "oklch": "oklch(60% 0.218 27)" },
+        "700": { "hex": "#e03131", "oklch": "oklch(48% 0.198 27)" },
+        "800": { "hex": "#c92a2a", "oklch": "oklch(38% 0.168 27)" },
+        "900": { "hex": "#a61e1e", "oklch": "oklch(28% 0.138 27)" },
+        "950": { "hex": "#6a0f0f", "oklch": "oklch(18% 0.108 27)" }
+      }
+    }
+  },
+  "semantic": {
+    "dark": {
+      "--color-bg": "#0a0c0a",
+      "--color-surface": "#121513",
+      "--color-surface-2": "#1a1e1b",
+      "--color-border": "#2a2e2c",
+      "--color-border-active": "#3a5a3e",
+      "--color-text": "#d4d8d4",
+      "--color-text-2": "#7a807c",
+      "--color-text-muted": "#3e4540",
+      "--color-brand": "#22c55e",
+      "--color-brand-hover": "#4ade80",
+      "--color-warning": "#e8a84a",
+      "--color-error": "#ff5555",
+      "--color-success": "#22c55e"
+    },
+    "light-fallback": {
+      "--color-bg": "#f5f8f5",
+      "--color-surface": "#e8f0e9",
+      "--color-surface-2": "#d4e4d6",
+      "--color-border": "#b8d4ba",
+      "--color-text": "#0e1a0f",
+      "--color-text-2": "#2c4a30",
+      "--color-brand": "#15803d",
+      "--color-brand-hover": "#16a34a",
+      "--color-warning": "#b45309",
+      "--color-error": "#e03131"
+    }
+  },
+  "wcag": {
+    "text-on-bg": "11.9:1 (AAA)",
+    "signal-on-bg": "8.7:1 (AAA)",
+    "amber-on-bg": "9.6:1 (AAA)",
+    "error-on-bg": "8.1:1 (AAA)",
+    "text-secondary-on-bg": "3.8:1 (AA large only)"
+  }
+}

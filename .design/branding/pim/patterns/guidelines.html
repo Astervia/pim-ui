@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pim — brand guidelines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --surface: #121513;
+    --surface-2: #1a1e1b;
+    --border: #2a2e2c;
+    --border-active: #3a5a3e;
+    --text: #d4d8d4;
+    --text-2: #7a807c;
+    --text-muted: #3e4540;
+    --brand: #22c55e;
+    --brand-hover: #4ade80;
+    --amber: #e8a84a;
+    --error: #ff5555;
+    --font-mono: 'Geist Mono', ui-monospace, 'Cascadia Code', monospace;
+    --font-sans: 'Geist', system-ui, sans-serif;
+    --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    position: relative;
+    min-height: 100vh;
+  }
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px);
+    mix-blend-mode: overlay;
+  }
+  .container { max-width: 1024px; margin: 0 auto; padding: 48px 32px; }
+  h1, h2, h3, h4, nav a, .label, .badge, button { font-family: var(--font-mono); }
+  h1 { font-size: 43px; font-weight: 600; line-height: 1.08; letter-spacing: -0.02em; color: var(--brand); text-shadow: 0 0 4px rgba(34,197,94,0.4), 0 0 8px rgba(34,197,94,0.2); }
+  h2 { font-size: 27px; font-weight: 500; line-height: 1.15; margin-top: 64px; margin-bottom: 16px; color: var(--text); }
+  h3 { font-size: 17px; font-weight: 500; margin-top: 32px; margin-bottom: 12px; color: var(--text); }
+  p { margin-bottom: 16px; max-width: 68ch; }
+  code, pre, .mono { font-family: var(--font-code); font-size: 13px; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brand-hover); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  /* Pane */
+  .pane {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .pane-header {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em;
+    padding-bottom: 8px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  /* Color swatches */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .swatch { border: 1px solid var(--border); }
+  .swatch-box { height: 80px; }
+  .swatch-meta { padding: 8px 12px; background: var(--surface-2); font-family: var(--font-mono); font-size: 11px; }
+  .swatch-name { color: var(--text); }
+  .swatch-hex { color: var(--text-2); }
+  /* Buttons */
+  .btn {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.02em;
+    padding: 10px 20px; border-radius: 0; cursor: pointer;
+    background: var(--brand); color: var(--bg);
+    border: 1px solid var(--brand);
+    transition: all 100ms linear;
+  }
+  .btn:hover { background: var(--bg); color: var(--brand); }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--brand); color: var(--brand); }
+  /* Badges */
+  .badge {
+    display: inline-block; font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    padding: 3px 8px; text-transform: uppercase; letter-spacing: 0.04em;
+    border-radius: 0; border: 1px solid;
+  }
+  .badge-ok { background: var(--brand); color: var(--bg); border-color: var(--brand); }
+  .badge-warn { background: var(--amber); color: var(--bg); border-color: var(--amber); }
+  .badge-err { background: var(--error); color: #fff; border-color: var(--error); }
+  .badge-pending { color: var(--text-2); border-color: var(--border); background: transparent; }
+  /* Status indicators */
+  .status-diamond { color: var(--brand); }
+  .status-relayed { color: var(--amber); }
+  .status-error { color: var(--error); }
+  .status-pending { color: var(--text-2); }
+  /* CLI Output */
+  .cli {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    font-family: var(--font-code); font-size: 13px;
+    color: var(--text); line-height: 1.7;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  /* Logo */
+  .logo-wordmark { font-family: var(--font-mono); font-size: 32px; font-weight: 600; letter-spacing: 0.02em; }
+  .logo-block { color: var(--brand); text-shadow: 0 0 4px rgba(34,197,94,0.4), 0 0 8px rgba(34,197,94,0.2); }
+  /* Animated hero logo — block cursor blink + pim typing animation */
+  .logo-hero { display: flex; align-items: baseline; gap: 0.5ch; }
+  .logo-hero .logo-block { animation: blink 1.1s step-end infinite; }
+  .logo-hero .logo-typed {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 0;
+    animation: type-pim 0.9s steps(3, end) 0.5s forwards;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes type-pim { to { width: 3ch; } }
+  @media (prefers-reduced-motion: reduce) {
+    .logo-hero .logo-block { animation: none; }
+    .logo-hero .logo-typed { width: 3ch; animation: none; }
+  }
+  /* Type scale */
+  .type-row { display: grid; grid-template-columns: 80px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+  .type-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
+  .type-sample { font-family: var(--font-mono); color: var(--text); }
+  /* Nav */
+  nav {
+    position: sticky; top: 0; background: var(--bg); z-index: 100;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; gap: 24px; align-items: center;
+    font-size: 13px;
+  }
+  nav a { color: var(--text); transition: color 100ms linear; }
+  nav a:hover::before { content: '> '; color: var(--brand); }
+  nav .nav-logo { font-size: 16px; font-weight: 600; color: var(--brand); margin-right: auto; }
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-2); text-transform: uppercase; font-weight: 500; letter-spacing: 0.04em; font-size: 11px; }
+  td { color: var(--text); }
+  /* Section eyebrow */
+  .eyebrow { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-2); margin-bottom: 8px; }
+  .tagline { font-family: var(--font-sans); font-size: 22px; line-height: 1.4; color: var(--text); max-width: 56ch; margin-top: 24px; }
+  /* Don't/Do */
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .pair-do, .pair-dont { padding: 12px 16px; border: 1px solid; font-family: var(--font-code); font-size: 12px; }
+  .pair-do { border-color: var(--border-active); color: var(--text); }
+  .pair-do::before { content: '✓ '; color: var(--brand); }
+  .pair-dont { border-color: var(--border); color: var(--text-2); }
+  .pair-dont::before { content: '✗ '; color: var(--error); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo"><span class="logo-block">█</span> pim</span>
+  <a href="#foundation">foundation</a>
+  <a href="#color">color</a>
+  <a href="#type">type</a>
+  <a href="#components">components</a>
+  <a href="#voice">voice</a>
+  <a href="#dos">do/don't</a>
+</nav>
+
+<div class="container">
+
+  <!-- HERO -->
+  <section>
+    <div class="eyebrow">Brand Guidelines · 2026-04-15</div>
+    <h1 class="logo-hero"><span class="logo-block">█</span><span class="logo-typed">pim</span></h1>
+    <p class="tagline">Infrastructure you can read is infrastructure you can trust.</p>
+
+    <div style="display: flex; gap: 12px; margin-top: 32px;">
+      <button class="btn">[ READ THE PROTOCOL ]</button>
+      <button class="btn btn-secondary">[ VIEW ON GITHUB ]</button>
+    </div>
+
+    <div class="cli" style="margin-top: 32px;">┌─────────────────────────────────────────────────────┐
+│  <span style="color:var(--brand)">█ pim</span>  ·  status --verbose            <span class="badge badge-ok">[OK]</span>    │
+├─────────────────────────────────────────────────────┤
+│  node          client-a                             │
+│  mesh ip       10.77.0.100/24                       │
+│  interface     pim0                    <span class="status-diamond">◆</span> up        │
+│  transport     tcp :9100                            │
+│                                                     │
+│  peers         3 connected                          │
+│    gateway     10.77.0.1      via tcp  <span class="status-diamond">◆</span> active    │
+│    relay-b     10.77.0.22     via tcp  <span class="status-diamond">◆</span> active    │
+│    client-c    10.77.0.105    via rly  <span class="status-relayed">◈</span> relayed   │
+│                                                     │
+│  forwarded     4.2 MB  ·  3,847 packets             │
+│  dropped       2  (congestion)                      │
+│  uptime        4h 22m                               │
+└─────────────────────────────────────────────────────┘</div>
+  </section>
+
+  <hr>
+
+  <!-- FOUNDATION -->
+  <section id="foundation">
+    <div class="eyebrow">Foundation</div>
+    <h2>The brand in one breath</h2>
+    <p>PIM is a Rust IP-level proximity mesh overlay. The brand sits in the resist-the-backbone camp alongside Briar, Meshtastic, Reticulum — but unlike any of them, it treats legibility as load-bearing infrastructure. The protocol is documented, the crypto is named, the failure modes are listed.</p>
+
+    <h3>Emotional compass</h3>
+    <p><em>The quiet confidence of an instrument you can read from first principles — one that keeps transmitting when the backbone goes quiet.</em></p>
+
+    <h3>Archetype</h3>
+    <p><strong>Sage (primary) + Outlaw (secondary).</strong> The Sage shows its work. The Outlaw edge appears only when the category earns a pointed observation.</p>
+  </section>
+
+  <hr>
+
+  <!-- COLOR -->
+  <section id="color">
+    <div class="eyebrow">Color</div>
+    <h2>Phosphor green world</h2>
+    <p>Monochromatic green family with one contrast anchor (amber). Everything exists in a phosphor-screen palette. No blue. No purple. No gradients.</p>
+
+    <h3>Ground & surfaces</h3>
+    <div class="swatches">
+      <div class="swatch"><div class="swatch-box" style="background:#0a0c0a;border-bottom:1px solid var(--border)"></div><div class="swatch-meta"><div class="swatch-name">background</div><div class="swatch-hex">#0a0c0a</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#121513"></div><div class="swatch-meta"><div class="swatch-name">surface</div><div class="swatch-hex">#121513</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#1a1e1b"></div><div class="swatch-meta"><div class="swatch-name">surface+2</div><div class="swatch-hex">#1a1e1b</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#2a2e2c"></div><div class="swatch-meta"><div class="swatch-name">border</div><div class="swatch-hex">#2a2e2c</div></div></div>
+    </div>
+
+    <h3>Text</h3>
+    <div class="swatches">
+      <div class="swatch"><div class="swatch-box" style="background:#d4d8d4"></div><div class="swatch-meta"><div class="swatch-name">text primary</div><div class="swatch-hex">#d4d8d4 · AAA 14:1</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#7a807c"></div><div class="swatch-meta"><div class="swatch-name">text secondary</div><div class="swatch-hex">#7a807c · AA</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#3e4540"></div><div class="swatch-meta"><div class="swatch-name">text muted</div><div class="swatch-hex">#3e4540 · decorative</div></div></div>
+    </div>
+
+    <h3>Signals</h3>
+    <div class="swatches">
+      <div class="swatch"><div class="swatch-box" style="background:#22c55e"></div><div class="swatch-meta"><div class="swatch-name">signal green</div><div class="swatch-hex">#22c55e · primary</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#4ade80"></div><div class="swatch-meta"><div class="swatch-name">signal bright</div><div class="swatch-hex">#4ade80 · hover</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#e8a84a"></div><div class="swatch-meta"><div class="swatch-name">amber</div><div class="swatch-hex">#e8a84a · warning</div></div></div>
+      <div class="swatch"><div class="swatch-box" style="background:#ff5555"></div><div class="swatch-meta"><div class="swatch-name">error</div><div class="swatch-hex">#ff5555 · failed</div></div></div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- TYPE -->
+  <section id="type">
+    <div class="eyebrow">Typography</div>
+    <h2>Monospace-primary</h2>
+    <p>Geist Mono for every structural element (headings, nav, labels, buttons). Geist for long-form prose only. JetBrains Mono for code and CLI output.</p>
+
+    <h3>Scale — Major Third (1.250)</h3>
+    <div class="pane">
+      <div class="type-row"><div class="type-meta">display · 54px</div><div style="font-family:var(--font-mono);font-size:54px;font-weight:600;line-height:1.05;letter-spacing:-0.03em">pim</div></div>
+      <div class="type-row"><div class="type-meta">h1 · 43px</div><div style="font-family:var(--font-mono);font-size:43px;font-weight:600;line-height:1.08;letter-spacing:-0.02em">Infrastructure you can read</div></div>
+      <div class="type-row"><div class="type-meta">h2 · 34px</div><div style="font-family:var(--font-mono);font-size:34px;font-weight:600;line-height:1.10">Proximity mesh overlay</div></div>
+      <div class="type-row"><div class="type-meta">h3 · 27px</div><div style="font-family:var(--font-mono);font-size:27px;font-weight:500;line-height:1.15">Protocol documented</div></div>
+      <div class="type-row"><div class="type-meta">body · 14px</div><div style="font-family:var(--font-sans);font-size:14px">PIM forwards IP traffic across nearby peers until one reaches an egress gateway.</div></div>
+      <div class="type-row"><div class="type-meta">code · 14px</div><div style="font-family:var(--font-code);font-size:14px">pim status --verbose</div></div>
+      <div class="type-row"><div class="type-meta">sm · 12px</div><div class="type-sample" style="font-size:12px;letter-spacing:0.02em">TRANSPORT · TCP :9100</div></div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- COMPONENTS -->
+  <section id="components">
+    <div class="eyebrow">Components</div>
+    <h2>Terminal-native primitives</h2>
+
+    <h3>Buttons</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+      <button class="btn">[ PRIMARY ]</button>
+      <button class="btn btn-secondary">[ SECONDARY ]</button>
+      <button class="btn" disabled style="opacity:.4;cursor:not-allowed">[ DISABLED ]</button>
+    </div>
+
+    <h3>Badges &amp; status</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="badge badge-ok">[OK]</span>
+      <span class="badge badge-warn">[WARN]</span>
+      <span class="badge badge-err">[ERR]</span>
+      <span class="badge badge-pending">[...]</span>
+    </div>
+    <div class="cli" style="margin-bottom:24px"><span class="status-diamond">◆</span> active    <span class="status-relayed">◈</span> relayed    <span class="status-pending">○</span> connecting    <span class="status-error">✗</span> failed</div>
+
+    <h3>Input (prompt-style)</h3>
+    <div class="pane">
+      <div style="font-family:var(--font-code);font-size:14px">
+        <span style="color:var(--brand)">&gt; </span><span style="color:var(--text)">pim up --config /etc/pim/pim.toml</span><span style="color:var(--brand);animation:blink 1s step-end infinite">█</span>
+      </div>
+    </div>
+    <style>@keyframes blink { 50% { opacity: 0; } }</style>
+
+    <h3>Card / Pane</h3>
+    <div class="pane" style="max-width:480px">
+      <div class="pane-header"><span>┌─── PEER SESSION ───┐</span><span class="badge badge-ok">[OK]</span></div>
+      <table>
+        <tr><td style="color:var(--text-2)">peer</td><td>10.77.0.1</td></tr>
+        <tr><td style="color:var(--text-2)">transport</td><td>tcp :9100</td></tr>
+        <tr><td style="color:var(--text-2)">uptime</td><td>4h 22m</td></tr>
+        <tr><td style="color:var(--text-2)">status</td><td><span class="status-diamond">◆</span> active</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- VOICE -->
+  <section id="voice">
+    <div class="eyebrow">Voice</div>
+    <h2>Declarative, Legible, Alive</h2>
+    <p>PIM writes in declarations, not hedges. It names crypto primitives. It acknowledges what it doesn't do. The Outlaw edge appears only when the category earns it.</p>
+
+    <h3>Taglines</h3>
+    <div class="pane">
+      <div style="padding:8px 0"><span style="color:var(--text-2);font-family:var(--font-mono);font-size:11px">PRIMARY  </span><span style="font-family:var(--font-mono);font-size:17px;color:var(--brand)">Infrastructure you can read.</span></div>
+      <div style="padding:8px 0"><span style="color:var(--text-2);font-family:var(--font-mono);font-size:11px">DOCS     </span><span style="font-family:var(--font-mono);font-size:17px;color:var(--text)">Read before you route.</span></div>
+      <div style="padding:8px 0"><span style="color:var(--text-2);font-family:var(--font-mono);font-size:11px">COMPASS  </span><span style="font-family:var(--font-mono);font-size:17px;color:var(--text)">Still transmitting.</span></div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- DO/DON'T -->
+  <section id="dos">
+    <div class="eyebrow">Do / Don't</div>
+    <h2>Writing the brand</h2>
+
+    <div class="pair">
+      <div class="pair-do">The protocol is documented in docs/PROTOCOL.md.</div>
+      <div class="pair-dont">We've tried to document most of the protocol.</div>
+    </div>
+    <div class="pair">
+      <div class="pair-do">Peer session closed: key exchange failed. See docs/SECURITY.md §3.2</div>
+      <div class="pair-dont">There may have been an issue with the peer connection.</div>
+    </div>
+    <div class="pair">
+      <div class="pair-do">TCP today. Wi-Fi Direct when the transport layer catches up.</div>
+      <div class="pair-dont">We support TCP now but plan to support more transports later.</div>
+    </div>
+    <div class="pair">
+      <div class="pair-do">X25519 for key agreement. ChaCha20-Poly1305 for authenticated encryption.</div>
+      <div class="pair-dont">Military-grade end-to-end encryption protects your data.</div>
+    </div>
+
+    <h3 style="margin-top:32px">Visual do / don't</h3>
+    <div class="pair">
+      <div class="pair-do">[ BRACKETED ] uppercase mono buttons with sharp corners</div>
+      <div class="pair-dont">Rounded pill buttons with icon + label</div>
+    </div>
+    <div class="pair">
+      <div class="pair-do">◆ Unicode status indicators in signal green</div>
+      <div class="pair-dont">Filled multi-color icons from FontAwesome or Heroicons</div>
+    </div>
+    <div class="pair">
+      <div class="pair-do">CLI output panels with box-drawing borders as hero imagery</div>
+      <div class="pair-dont">Stock photography of servers, laptops, or network globes</div>
+    </div>
+  </section>
+
+  <hr>
+
+  <footer style="padding:48px 0;font-family:var(--font-mono);font-size:11px;color:var(--text-2);text-align:center">
+    ┌──────────────────────────────────────────┐<br>
+    │  <span style="color:var(--brand)">█ pim</span>  ·  brand guidelines v1.0      │<br>
+    │  generated 2026-04-15                    │<br>
+    └──────────────────────────────────────────┘
+  </footer>
+
+</div>
+</body>
+</html>

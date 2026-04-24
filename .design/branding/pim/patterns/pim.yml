@@ -1,0 +1,217 @@
+name: pim
+description: Instrument-grade terminal-native identity — phosphor green, monospace throughout, legibility as load-bearing
+tags: [developer, monospace, dark, terminal, instrument, technical, rust, infrastructure]
+
+archetype:
+  primary: sage
+  secondary: outlaw
+brand_heartbeat: "The quiet confidence of an instrument you can read from first principles — one that keeps transmitting when the backbone goes quiet."
+manifesto: "Infrastructure you can read is infrastructure you can trust."
+
+tokens:
+  color:
+    # Core — shadcn/ui CSS vars, dark-primary
+    background: "#0a0c0a"
+    foreground: "#d4d8d4"
+    card: "#121513"
+    card-foreground: "#d4d8d4"
+    popover: "#1a1e1b"
+    popover-foreground: "#d4d8d4"
+    primary: "#22c55e"
+    primary-foreground: "#0a0c0a"
+    secondary: "#1a1e1b"
+    secondary-foreground: "#d4d8d4"
+    accent: "#e8a84a"
+    accent-foreground: "#0a0c0a"
+    muted: "#2a2e2c"
+    muted-foreground: "#7a807c"
+    destructive: "#ff5555"
+    destructive-foreground: "#ffffff"
+    border: "#2a2e2c"
+    input: "#2a2e2c"
+    ring: "#22c55e"
+    # Sidebar
+    sidebar: "#121513"
+    sidebar-foreground: "#d4d8d4"
+    sidebar-primary: "#22c55e"
+    sidebar-primary-foreground: "#0a0c0a"
+    sidebar-accent: "#1a1e1b"
+    sidebar-accent-foreground: "#d4d8d4"
+    sidebar-border: "#2a2e2c"
+    sidebar-ring: "#22c55e"
+    # Extras
+    success: "#22c55e"
+    warning: "#e8a84a"
+    info: "#4ade80"
+    # Chart — data-viz colors
+    chart-1: "#22c55e"  # signal green
+    chart-2: "#4ade80"  # signal bright
+    chart-3: "#e8a84a"  # amber
+    chart-4: "#7a807c"  # text secondary
+    chart-5: "#d4d8d4"  # text primary
+
+  typography:
+    font-family-primary: "Geist Mono, ui-monospace, 'Cascadia Code', monospace"
+    font-family-mono: "JetBrains Mono, 'Fira Code', monospace"
+    font-family-sans: "Geist, system-ui, sans-serif"
+    font-weight-heading: 600
+    font-weight-body: 400
+    font-size-base: "14px"
+    line-height-base: 1.6
+    scale-ratio: 1.250
+
+  shape:
+    border-radius-sm: "0px"
+    border-radius-md: "0px"
+    border-radius-lg: "0px"
+    border-width: "1px"
+
+  elevation:
+    shadow-sm: "none"
+    shadow-md: "none"
+    shadow-lg: "none"
+    shadow-xl: "none"
+    text-shadow-glow: "0 0 4px rgba(34, 197, 94, 0.40), 0 0 8px rgba(34, 197, 94, 0.20)"
+
+  spacing:
+    base: 8
+    scale: [4, 8, 12, 16, 24, 32, 48, 64, 96]
+
+  motion:
+    duration-fast: "100ms"
+    duration-normal: "200ms"
+    easing: "linear"
+
+dark_mode:
+  # Dark IS primary — this is the inverted fallback for forced-light contexts
+  color:
+    background: "#f5f8f5"
+    foreground: "#0e1a0f"
+    card: "#e8f0e9"
+    card-foreground: "#0e1a0f"
+    muted: "#b8d4ba"
+    muted-foreground: "#2c4a30"
+    border: "#b8d4ba"
+    input: "#b8d4ba"
+    primary: "#15803d"
+    primary-foreground: "#ffffff"
+
+intensity:
+  variance: 3     # rigid grid, tmux-like panes, uniform structure
+  motion: 3       # cursor blink, subtle transitions — no cinematic movement
+  density: 8      # high — dense monospace text, information-heavy
+
+patterns:
+  card:
+    border: "{shape.border-width} solid {color.border}"
+    shadow: "none"
+    radius: "0px"
+    background: "{color.card}"
+    header: "title bar with ASCII decoration (┌─── TITLE ───┐) or solid surface-2 bar"
+  button-primary:
+    background: "{color.primary}"
+    border: "{shape.border-width} solid {color.primary}"
+    shadow: "none"
+    text: "uppercase, monospace, {color.primary-foreground}, bracketed ([ READ SPEC ])"
+    radius: "0px"
+  button-secondary:
+    background: "transparent"
+    border: "{shape.border-width} solid {color.border}"
+    shadow: "none"
+    text: "uppercase, monospace, {color.foreground}, bracketed"
+    radius: "0px"
+  input:
+    border: "none — prompt-style (> prefix before input)"
+    radius: "0px"
+    background: "transparent"
+    focus: "blinking block cursor █, no ring"
+    font: "monospace always"
+  badge:
+    shape: "0px radius, bordered or filled"
+    text: "monospace uppercase, status codes ([OK], [ERR], [WARN])"
+    decoration: "color matches status — signal green success, error red, amber warning"
+  nav:
+    style: "mono labels with > prefix on hover"
+    background: "{color.background}"
+    border: "border-b {shape.border-width} {color.border}"
+    links: "monospace, {color.foreground}, > prefix on hover, no underline"
+  layout:
+    archetype: "terminal-panes"
+    max-width: "max-w-5xl"
+    section-spacing: "py-16 to py-24"
+    grid-gap: "gap-4 to gap-6"
+    surfaces: "subtle CRT scanline overlay (3-4% opacity), phosphor glow on signal-green text"
+    decoration: "ASCII art for logos (█ pim), progress bars ([||||||.....]), shell prompt prefixes"
+    dividers: "ASCII rules or box-drawing (───────, ═══════) between sections"
+
+constraints:
+  never:
+    - "non-monospace fonts on structural elements (headings, nav, labels, buttons)"
+    - "border-radius anywhere — all corners sharp (0px)"
+    - "drop shadows, colored shadows, elevation illusion"
+    - "photography or background images (illustrations explicitly banned)"
+    - "gradient backgrounds — flat dark layers only"
+    - "smooth organic easing — linear only"
+    - "rounded pill buttons — bracketed text or filled blocks only"
+    - "pure #000000 background — kills phosphor quality"
+    - "pure #ffffff text — breaks palette cohesion"
+    - "blue or purple anywhere — Matrix/GitHub/Web3 associations"
+    - "Lucide filled icons or any multi-color icon sets"
+    - "exclamation marks in prose"
+  always:
+    - "Geist Mono on every structural element"
+    - "signal green #22c55e for active/connected/success states"
+    - "box-drawing borders (1px solid, 0px radius)"
+    - "ASCII/Unicode indicators over icon components when semantic (◆ ◈ ○ ✗)"
+    - "shell prompt prefixes (>, $) on interactive elements"
+    - "status code badges ([OK], [ERR], [WARN]) for state indication"
+    - "CLI output panels as first-class brand imagery"
+    - "named crypto primitives in prose, never 'military-grade encryption'"
+
+effects:
+  interaction-vocabulary: [video-invert, cursor-blink, prompt-prefix, type-reveal, logo-typewriter]
+  logo-animation:
+    # The canonical hero-logo animation. Apply wherever the logo mark appears
+    # at hero size (page headers, splash screens, og:image previews).
+    # Nav/favicon sizes stay static for performance and legibility.
+    block-cursor-blink: "opacity 50/50, step-end, 1.1s infinite"
+    word-typing-reveal: "width 0 → 3ch, steps(3, end), 0.9s, 0.5s delay, forwards"
+    sequence: "cursor blinks from t=0; word types from t=0.5s to t=1.4s; cursor continues blinking forever"
+    reduced-motion: "static █ pim — no animation, 3ch revealed immediately"
+  hover:
+    card: "border color brightens to {color.border-active} (#2a4d2e)"
+    button-primary: "video-invert — bg becomes {color.primary-foreground}, text becomes {color.primary}"
+    button-secondary: "border becomes {color.primary}, text becomes {color.primary}"
+    link: "> prefix appears, color shifts to {color.primary}, no underline"
+  active:
+    button: "translate-y-[1px], instant"
+  focus:
+    general: "no ring — blinking block cursor █ and inverted-video indication"
+  transition: "duration-100 linear — instant digital response"
+  ambient:
+    - "cursor-blink — block cursor █ blinks 1s step-end infinite"
+    - "type-reveal — hero headline appears character-by-character on first render"
+    - "scanline — CRT overlay at 4% opacity, mix-blend-mode: overlay"
+    - "phosphor-glow — signal-green text gets subtle text-shadow glow"
+
+compatibility: [bento-grid, micro-interactions]
+clashes: [glassmorphism, liquid-glass, vaporwave, claymorphism, neumorphism]
+
+voice:
+  attributes: [declarative, legible, alive]
+  style_rules:
+    - "active voice, present tense — PIM forwards packets, not 'packets are forwarded by PIM'"
+    - "name crypto primitives explicitly (X25519, ChaCha20-Poly1305, HKDF-SHA256)"
+    - "acknowledge limits honestly (TCP today, Wi-Fi Direct as target)"
+    - "no hedging — eliminate basically, essentially, may, might, could, potentially"
+    - "no exclamation marks ever"
+    - "project speaks as 'PIM', not 'we'"
+    - "addressing reader: direct 'you', never 'the user'"
+  do:
+    - "The protocol is documented in docs/PROTOCOL.md."
+    - "Peer session closed: key exchange failed."
+    - "Read the spec. Run the tests. Route your packets."
+  dont:
+    - "We've tried to document most of the protocol."
+    - "There may have been an issue with the peer connection."
+    - "PIM uses advanced cryptography to secure your data!"
