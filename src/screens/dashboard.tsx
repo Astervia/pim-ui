@@ -12,10 +12,10 @@
  *   daemon.state === "error"         -> panel hidden, Limited Mode (error variant)
  *
  * B2 fix (Plan 03): TunPermissionProvider mounts at the app root (src/main.tsx).
- * Dashboard does NOT import useTunPermission and does NOT render
- * TunPermissionModal directly — that lives inside the provider. DaemonToggle and
- * LimitedModeBanner call useTunPermission() internally and share the single
- * provider-owned modal instance.
+ * Dashboard does NOT import the TUN permission consumer hook and does NOT
+ * render the permission modal directly — the modal lives inside the provider.
+ * DaemonToggle and LimitedModeBanner consume the context internally and share
+ * the single provider-owned modal instance.
  *
  * I2 fix (Plan 03): LimitedModeBanner.onOpenLogs is optional; Dashboard does
  * not pass it in Phase 1, so the VIEW LOGS button is hidden. Phase 2 will
