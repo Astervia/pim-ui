@@ -26,19 +26,19 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### STATUS — dashboard at a glance
 
-- [ ] **STAT-01**: Dashboard shows node name, short node ID, mesh IP, interface state (`pim0 · up`) from live RPC `status` call
-- [ ] **STAT-02**: Dashboard shows connected peer count and current egress gateway (if any)
-- [ ] **STAT-03**: Dashboard shows key metrics: forwarded bytes + packets, dropped count with reason, uptime
+- [x] **STAT-01**: Dashboard shows node name, short node ID, mesh IP, interface state (`pim0 · up`) from live RPC `status` call
+- [x] **STAT-02**: Dashboard shows connected peer count and current egress gateway (if any)
+- [x] **STAT-03**: Dashboard shows key metrics: forwarded bytes + packets, dropped count with reason, uptime
 - [ ] **STAT-04**: UI subscribes to `status.event` stream and updates dashboard reactively (no polling)
 
 ### PEER — peer discovery + management
 
-- [ ] **PEER-01**: Dashboard lists connected peers with honest transport info (tcp / bluetooth / wifi_direct / relay) and state (active / relayed / connecting / failed)
+- [x] **PEER-01**: Dashboard lists connected peers with honest transport info (tcp / bluetooth / wifi_direct / relay) and state (active / relayed / connecting / failed)
 - [ ] **PEER-02**: User can add a static peer via form (address + mechanism + label) without touching TOML
 - [ ] **PEER-03**: User can remove a peer with confirmation
-- [ ] **PEER-04**: User can view peer detail: node_id (short + full on hover), mesh_ip, route hops, last_seen, latency, trust state, troubleshoot log
-- [ ] **PEER-05**: UI shows "Nearby — not yet paired" section listing `peers.discovered()` results
-- [ ] **PEER-06**: User can approve incoming pair request via modal ("relay-b wants to join your mesh")
+- [x] **PEER-04**: User can view peer detail: node_id (short + full on hover), mesh_ip, route hops, last_seen, latency, trust state, troubleshoot log
+- [x] **PEER-05**: UI shows "Nearby — not yet paired" section listing `peers.discovered()` results
+- [x] **PEER-06**: User can approve incoming pair request via modal ("relay-b wants to join your mesh")
 
 ### ROUTE — routing + gateway mode
 
@@ -63,7 +63,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### OBS — observability + logs
 
-- [ ] **OBS-01**: Logs tab streams `logs.event` notifications with level filter (trace/debug/info/warn/error) and peer filter
+- [x] **OBS-01**: Logs tab streams `logs.event` notifications with level filter (trace/debug/info/warn/error) and peer filter
 - [ ] **OBS-02**: Log viewer supports text search and time-range filter
 - [ ] **OBS-03**: User can export a debug snapshot (one click) — JSON dump of current status + recent logs
 
@@ -133,15 +133,15 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | DAEMON-03 | Phase 1 | Complete |
 | DAEMON-04 | Phase 1 | Complete |
 | DAEMON-05 | Phase 1 | Pending |
-| STAT-01 | Phase 2 | Pending |
-| STAT-02 | Phase 2 | Pending |
-| STAT-03 | Phase 2 | Pending |
+| STAT-01 | Phase 2 | Complete |
+| STAT-02 | Phase 2 | Complete |
+| STAT-03 | Phase 2 | Complete |
 | STAT-04 | Phase 2 | Pending |
-| PEER-01 | Phase 2 | Pending |
-| PEER-04 | Phase 2 | Pending |
-| PEER-05 | Phase 2 | Pending |
-| PEER-06 | Phase 2 | Pending |
-| OBS-01 | Phase 2 | Pending |
+| PEER-01 | Phase 2 | Complete |
+| PEER-04 | Phase 2 | Complete |
+| PEER-05 | Phase 2 | Complete |
+| PEER-06 | Phase 2 | Complete |
+| OBS-01 | Phase 2 | Complete |
 | PEER-02 | Phase 3 | Pending |
 | PEER-03 | Phase 3 | Pending |
 | CONF-01 | Phase 3 | Pending |

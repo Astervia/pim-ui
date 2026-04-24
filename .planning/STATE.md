@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 plans verified (6 plans, 3 waves)
-last_updated: "2026-04-24T19:12:25.448Z"
+stopped_at: Completed 02-02-PLAN.md (shell navigation skeleton)
+last_updated: "2026-04-24T19:33:26.302Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 10
-  completed_plans: 4
+  total_plans: 15
+  completed_plans: 5
   percent: 25
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** One app that is honest about what the mesh is actually doing — never abstracts packets into a happy green dot — yet stays reachable enough that a first-time user can succeed in ≤ 3 interactions.
-**Current focus:** Phase 1 — RPC Bridge & Daemon Lifecycle
+**Current focus:** Phase 02 — honest-dashboard-peer-surface
 
 ## Current Position
 
-Phase: 02
-Plan: Not started
+Phase: 02 (honest-dashboard-peer-surface) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -54,6 +54,7 @@ Progress: [███░░░░░░░] 25%
 *Updated after each plan completion*
 | Phase 01-rpc-bridge-daemon-lifecycle P03 | 22 min | 3 tasks | 10 files |
 | Phase 01-rpc-bridge-daemon-lifecycle P04 | 15 min | 3 tasks | 7 files |
+| Phase 02-honest-dashboard-peer-surface P02 | 3 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 01-rpc-bridge-daemon-lifecycle]: W3 internal tick: DaemonStatusIndicator takes (baselineSeconds, baselineTimestamp) and self-ticks via setInterval; keeps uptime honest without parent re-renders
 - [Phase 01-rpc-bridge-daemon-lifecycle]: sonner used for reconnect toast; TunPermissionProvider mounted at app root in main.tsx (B2 fix live)
 - [Phase 01-rpc-bridge-daemon-lifecycle]: formatUptime refactored into uptime-counter.tsx as single shared helper; daemon-status.tsx re-imports it
+- [Phase 02-honest-dashboard-peer-surface]: Shell navigation atom uses module-level useSyncExternalStore (mirrors useDaemonState); ActiveScreen renders <section aria-label={active}> to avoid nested-main axe violation
+- [Phase 02-honest-dashboard-peer-surface]: Reserved sidebar rows rendered as <div aria-disabled tabIndex={-1}> not <button disabled>; keeps them out of tab order at DOM layer, not just CSS
+- [Phase 02-honest-dashboard-peer-surface]: AppShell keyboard handler ignores shift/alt modifiers so ⌘⇧1 / ⌘⌥1 pass through to browser/DevTools; ⌘, swallowed via preventDefault as a Phase-2 no-op until CONF-* lands
 
 ### Pending Todos
 
@@ -87,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T19:12:25.437Z
-Stopped at: Phase 2 plans verified (6 plans, 3 waves)
-Resume file: .planning/phases/02-honest-dashboard-peer-surface/02-01-PLAN.md
+Last session: 2026-04-24T19:32:44.195Z
+Stopped at: Completed 02-02-PLAN.md (shell navigation skeleton)
+Resume file: None
