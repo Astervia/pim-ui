@@ -1,0 +1,9 @@
+Pre-built pim-daemon binaries are downloaded here by CI via
+`scripts/fetch-daemon.sh`. Not committed to git — see .gitignore.
+
+Expected filenames (Tauri 2 sidecar convention):
+  pim-daemon-aarch64-apple-darwin
+  pim-daemon-x86_64-apple-darwin
+  pim-daemon-x86_64-pc-windows-msvc.exe
+  pim-daemon-x86_64-unknown-linux-gnu
+  pim-daemon-aarch64-unknown-linux-gnu
