@@ -76,13 +76,17 @@ Exceptions: listed above. No 6/10/14/18/22/26 px values anywhere.
 
 Monospace-first. No sans-serif in Phase 2. Scale is the Major Third (1.250) defined in `pim.yml` `typography.scale-ratio`, computed from the 14px base (`src/globals.css` L94).
 
+**Weight contract:** exactly two weights — **400 (body/default)** and **600 (heading)** — matching `.design/branding/pim/patterns/pim.yml` `font-weight-body: 400` and `font-weight-heading: 600` verbatim. In a monospace terminal aesthetic, weight variance at 12–20 px is low-information; uppercase + tracking + size already carry the label/display differentiation.
+
 | Role | Tailwind class | Font | Size / line-height | Weight | Usage |
 |------|----------------|------|---------------------|--------|-------|
 | `body` (peer rows, log rows, CliPanel content) | `font-code text-sm leading-[1.7]` | JetBrains Mono | 14px / 1.7 | 400 | Every CliPanel body child — matches `cli-panel.tsx` L27 exactly |
-| `label` (CliPanel title, sidebar nav row, filter button, badge, button text) | `font-mono text-xs uppercase tracking-widest` | Geist Mono | 12px / 1.6 | 500 | `cli-panel.tsx` L35, sidebar nav rows, `Button` inside action areas |
+| `label` (CliPanel title, sidebar nav row, filter button, badge, button text) | `font-mono text-xs uppercase tracking-widest` | Geist Mono | 12px / 1.6 | 400 | `cli-panel.tsx` L35, sidebar nav rows, `Button` inside action areas |
 | `heading` (slide-over section titles, Pair Approval modal title) | `font-mono text-sm uppercase tracking-wider` | Geist Mono | 14px / 1.6 | 600 | Matches `DialogTitle` (`dialog.tsx` L83) pattern, reduced to `text-sm` for slide-over density |
 | `heading-lg` (Pair Approval `DialogTitle` reusing existing primitive) | `font-mono text-lg font-semibold uppercase tracking-wider` | Geist Mono | 18px / 1.6 | 600 | `dialog.tsx` L84 verbatim |
-| `display` (`█ pim · {node.name}` Identity panel hero) | `font-mono text-xl tracking-tight` | Geist Mono | 20px / 1.4 | 500 | Hero line; `█` glyph gets `.phosphor` class; `pim` wordmark gets `.phosphor`; node name stays `text-foreground` |
+| `display` (`█ pim · {node.name}` Identity panel hero) | `font-mono text-xl tracking-tight` | Geist Mono | 20px / 1.4 | 400 | Hero line; `█` glyph gets `.phosphor` class; `pim` wordmark gets `.phosphor`; node name stays `text-foreground` |
+
+**Component-level primitive override (documented, not a type role):** the existing `button.tsx` button-primary variant applies `font-weight: 500` internally as a localized CTA emphasis. This is a primitive-level override inherited from Phase 1 and does NOT lift weight 500 into the Typography role table above — the role contract remains `{400, 600}` only.
 
 **Heading tracking:** `-0.015em` on `text-lg+` (inherited from `src/globals.css` L149-152). Phase 2 adds no new heading sizes beyond `text-xl`; larger Display sizes are reserved for onboarding (Phase 4).
 
@@ -464,7 +468,7 @@ Per key component. Every state below has an explicit visual rule. `--color-ring`
 
 | State | Visual |
 |-------|--------|
-| Default | `Button variant="default"` — `bg-primary text-primary-foreground border border-primary` |
+| Default | `Button variant="default"` — `bg-primary text-primary-foreground border border-primary` (primitive-level `font-weight: 500` override is inherited from `button.tsx`; documented here as a component-level deviation from the Typography role contract, not a new type role) |
 | Hover | video-invert: `bg-background text-primary` (existing `button.tsx` L31) |
 | Focus-visible | `outline-1 outline-ring outline-offset-2` (existing `button.tsx` L24) — phase 2 upgrades to `outline-2` on slide-over and log-row focus-visible only |
 | Active | `translate-y-[1px]` |
@@ -608,4 +612,4 @@ Values marked `(new)` in this spec:
 - `outline-2` focus-ring on large click targets (peer/log rows, slide-over close) — upgrades default 1px to 2px; proposed for future `.focus-ring-lg` global utility
 - Short_id `text-accent` emphasis in Pair Approval description — extends the accent reserved-use list to include the modal's short_id span (explicitly enumerated in §Color above)
 
-No other phase-2-original values. Every other class and color derives from existing tokens.
+No other phase-2-original values. Every other class and color derives from existing tokens. The Typography weight contract is `{400, 600}` verbatim from `pim.yml` — zero `(new)` weight values.
