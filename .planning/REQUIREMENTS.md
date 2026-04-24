@@ -119,18 +119,62 @@ Deferred to future releases. Tracked but not in current roadmap.
 
 ## Traceability
 
-Empty on definition — populated by `/gsd:new-project` when the roadmap
-is created and re-verified after each phase.
+Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` for phase goals and success criteria.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (filled by roadmapper) | | |
+| RPC-01 | Phase 1 | Pending |
+| RPC-02 | Phase 1 | Pending |
+| RPC-03 | Phase 1 | Pending |
+| RPC-04 | Phase 1 | Pending |
+| RPC-05 | Phase 1 | Pending |
+| DAEMON-01 | Phase 1 | Pending |
+| DAEMON-02 | Phase 1 | Pending |
+| DAEMON-03 | Phase 1 | Pending |
+| DAEMON-04 | Phase 1 | Pending |
+| DAEMON-05 | Phase 1 | Pending |
+| STAT-01 | Phase 2 | Pending |
+| STAT-02 | Phase 2 | Pending |
+| STAT-03 | Phase 2 | Pending |
+| STAT-04 | Phase 2 | Pending |
+| PEER-01 | Phase 2 | Pending |
+| PEER-04 | Phase 2 | Pending |
+| PEER-05 | Phase 2 | Pending |
+| PEER-06 | Phase 2 | Pending |
+| OBS-01 | Phase 2 | Pending |
+| PEER-02 | Phase 3 | Pending |
+| PEER-03 | Phase 3 | Pending |
+| CONF-01 | Phase 3 | Pending |
+| CONF-02 | Phase 3 | Pending |
+| CONF-03 | Phase 3 | Pending |
+| CONF-04 | Phase 3 | Pending |
+| CONF-05 | Phase 3 | Pending |
+| CONF-06 | Phase 3 | Pending |
+| CONF-07 | Phase 3 | Pending |
+| OBS-02 | Phase 3 | Pending |
+| OBS-03 | Phase 3 | Pending |
+| ROUTE-01 | Phase 4 | Pending |
+| ROUTE-02 | Phase 4 | Pending |
+| ROUTE-03 | Phase 4 | Pending |
+| ROUTE-04 | Phase 4 | Pending |
+| UX-01 | Phase 4 | Pending |
+| UX-02 | Phase 4 | Pending |
+| UX-03 | Phase 4 | Pending |
+| UX-08 | Phase 4 | Pending |
+| GATE-01 | Phase 5 | Pending |
+| GATE-02 | Phase 5 | Pending |
+| GATE-03 | Phase 5 | Pending |
+| GATE-04 | Phase 5 | Pending |
+| UX-04 | Phase 5 | Pending |
+| UX-05 | Phase 5 | Pending |
+| UX-06 | Phase 5 | Pending |
+| UX-07 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 36 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 36 ⚠️
+- v1 requirements: 46 total
+- Mapped to phases: 46 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-24*
-*Last updated: 2026-04-24 after initial definition*
+*Last updated: 2026-04-24 after roadmap creation (traceability populated)*
