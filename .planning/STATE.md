@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 plans verified (7 plans / 5 waves)
-last_updated: "2026-04-24T20:11:27.201Z"
+stopped_at: Completed 02-honest-dashboard-peer-surface-05-PLAN.md
+last_updated: "2026-04-24T20:24:15.691Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 17
-  completed_plans: 8
+  completed_plans: 9
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 02 (honest-dashboard-peer-surface) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -58,6 +58,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 02-honest-dashboard-peer-surface P01 | 10 | 2 tasks | 9 files |
 | Phase 02-honest-dashboard-peer-surface P03 | 7min | 3 tasks | 8 files |
 | Phase 02-honest-dashboard-peer-surface P04 | 11min | 3 tasks | 9 files |
+| Phase 02-honest-dashboard-peer-surface P05 | 9min | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 02-honest-dashboard-peer-surface]: usePeerTroubleshootLog registers a second peers.event handler via W1 fan-out — Set<Handler> supports multi-handler dispatch, no new Tauri listener
 - [Phase 02-honest-dashboard-peer-surface]: D-22 queue advance via setTimeout(openNext, 0) — gives React one commit cycle to unmount closed modal before next opens (prevents focus-trap race)
 - [Phase 02-honest-dashboard-peer-surface]: Shadcn Sheet primitive rewritten wholesale post-generation (4 simultaneous brand violations in default output: rounded-xs, shadow-lg, bg-background, lucide XIcon)
+- [Phase 02-honest-dashboard-peer-surface]: Pinned react-window to v1.8.11 (not v2.x) because Plan 02-05's acceptance gate requires FixedSizeList + ListChildComponentProps + scrollToItem — v1 APIs only. v2 renamed to List + rowComponent + scrollToRow.
+- [Phase 02-honest-dashboard-peer-surface]: useLogsStream exposes errorStream: 'logs' | null on the hook result so Plan 02-06's toast can assemble the D-31 'Couldn't subscribe to {stream}' string without re-deriving it.
+- [Phase 02-honest-dashboard-peer-surface]: Narrowed .gitignore 'logs/' rule to root-anchored '/logs/' so src/components/logs/ (Logs-tab UI folder) tracks. Original rule still covers any future top-level log-output folder.
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T20:11:27.198Z
-Stopped at: Phase 3 plans verified (7 plans / 5 waves)
-Resume file: .planning/phases/03-configuration-peer-management/03-01-PLAN.md
+Last session: 2026-04-24T20:24:15.688Z
+Stopped at: Completed 02-honest-dashboard-peer-surface-05-PLAN.md
+Resume file: None
