@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-04-24T18:44:36.248Z"
+stopped_at: Tasks 1-3 of 01-04-PLAN.md complete; Task 4 (human-verify checkpoint) awaiting user
+last_updated: "2026-04-24T18:49:39.417Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 1 (RPC Bridge & Daemon Lifecycle) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 25%
 
 *Updated after each plan completion*
 | Phase 01-rpc-bridge-daemon-lifecycle P03 | 22 min | 3 tasks | 10 files |
+| Phase 01-rpc-bridge-daemon-lifecycle P04 | 15 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 01-rpc-bridge-daemon-lifecycle]: Module-level atom + useSyncExternalStore for DaemonSnapshot — single source of truth, no prop drilling, one listener budget
 - [Phase 01-rpc-bridge-daemon-lifecycle]: B2 provider pattern: TunPermissionProvider mounts exactly one modal app-wide; all START paths gate through useTunPermission().requestPermission()
 - [Phase 01-rpc-bridge-daemon-lifecycle]: W3 internal tick: DaemonStatusIndicator takes (baselineSeconds, baselineTimestamp) and self-ticks via setInterval; keeps uptime honest without parent re-renders
+- [Phase 01-rpc-bridge-daemon-lifecycle]: sonner used for reconnect toast; TunPermissionProvider mounted at app root in main.tsx (B2 fix live)
+- [Phase 01-rpc-bridge-daemon-lifecycle]: formatUptime refactored into uptime-counter.tsx as single shared helper; daemon-status.tsx re-imports it
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T18:44:36.234Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-honest-dashboard-peer-surface/02-UI-SPEC.md
+Last session: 2026-04-24T18:49:26.728Z
+Stopped at: Tasks 1-3 of 01-04-PLAN.md complete; Task 4 (human-verify checkpoint) awaiting user
+Resume file: None

@@ -11,7 +11,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 ### RPC — JSON-RPC client ↔ daemon bridge
 
 - [ ] **RPC-01**: App connects to `pim-daemon` via JSON-RPC 2.0 over a Unix socket at the platform-standard path (`/run/pim/pim.sock` linux, `$TMPDIR/pim.sock` macOS)
-- [ ] **RPC-02**: Connection performs `rpc.hello` handshake and reports daemon version + feature flags in UI
+- [x] **RPC-02**: Connection performs `rpc.hello` handshake and reports daemon version + feature flags in UI
 - [x] **RPC-03**: UI gracefully handles daemon not running — shows "Limited mode — pim daemon is stopped" banner with Start action
 - [ ] **RPC-04**: UI reconnects automatically on daemon restart, preserving subscriptions
 - [x] **RPC-05**: UI maintains TypeScript types mirroring kernel `docs/RPC.md` (hand-maintained for v1, `tauri-specta` v2 is a v2 requirement)
@@ -21,7 +21,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [ ] **DAEMON-01**: User can start the daemon from the UI with a single toggle; TUN permission prompt surfaces on first start with honest copy
 - [ ] **DAEMON-02**: User can stop the daemon from the UI
 - [x] **DAEMON-03**: UI shows daemon status (stopped / starting / running / error) prominently on the main window
-- [ ] **DAEMON-04**: Dashboard displays uptime counter while running
+- [x] **DAEMON-04**: Dashboard displays uptime counter while running
 - [ ] **DAEMON-05**: Tauri shell spawns `pim-daemon` as a sidecar (Tauri externalBin convention); kills it on app window destroy
 
 ### STATUS — dashboard at a glance
@@ -124,14 +124,14 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | RPC-01 | Phase 1 | Pending |
-| RPC-02 | Phase 1 | Pending |
+| RPC-02 | Phase 1 | Complete |
 | RPC-03 | Phase 1 | Complete |
 | RPC-04 | Phase 1 | Pending |
 | RPC-05 | Phase 1 | Complete |
 | DAEMON-01 | Phase 1 | Pending |
 | DAEMON-02 | Phase 1 | Pending |
 | DAEMON-03 | Phase 1 | Complete |
-| DAEMON-04 | Phase 1 | Pending |
+| DAEMON-04 | Phase 1 | Complete |
 | DAEMON-05 | Phase 1 | Pending |
 | STAT-01 | Phase 2 | Pending |
 | STAT-02 | Phase 2 | Pending |

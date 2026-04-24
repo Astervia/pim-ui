@@ -52,7 +52,7 @@ Plans:
 - [x] 01-01-PLAN.md — TypeScript RPC type mirror of docs/RPC.md v1 + typed Tauri invoke wrapper + DaemonState machine (RPC-05)
 - [x] 01-02-PLAN.md — Rust sidecar spawn + newline-delimited JSON-RPC Unix socket client + 6 Tauri commands + 2 Tauri events + reconnect loop (RPC-01, RPC-02, RPC-04, DAEMON-01, DAEMON-02, DAEMON-05)
 - [x] 01-03-PLAN.md — useDaemonState hook + DaemonStatusIndicator/DaemonToggle/LimitedModeBanner/TunPermissionModal/StopConfirmDialog components + shadcn Dialog primitive (RPC-03, DAEMON-03)
-- [ ] 01-04-PLAN.md — UptimeCounter + AboutFooter + ReconnectToast + dashboard rewire + human-verify checkpoint for all 6 Phase 1 success criteria (DAEMON-04, RPC-02 surface)
+- [x] 01-04-PLAN.md — UptimeCounter + AboutFooter + ReconnectToast + dashboard rewire + human-verify checkpoint for all 6 Phase 1 success criteria (DAEMON-04, RPC-02 surface)
 **UI hint**: yes
 
 ### Phase 2: Honest Dashboard & Peer Surface
