@@ -71,7 +71,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Reactive spine: extend useDaemonState with status/peers auto-seed + subscribe + discovered[] + format helpers + selector hooks (STAT-04, PEER-01, PEER-05)
 - [x] 02-02-PLAN.md — Navigation shell: sidebar (240px, 6 rows) + content pane + keyboard shortcuts ⌘1/⌘2/⌘5/⌘, (shell scaffolding for STAT-01..03, PEER-01/04/05/06, OBS-01)
-- [ ] 02-03-PLAN.md — Dashboard 4-panel layout: IdentityPanel + PeerListPanel + NearbyPanel + MetricsPanel + PeerRow + NearbyRow (STAT-01, STAT-02, STAT-03, PEER-01, PEER-05)
+- [x] 02-03-PLAN.md — Dashboard 4-panel layout: IdentityPanel + PeerListPanel + NearbyPanel + MetricsPanel + PeerRow + NearbyRow (STAT-01, STAT-02, STAT-03, PEER-01, PEER-05)
 - [ ] 02-04-PLAN.md — Peer Detail slide-over + Pair Approval modal + sheet primitive install + troubleshoot-log buffer (PEER-04, PEER-06)
 - [ ] 02-05-PLAN.md — Logs tab: select + scroll-area primitives, react-window virtualized list, useLogsStream subscription lifecycle, level + peer filters (OBS-01)
 - [ ] 02-06-PLAN.md — Integration: sonner Toaster mount, SubscriptionErrorToast (D-31), show-why → Logs wiring (D-09), human-verify checkpoint against all 7 ROADMAP success criteria
@@ -88,7 +88,14 @@ Plans:
   4. When a raw-TOML save contains fields the form view cannot represent, the form section banner reads "Raw is source of truth — form view shows a subset" next time the user opens that section.
   5. User can add a static peer from a form (address + mechanism + label) without seeing or typing TOML, and remove a peer with a confirmation step — both changes reflected in the live peer list within 2 seconds.
   6. Logs tab supports text search and a time-range filter, and a single Export debug snapshot button downloads a JSON file containing current status + recent logs suitable for attaching to a bug report.
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: shadcn primitives (switch/radio-group/collapsible/alert-dialog/form/tooltip) + react-hook-form + @iarna/toml + TOML orchestration library (section-schemas, parse, assemble, diff) + sidebar ⌘6 Settings route + dedicated Peers route (PEER-02/03 infra, CONF-01/06/07 infra, OBS-02/03 infra)
+- [ ] 03-02-PLAN.md — Dedicated Peers screen: PeersScreen + AddPeerSheet (right-edge form, peers.add_static) + RemovePeerAlertDialog + PeerRemoveButton (static-only per D-20) (PEER-02, PEER-03)
+- [ ] 03-03-PLAN.md — Logs extension: text search (300ms debounced) + time-range select (5 presets + Custom… Dialog) + Export debug snapshot button (D-23 schema) (OBS-02, OBS-03)
+- [ ] 03-04-PLAN.md — Settings scaffold + IDENTITY/TRANSPORT/DISCOVERY/TRUST sections: CollapsibleCliPanel + shared save-footer/wire-name-tooltip/raw-wins-banner + four hooks (settings-config, section-save, section-raw-wins, pending-restart) + map-errors lib (CONF-01, CONF-02, CONF-03, CONF-04, CONF-05, CONF-07)
+- [ ] 03-05-PLAN.md — Remaining sections + Raw TOML editor: ROUTING + GATEWAY placeholder + NOTIFICATIONS + ADVANCED — RAW CONFIG (plain textarea + gutter, dry_run-first save) + ABOUT + VITE_APP_VERSION/COMMIT vite.config wiring (CONF-01, CONF-06, CONF-07)
+- [ ] 03-06-PLAN.md — Audit sweep + human-verify checkpoint walking all six ROADMAP Phase 3 success criteria live against real pim-daemon (all 11 requirement IDs)
 **UI hint**: yes
 
 ### Phase 4: Routing & Onboarding Polish
@@ -128,6 +135,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
 | 2. Honest Dashboard & Peer Surface | 0/6 | Not started | - |
-| 3. Configuration & Peer Management | 0/TBD | Not started | - |
+| 3. Configuration & Peer Management | 0/6 | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
 | 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
