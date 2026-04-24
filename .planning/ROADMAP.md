@@ -82,20 +82,21 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: PEER-02, PEER-03, CONF-01, CONF-02, CONF-03, CONF-04, CONF-05, CONF-06, CONF-07, OBS-02, OBS-03
 **Success Criteria** (what must be TRUE):
-  1. User can open Settings and see eight collapsible sections in fixed order (Identity, Transport, Discovery, Trust, Routing, Gateway, Notifications, Advanced/raw, About), each with a one-line summary visible while collapsed ("Discovery: broadcast on, BLE off, 3 trusted peers").
+  1. User can open Settings and see nine collapsible sections in fixed order (Identity, Transport, Discovery, Trust, Routing, Gateway, Notifications, Advanced/raw, About), each with a one-line summary visible while collapsed ("Discovery: broadcast on, BLE off, 3 trusted peers").
   2. User can edit the node name, transport settings (interface, MTU, mesh_ip static/auto, listen port), discovery toggles (broadcast, BLE, Wi-Fi Direct, auto-connect), and trust policy (radio: allow_all / allow_list / TOFU) via typed form controls and save to the daemon.
   3. User can open the raw TOML editor, paste a full config, click Save, and either see the daemon accept it or see inline per-line errors (`config.save({dry_run: true})` validation); on reject, the edit buffer is preserved — no silent data loss.
   4. When a raw-TOML save contains fields the form view cannot represent, the form section banner reads "Raw is source of truth — form view shows a subset" next time the user opens that section.
   5. User can add a static peer from a form (address + mechanism + label) without seeing or typing TOML, and remove a peer with a confirmation step — both changes reflected in the live peer list within 2 seconds.
   6. Logs tab supports text search and a time-range filter, and a single Export debug snapshot button downloads a JSON file containing current status + recent logs suitable for attaching to a bug report.
-**Plans**: 6 plans
+**Plans**: 7 plans
 Plans:
-- [ ] 03-01-PLAN.md — Foundation: shadcn primitives (switch/radio-group/collapsible/alert-dialog/form/tooltip) + react-hook-form + @iarna/toml + TOML orchestration library (section-schemas, parse, assemble, diff) + sidebar ⌘6 Settings route + dedicated Peers route (PEER-02/03 infra, CONF-01/06/07 infra, OBS-02/03 infra)
-- [ ] 03-02-PLAN.md — Dedicated Peers screen: PeersScreen + AddPeerSheet (right-edge form, peers.add_static) + RemovePeerAlertDialog + PeerRemoveButton (static-only per D-20) (PEER-02, PEER-03)
-- [ ] 03-03-PLAN.md — Logs extension: text search (300ms debounced) + time-range select (5 presets + Custom… Dialog) + Export debug snapshot button (D-23 schema) (OBS-02, OBS-03)
-- [ ] 03-04-PLAN.md — Settings scaffold + IDENTITY/TRANSPORT/DISCOVERY/TRUST sections: CollapsibleCliPanel + shared save-footer/wire-name-tooltip/raw-wins-banner + four hooks (settings-config, section-save, section-raw-wins, pending-restart) + map-errors lib (CONF-01, CONF-02, CONF-03, CONF-04, CONF-05, CONF-07)
-- [ ] 03-05-PLAN.md — Remaining sections + Raw TOML editor: ROUTING + GATEWAY placeholder + NOTIFICATIONS + ADVANCED — RAW CONFIG (plain textarea + gutter, dry_run-first save) + ABOUT + VITE_APP_VERSION/COMMIT vite.config wiring (CONF-01, CONF-06, CONF-07)
-- [ ] 03-06-PLAN.md — Audit sweep + human-verify checkpoint walking all six ROADMAP Phase 3 success criteria live against real pim-daemon (all 11 requirement IDs)
+- [ ] 03-01-PLAN.md — Foundation: Phase-2 pre-flight gate + ROADMAP typo fix + shadcn primitives (switch/radio-group/collapsible/alert-dialog/form/tooltip) + react-hook-form + @iarna/toml + TOML orchestration library (section-schemas, parse, assemble, diff) + useSettingsConfig hook (+ refetchSettingsConfig for D-30) + sidebar ⌘6 Settings route + dedicated Peers route (PEER-02/03 infra, CONF-01/06/07 infra, OBS-02/03 infra)
+- [ ] 03-02-PLAN.md — Dedicated Peers screen: PeersScreen + AddPeerSheet (right-edge form, peers.add_static, calls refetchSettingsConfig on success per D-30) + RemovePeerAlertDialog + PeerRemoveButton (static-only per D-20) (PEER-02, PEER-03)
+- [ ] 03-03-PLAN.md — Logs extension: text search (300ms debounced) + time-range select (5 presets + Custom… Dialog with Cancel-revert) + Export debug snapshot button (D-23 schema) + applyLogsFilter module function for cross-plan [Show in Logs →] routing (OBS-02, OBS-03)
+- [ ] 03-04-PLAN.md — Settings scaffold + hooks + D-13 discard flow + shared utils: CollapsibleCliPanel + SectionSaveFooter + WireNameTooltip + RawWinsBanner + DiscardUnsavedChangesAlertDialog + four hooks (section-save, section-raw-wins with module-level setAllSectionRawWins writer, pending-restart, dirty-sections) + map-errors + daemon-restart shared util + nav-away interception + Stop-path gate (CONF-01, CONF-07)
+- [ ] 03-05-PLAN.md — Form sections (split out from original 03-04 per checker Warning 1): IDENTITY + TRANSPORT + DISCOVERY + TRUST sections consuming 03-04 hooks (CONF-02, CONF-03, CONF-04, CONF-05)
+- [ ] 03-06-PLAN.md — Remaining sections + Raw TOML editor: ROUTING + GATEWAY placeholder + NOTIFICATIONS + ADVANCED — RAW CONFIG (plain textarea + gutter, dry_run-first save, [Restart] toast uses shared restartDaemon util) + ABOUT + VITE_APP_VERSION/COMMIT vite.config wiring (CONF-01, CONF-06, CONF-07)
+- [ ] 03-07-PLAN.md — Audit sweep (includes no-zod negative assertion per D-08) + human-verify checkpoint walking all six ROADMAP Phase 3 success criteria live against real pim-daemon (all 11 requirement IDs)
 **UI hint**: yes
 
 ### Phase 4: Routing & Onboarding Polish
