@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered (auto)
-last_updated: "2026-04-24T18:26:06.981Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-04-24T18:30:53.961Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 1 (RPC Bridge & Daemon Lifecycle) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -52,6 +52,7 @@ Progress: [███░░░░░░░] 25%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-rpc-bridge-daemon-lifecycle P03 | 22 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - [Phase 01-rpc-bridge-daemon-lifecycle]: RPC error codes as `as const` object (not TS enum) — tree-shakable, literal-unioned, no runtime IIFE
 - [Phase 01-rpc-bridge-daemon-lifecycle]: W1 single-listener design: rpc.ts owns zero Tauri event subscriptions; useDaemonState hook owns the one global subscription and fans out by event name
 - [Phase 01-rpc-bridge-daemon-lifecycle]: rpc-types.ts uses snake_case field names verbatim from the JSON wire format — 1:1 with docs/RPC.md, no translation layer
+- [Phase 01-rpc-bridge-daemon-lifecycle]: Module-level atom + useSyncExternalStore for DaemonSnapshot — single source of truth, no prop drilling, one listener budget
+- [Phase 01-rpc-bridge-daemon-lifecycle]: B2 provider pattern: TunPermissionProvider mounts exactly one modal app-wide; all START paths gate through useTunPermission().requestPermission()
+- [Phase 01-rpc-bridge-daemon-lifecycle]: W3 internal tick: DaemonStatusIndicator takes (baselineSeconds, baselineTimestamp) and self-ticks via setInterval; keeps uptime honest without parent re-renders
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T18:26:06.939Z
-Stopped at: Phase 2 context gathered (auto)
-Resume file: .planning/phases/02-honest-dashboard-peer-surface/02-CONTEXT.md
+Last session: 2026-04-24T18:30:53.959Z
+Stopped at: Completed 01-03-PLAN.md
+Resume file: None
