@@ -30,6 +30,7 @@ import type { Status } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { StatusIndicator } from "@/components/brand/status-indicator";
 import { formatDuration } from "@/lib/format";
+import { useActiveScreen } from "@/hooks/use-active-screen";
 import { cn } from "@/lib/utils";
 
 export interface IdentityPanelProps {
@@ -46,6 +47,8 @@ export function IdentityPanel({
   limitedMode = false,
   lastSeenTimestamp = null,
 }: IdentityPanelProps) {
+  const { setActive } = useActiveScreen();
+
   // Loading / pre-seed: honest placeholder, not zeros (D-07).
   if (status === null) {
     return (
@@ -109,13 +112,13 @@ export function IdentityPanel({
             <button
               type="button"
               className="text-primary underline-offset-2 hover:underline"
-              // Plan 02-06 wires this to the Logs tab with source=transport.
-              // No-op in Phase 2 Plan 03 — the affordance must still render
-              // so the honesty contract (interface down is visibly
-              // explainable) holds.
-              onClick={() => {
-                /* wired by Plan 02-06 */
-              }}
+              // D-09: canonical behavior routes to Logs filtered by
+              // source: "transport". Phase 2 ships navigation-only — the
+              // Logs filter bar exposes level + peer filters (Plan 02-05);
+              // the source filter UI lands in Phase 3 (OBS-02). Clicking
+              // here jumps to the Logs tab so the user can read the
+              // transport-level diagnostic inline; no pre-filter applied.
+              onClick={() => setActive("logs")}
             >
               show why →
             </button>
