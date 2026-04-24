@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (shell navigation skeleton)
-last_updated: "2026-04-24T19:33:26.302Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-04-24T19:38:41.019Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 15
-  completed_plans: 5
+  total_plans: 16
+  completed_plans: 6
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 02 (honest-dashboard-peer-surface) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -55,6 +55,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 01-rpc-bridge-daemon-lifecycle P03 | 22 min | 3 tasks | 10 files |
 | Phase 01-rpc-bridge-daemon-lifecycle P04 | 15 min | 3 tasks | 7 files |
 | Phase 02-honest-dashboard-peer-surface P02 | 3 | 3 tasks | 5 files |
+| Phase 02-honest-dashboard-peer-surface P01 | 10 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 02-honest-dashboard-peer-surface]: Shell navigation atom uses module-level useSyncExternalStore (mirrors useDaemonState); ActiveScreen renders <section aria-label={active}> to avoid nested-main axe violation
 - [Phase 02-honest-dashboard-peer-surface]: Reserved sidebar rows rendered as <div aria-disabled tabIndex={-1}> not <button disabled>; keeps them out of tab order at DOM layer, not just CSS
 - [Phase 02-honest-dashboard-peer-surface]: AppShell keyboard handler ignores shift/alt modifiers so ⌘⇧1 / ⌘⌥1 pass through to browser/DevTools; ⌘, swallowed via preventDefault as a Phase-2 no-op until CONF-* lands
+- [Phase 02-honest-dashboard-peer-surface]: Plan 02-01: useDaemonState auto-seeds status + peers.discovered and auto-subscribes to status.event / peers.event on running transitions; W1 single-listener contract preserved
+- [Phase 02-honest-dashboard-peer-surface]: Plan 02-01: Subscription-failure (D-31) retry-once stores error on snapshot.subscriptionError for Plan 02-06 to render as toast — executor only captures, does not render
+- [Phase 02-honest-dashboard-peer-surface]: Plan 02-01: kill_switch status.event is logged and ignored in Phase 2 (Phase 4 UX-03 owns the UI); pair_failed peers.event is a no-op for snapshot.peers (Plan 02-04 useTroubleshootLog owns per-peer buffer)
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T19:32:44.195Z
-Stopped at: Completed 02-02-PLAN.md (shell navigation skeleton)
+Last session: 2026-04-24T19:38:41.009Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

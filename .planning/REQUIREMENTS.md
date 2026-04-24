@@ -29,7 +29,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [x] **STAT-01**: Dashboard shows node name, short node ID, mesh IP, interface state (`pim0 · up`) from live RPC `status` call
 - [x] **STAT-02**: Dashboard shows connected peer count and current egress gateway (if any)
 - [x] **STAT-03**: Dashboard shows key metrics: forwarded bytes + packets, dropped count with reason, uptime
-- [ ] **STAT-04**: UI subscribes to `status.event` stream and updates dashboard reactively (no polling)
+- [x] **STAT-04**: UI subscribes to `status.event` stream and updates dashboard reactively (no polling)
 
 ### PEER — peer discovery + management
 
@@ -136,7 +136,7 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | STAT-01 | Phase 2 | Complete |
 | STAT-02 | Phase 2 | Complete |
 | STAT-03 | Phase 2 | Complete |
-| STAT-04 | Phase 2 | Pending |
+| STAT-04 | Phase 2 | Complete |
 | PEER-01 | Phase 2 | Complete |
 | PEER-04 | Phase 2 | Complete |
 | PEER-05 | Phase 2 | Complete |
