@@ -230,7 +230,7 @@ Per-section summary templates (Phase 3 canonical):
 | Gateway | `linux-only · disabled` (macOS/Windows) OR `linux · disabled` OR `linux · enabled via {iface}` (placeholder — full gateway control is Phase 5) |
 | Notifications | `all-gateways-lost {on/off} · kill-switch {on/off}` |
 | Advanced — raw config | `{n} lines · last saved {ts relative}` |
-| About | `pim-ui {ui_version} · daemon {daemon_version} · {build_hash?}` |
+| About | `pim-ui {ui_version} · daemon {daemon_version} · {build_hash?}` — `{daemon_version}` is parsed from `HelloResult.daemon` (format `"pim-daemon/X.Y.Z"` → take the segment after `/`) |
 
 **Pending-restart appended token (D-25 step 4):** when a section has a non-empty
 pending-restart set, append ` · ⚠ pending restart: {fields.join(", ")}` to that
@@ -363,7 +363,7 @@ When `LimitedModeBanner` is active (Phase 1 surface, renders above content pane)
 | Element | Copy |
 |---------|------|
 | UI version row | `pim-ui {import.meta.env.VITE_APP_VERSION}` |
-| Daemon version row | `pim-daemon {helloResult.daemon_version}` — from cached `rpc.hello` response |
+| Daemon version row | `pim-daemon {helloResult.daemon.split("/")[1] ?? helloResult.daemon}` — `HelloResult.daemon` ships as `"pim-daemon/X.Y.Z"` per kernel `docs/RPC.md`; strip the name prefix to display the bare semver. Cache source is the `rpc.hello` response from Phase 1 `RPC-02`. |
 | Kernel repo link | `github.com/Astervia/proximity-internet-mesh ↗` — opens via Tauri `shell.open`, never `window.open` |
 | Config file row | `source: {source_path}` + `[ Copy path ]` right-aligned |
 | Build hash | `build: {VITE_APP_COMMIT.slice(0,7)}` — rendered only when defined; otherwise this row is omitted (silent, not a "not available" string) |
