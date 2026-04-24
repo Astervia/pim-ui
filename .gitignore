@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Logs
+*.log
+# Root-anchored so it only matches a top-level /logs/ output folder
+# (if one is ever added) — NOT src/components/logs/ which is the Logs-
+# tab UI folder.
+/logs/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Bundled daemon binaries — downloaded in CI, never commit
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# Generated RPC types (from tauri-specta)
+src/lib/bindings.ts
