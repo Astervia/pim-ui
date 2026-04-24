@@ -28,7 +28,7 @@ explicitly not in this roadmap.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: RPC Bridge & Daemon Lifecycle** - Live JSON-RPC 2.0 over Unix socket, daemon sidecar start/stop, honest connection state
+- [x] **Phase 1: RPC Bridge & Daemon Lifecycle** - Live JSON-RPC 2.0 over Unix socket, daemon sidecar start/stop, honest connection state (completed 2026-04-24)
 - [ ] **Phase 2: Honest Dashboard & Peer Surface** - Reactive status stream, peer list with true transport info, nearby/incoming pair approval, live logs
 - [ ] **Phase 3: Configuration & Peer Management** - Settings sections with raw-TOML-as-authority, static peer add/remove, log filters + debug snapshot
 - [ ] **Phase 4: Routing & Onboarding Polish** - Route-internet-via-mesh toggle with pre-flight, routing table, three-step onboarding, solo mode, honest error copy
@@ -67,7 +67,14 @@ Plans:
   5. A "Nearby — not yet paired" section lists discovered peers and, when another peer initiates pairing, a modal fires with honest copy ("relay-b wants to join your mesh") and explicit [ Trust and connect ] / [ Decline ] actions.
   6. User can open the Logs tab and watch events from `logs.event` stream with a level filter (trace/debug/info/warn/error) and a peer filter, updating in real time.
   7. Dashboard shows forwarded bytes + packets, dropped count with reason, connected peer count, and current egress gateway (if any) — all live.
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 02-01-PLAN.md — Reactive spine: extend useDaemonState with status/peers auto-seed + subscribe + discovered[] + format helpers + selector hooks (STAT-04, PEER-01, PEER-05)
+- [ ] 02-02-PLAN.md — Navigation shell: sidebar (240px, 6 rows) + content pane + keyboard shortcuts ⌘1/⌘2/⌘5/⌘, (shell scaffolding for STAT-01..03, PEER-01/04/05/06, OBS-01)
+- [ ] 02-03-PLAN.md — Dashboard 4-panel layout: IdentityPanel + PeerListPanel + NearbyPanel + MetricsPanel + PeerRow + NearbyRow (STAT-01, STAT-02, STAT-03, PEER-01, PEER-05)
+- [ ] 02-04-PLAN.md — Peer Detail slide-over + Pair Approval modal + sheet primitive install + troubleshoot-log buffer (PEER-04, PEER-06)
+- [ ] 02-05-PLAN.md — Logs tab: select + scroll-area primitives, react-window virtualized list, useLogsStream subscription lifecycle, level + peer filters (OBS-01)
+- [ ] 02-06-PLAN.md — Integration: sonner Toaster mount, SubscriptionErrorToast (D-31), show-why → Logs wiring (D-09), human-verify checkpoint against all 7 ROADMAP success criteria
 **UI hint**: yes
 
 ### Phase 3: Configuration & Peer Management
@@ -119,8 +126,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RPC Bridge & Daemon Lifecycle | 1/4 | In Progress | - |
-| 2. Honest Dashboard & Peer Surface | 0/TBD | Not started | - |
+| 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
+| 2. Honest Dashboard & Peer Surface | 0/6 | Not started | - |
 | 3. Configuration & Peer Management | 0/TBD | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
 | 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
