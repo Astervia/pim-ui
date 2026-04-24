@@ -116,6 +116,55 @@ const _cfgFail: -32020 = RpcErrorCode.ConfigValidationFailed;
 type _StatusFromMap = RpcMethodMap["status"]["result"];
 const _statusIface: _StatusFromMap["interface"]["name"] = "pim0";
 
+// ─── Task 2 guards: callDaemon signature + DaemonState machine ───────
+
+import type { DaemonSnapshot, DaemonState } from "./daemon-state";
+import { isTransientState } from "./daemon-state";
+import type { DaemonSubscription } from "./rpc";
+import { callDaemon, subscribeDaemon } from "./rpc";
+
+// callDaemon<"status"> must accept null and return Promise<Status>.
+const _statusCall: Promise<RpcMethodMap["status"]["result"]> = callDaemon(
+  "status",
+  null,
+);
+
+// callDaemon<"rpc.hello"> must accept HelloParams and return Promise<HelloResult>.
+const _helloCall: Promise<HelloResult> = callDaemon("rpc.hello", {
+  client: "pim-ui/0.0.1",
+  rpc_version: 1,
+});
+
+// @ts-expect-error — missing required field `rpc_version`
+const _badHelloCall = callDaemon("rpc.hello", { client: "pim-ui/0.0.1" });
+
+// subscribeDaemon returns Promise<DaemonSubscription>; no payload handler param.
+const _sub: Promise<DaemonSubscription> = subscribeDaemon("status.event");
+
+// DaemonState is exactly the 5 UI-SPEC states — no more, no fewer.
+type _DaemonStateExpected =
+  | "stopped"
+  | "starting"
+  | "running"
+  | "reconnecting"
+  | "error";
+// Bidirectional assignability = type equality.
+const _forward: _DaemonStateExpected = "running" as DaemonState;
+const _backward: DaemonState = "running" as _DaemonStateExpected;
+
+// isTransientState returns boolean; compile should infer it.
+const _transient: boolean = isTransientState("starting");
+
+// DaemonSnapshot must embed all required fields from the UI-SPEC.
+const _snapshot: DaemonSnapshot = {
+  state: "stopped",
+  hello: null,
+  status: null,
+  baselineTimestamp: null,
+  lastError: null,
+  peerCount: 0,
+};
+
 // All references are unused in runtime — the whole point is compile-time.
 void _methods;
 void _methodLookup;
@@ -129,3 +178,11 @@ void _verCheck;
 void _notReady;
 void _cfgFail;
 void _statusIface;
+void _statusCall;
+void _helloCall;
+void _badHelloCall;
+void _sub;
+void _forward;
+void _backward;
+void _transient;
+void _snapshot;
