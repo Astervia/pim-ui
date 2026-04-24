@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-04-24T19:52:20.107Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-04-24T20:08:43.854Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 16
-  completed_plans: 7
+  total_plans: 17
+  completed_plans: 8
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 02 (honest-dashboard-peer-surface) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-24
 
@@ -57,6 +57,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 02-honest-dashboard-peer-surface P02 | 3 | 3 tasks | 5 files |
 | Phase 02-honest-dashboard-peer-surface P01 | 10 | 2 tasks | 9 files |
 | Phase 02-honest-dashboard-peer-surface P03 | 7min | 3 tasks | 8 files |
+| Phase 02-honest-dashboard-peer-surface P04 | 11min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,10 @@ Recent decisions affecting current work:
 - [Phase 02-honest-dashboard-peer-surface]: DaemonToggle rendered above the 4 panels (not integrated into IdentityPanel) so Identity panel matches UI-SPEC ASCII mockup verbatim
 - [Phase 02-honest-dashboard-peer-surface]: Connected-peer count filter = state in (active OR relayed) for both Peers badge and Metrics line — a relayed peer is still connected
 - [Phase 02-honest-dashboard-peer-surface]: Bang-free source files policy: negations expressed as === false / === null ternary inversion, avoiding !/!==/!= so the 'no exclamation marks' grep rule holds mechanically
+- [Phase 02-honest-dashboard-peer-surface]: Shell-level overlay mount for PeerDetailSheet + PairApprovalModal (sibling of active section in ActiveScreen) so state survives tab switches
+- [Phase 02-honest-dashboard-peer-surface]: usePeerTroubleshootLog registers a second peers.event handler via W1 fan-out — Set<Handler> supports multi-handler dispatch, no new Tauri listener
+- [Phase 02-honest-dashboard-peer-surface]: D-22 queue advance via setTimeout(openNext, 0) — gives React one commit cycle to unmount closed modal before next opens (prevents focus-trap race)
+- [Phase 02-honest-dashboard-peer-surface]: Shadcn Sheet primitive rewritten wholesale post-generation (4 simultaneous brand violations in default output: rounded-xs, shadow-lg, bg-background, lucide XIcon)
 
 ### Pending Todos
 
@@ -100,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T19:52:06.275Z
-Stopped at: Completed 02-03-PLAN.md
+Last session: 2026-04-24T20:08:43.851Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None

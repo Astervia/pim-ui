@@ -72,7 +72,7 @@ Plans:
 - [x] 02-01-PLAN.md — Reactive spine: extend useDaemonState with status/peers auto-seed + subscribe + discovered[] + format helpers + selector hooks (STAT-04, PEER-01, PEER-05)
 - [x] 02-02-PLAN.md — Navigation shell: sidebar (240px, 6 rows) + content pane + keyboard shortcuts ⌘1/⌘2/⌘5/⌘, (shell scaffolding for STAT-01..03, PEER-01/04/05/06, OBS-01)
 - [x] 02-03-PLAN.md — Dashboard 4-panel layout: IdentityPanel + PeerListPanel + NearbyPanel + MetricsPanel + PeerRow + NearbyRow (STAT-01, STAT-02, STAT-03, PEER-01, PEER-05)
-- [ ] 02-04-PLAN.md — Peer Detail slide-over + Pair Approval modal + sheet primitive install + troubleshoot-log buffer (PEER-04, PEER-06)
+- [x] 02-04-PLAN.md — Peer Detail slide-over + Pair Approval modal + sheet primitive install + troubleshoot-log buffer (PEER-04, PEER-06)
 - [ ] 02-05-PLAN.md — Logs tab: select + scroll-area primitives, react-window virtualized list, useLogsStream subscription lifecycle, level + peer filters (OBS-01)
 - [ ] 02-06-PLAN.md — Integration: sonner Toaster mount, SubscriptionErrorToast (D-31), show-why → Logs wiring (D-09), human-verify checkpoint against all 7 ROADMAP success criteria
 **UI hint**: yes
