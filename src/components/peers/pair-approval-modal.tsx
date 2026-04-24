@@ -29,7 +29,8 @@
  *   - Primary action [ Trust and connect ] uses Button variant="default"
  *     which is primary GREEN — NEVER accent.
  *
- * NO exclamation marks, NO rounded-*, NO gradients, NO literal palette colors.
+ * Brand rules: zero border radius, no gradients, no literal palette colors,
+ * no exclamation marks.
  */
 
 import { useEffect, useState } from "react";
