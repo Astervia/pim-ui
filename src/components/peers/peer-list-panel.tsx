@@ -1,0 +1,110 @@
+/**
+ * <PeerListPanel /> — the Peers CliPanel on the Dashboard (02-UI-SPEC §Peers
+ * panel, 02-CONTEXT D-08/D-11/D-13/D-14).
+ *
+ * Wraps the D-13-sorted peer list (via usePeers from Plan 02-01) with:
+ *   - A muted column-header row matching the UI-SPEC layout.
+ *   - One PeerRow per peer.
+ *   - Empty-state copy D-14 VERBATIM: `no peers connected · discovery is
+ *     active`. Never the chipper onboarding-style exhortation we refuse
+ *     by contract (P5 solo-mode, STYLE.md §Voice).
+ *   - Two disabled ActionRow buttons below the list, visible regardless
+ *     of whether the list is empty: `[ + Add peer nearby ]` and
+ *     `[ Invite peer ]`, each with the tooltip `pairing UI lands in
+ *     phase 4` (Phase 4 ships the pairing UI; Phase 2 is honest about
+ *     what it can and cannot do).
+ *
+ * D-30 limited mode: dims to opacity-60 and flips the connected-count
+ * badge variant to muted.
+ *
+ * The panel emits `onPeerSelect(peer)` upward; Plan 02-04 wires this
+ * callback to open the Peer Detail slide-over. Default behaviour is a
+ * no-op (callback absent) so the component renders cleanly in Phase 2
+ * without the slide-over plumbing yet.
+ */
+
+import type { PeerSummary } from "@/lib/rpc-types";
+import { CliPanel } from "@/components/brand/cli-panel";
+import { Button } from "@/components/ui/button";
+import { PeerRow } from "./peer-row";
+import { cn } from "@/lib/utils";
+
+export interface PeerListPanelProps {
+  peers: PeerSummary[];
+  onPeerSelect?: (peer: PeerSummary) => void;
+  limitedMode?: boolean;
+}
+
+export function PeerListPanel({
+  peers,
+  onPeerSelect,
+  limitedMode = false,
+}: PeerListPanelProps) {
+  const connectedCount = peers.filter(
+    (p) => p.state === "active" || p.state === "relayed",
+  ).length;
+
+  const badge = limitedMode === true
+    ? { label: `${connectedCount} CONNECTED`, variant: "muted" as const }
+    : { label: `${connectedCount} CONNECTED`, variant: "default" as const };
+
+  return (
+    <CliPanel
+      title="peers"
+      status={badge}
+      className={cn(limitedMode === true && "opacity-60")}
+    >
+      {/* Column header — muted, uppercase (UI-SPEC §Peers panel). */}
+      <div
+        role="presentation"
+        className={cn(
+          "grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
+          "gap-x-2 px-4 pb-1 mb-1 border-b border-border",
+          "font-mono text-xs uppercase tracking-widest text-muted-foreground",
+        )}
+      >
+        <span>short id</span>
+        <span>label</span>
+        <span>mesh ip</span>
+        <span>transport</span>
+        <span>state</span>
+        <span>hops</span>
+        <span>latency</span>
+        <span>last seen</span>
+      </div>
+
+      {peers.length === 0 ? (
+        <p className="px-4 py-2 text-muted-foreground">
+          no peers connected · discovery is active
+        </p>
+      ) : (
+        <ul role="list" className="divide-y divide-border/30">
+          {peers.map((peer) => (
+            <li key={peer.node_id}>
+              <PeerRow peer={peer} onSelect={onPeerSelect} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* ActionRow — disabled in Phase 2; pairing UI is Phase 4 work.
+          Button children start with "[" so <Button> does NOT re-bracket. */}
+      <div className="mt-4 pt-3 border-t border-border flex gap-4 px-4">
+        <Button
+          variant="default"
+          disabled
+          title="pairing UI lands in phase 4"
+        >
+          [ + Add peer nearby ]
+        </Button>
+        <Button
+          variant="default"
+          disabled
+          title="pairing UI lands in phase 4"
+        >
+          [ Invite peer ]
+        </Button>
+      </div>
+    </CliPanel>
+  );
+}
