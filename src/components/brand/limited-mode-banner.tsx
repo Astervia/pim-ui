@@ -99,14 +99,21 @@ export function LimitedModeBanner({
   const externalKill =
     snapshot.state === "stopped" && snapshot.baselineTimestamp !== null;
 
+  // Phase 01.1 widening: snapshot.lastError is now a discriminated union
+  // (RpcError-with-message OR CrashOnBootError-no-message). The historic
+  // path still reads .message off the rpc_error variant; the new
+  // CrashOnBootError variant doesn't have .message, so narrow with `in`
+  // before access. `null` falls back through to the existing variantFor
+  // logic without changing behavior.
+  const lastErrMessage =
+    snapshot.lastError === null
+      ? null
+      : "message" in snapshot.lastError
+        ? snapshot.lastError.message
+        : null;
   const v = useMemo(
-    () =>
-      variantFor(
-        snapshot.state,
-        snapshot.lastError?.message ?? null,
-        externalKill,
-      ),
-    [snapshot.state, snapshot.lastError?.message, externalKill],
+    () => variantFor(snapshot.state, lastErrMessage, externalKill),
+    [snapshot.state, lastErrMessage, externalKill],
   );
 
   const isDestructive = v.accentClass === "destructive";
