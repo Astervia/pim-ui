@@ -66,7 +66,12 @@ Plans:
   4. On macOS / Windows, the `Share my internet` radio option is visibly disabled with honest copy "Gateway mode is Linux-only today. Your device can still join a mesh as a client or relay." — the option is not hidden.
   5. On subsequent launches (config exists), the first-run surface does NOT appear; the UI boots straight to AppShell + Dashboard as before.
   6. If `daemon_start` fails after config was written (e.g. daemon crashes within 500 ms), the UI surfaces an honest error banner referencing the config path — the user is never left with a silent "nothing happened" state. No polling; Phase 1 `DaemonState` machine detects the crash via the sidecar's `Terminated` event.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 01.1-01-PLAN.md — Rust foundation: config_path resolver + default_config TOML template + bootstrap_config + config_exists Tauri commands + sidecar crash-on-boot detection routed through existing daemon://state-changed event (SETUP-01/02/03 backend)
+- [ ] 01.1-02-PLAN.md — TS contract: bootstrapConfig + configExists wrappers + DaemonLastError discriminated union + isCrashOnBoot/pickCrashOnBoot helpers (SETUP-01/02/03 frontend types) — preserves W1 cross-phase invariant (listen() count unchanged)
+- [ ] 01.1-03-PLAN.md — UI: AppRoot router + FirstRunScreen (D-07/D-08/D-09/D-13) + useConfigBootstrap boot-sequence hook + main.tsx wire-in (SETUP-01/02 frontend)
+- [ ] 01.1-04-PLAN.md — LimitedModeBanner crash-on-boot variant (D-20) + final human-verify checkpoint walking all 6 ROADMAP Phase 01.1 SCs (SETUP-03)
 **UI hint**: yes
 
 ### Phase 2: Honest Dashboard & Peer Surface
@@ -149,6 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
+| 01.1. First-run config bootstrap | 0/4 | Not started | - |
 | 2. Honest Dashboard & Peer Surface | 0/6 | Not started | - |
 | 3. Configuration & Peer Management | 0/6 | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
