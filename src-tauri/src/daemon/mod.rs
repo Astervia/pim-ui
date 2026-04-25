@@ -10,11 +10,13 @@
 //!   state       — connection state machine + reconnect loop
 //!   events      — Tauri event name constants + emitters
 
-pub mod socket_path;
-pub mod sidecar;
-pub mod remote;
-pub mod jsonrpc;
-pub mod state;
+pub mod config_path;
+pub mod default_config;
 pub mod events;
+pub mod jsonrpc;
+pub mod remote;
+pub mod sidecar;
+pub mod socket_path;
+pub mod state;
 
-pub use state::{DaemonConnection, DaemonState};
+pub use state::DaemonConnection;
