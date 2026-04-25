@@ -118,8 +118,13 @@ const _statusIface: _StatusFromMap["interface"]["name"] = "pim0";
 
 // ─── Task 2 guards: callDaemon signature + DaemonState machine ───────
 
-import type { DaemonSnapshot, DaemonState } from "./daemon-state";
-import { isTransientState } from "./daemon-state";
+import type {
+  CrashOnBootError,
+  DaemonLastError,
+  DaemonSnapshot,
+  DaemonState,
+} from "./daemon-state";
+import { isCrashOnBoot, isTransientState, pickCrashOnBoot } from "./daemon-state";
 import type {
   BootstrapConfigArgs,
   BootstrapConfigResult,
@@ -244,6 +249,98 @@ const _configExistsShape: Promise<{ exists: boolean; path: string }> =
 type _NoCrashOnBootKey = Extract<keyof typeof DaemonEvents, "crashOnBoot">;
 const _noCrashOnBoot: _NoCrashOnBootKey extends never ? true : false = true;
 
+// ─── Plan 01.1-02 Task 2 guards: DaemonLastError union + narrowing helpers ─
+//
+// D-19 routing: Plan 01.1-01 emits `daemon://state-changed` with
+// payload.error = RpcError where `data` carries
+// `{ kind: "crash_on_boot", path, stderr_tail, elapsed_ms, … }`. The
+// existing state-changed listener in use-daemon-state.ts already merges
+// payload.error into snapshot.lastError verbatim (file L 347-387,
+// UNTOUCHED by this plan). What this task adds: a discriminated union
+// `DaemonLastError` so consumers (Plan 01.1-04 LimitedModeBanner) can
+// narrow with `isCrashOnBoot(err)` and project to a canonical
+// `CrashOnBootError` via `pickCrashOnBoot(err)` without re-parsing JSON.
+
+// Test 6: DaemonSnapshot.lastError accepts the canonical CrashOnBootError shape.
+const _crashCanonical: DaemonLastError = {
+  kind: "crash_on_boot",
+  path: "/Users/pedro/Library/Application Support/pim/pim.toml",
+  stderr_tail: "[ERROR] invalid listen_port: 65536",
+  elapsed_ms: 220,
+};
+
+// Test 7: DaemonSnapshot.lastError ALSO accepts a plain RpcError (backward
+// compat — every existing consumer like limited-mode-banner.tsx today
+// populates this field with a plain RpcError, no `kind` set).
+const _rpcErrCompat: DaemonLastError = {
+  code: -32603,
+  message: "internal error",
+};
+
+// Test 7b: an RpcError carrying the discriminator inside `data` is also
+// accepted (this is the actual on-the-wire shape Plan 01.1-01 emits).
+const _rpcErrWithCrashData: DaemonLastError = {
+  code: -32000,
+  message: "pim-daemon exited in 220 ms during startup",
+  data: {
+    kind: "crash_on_boot",
+    path: "/Users/pedro/Library/Application Support/pim/pim.toml",
+    stderr_tail: "[ERROR] invalid listen_port: 65536",
+    elapsed_ms: 220,
+    exit_code: 1,
+    signal: null,
+  },
+};
+
+// Test 7c: a snapshot with the wider lastError typechecks, proving
+// DaemonSnapshot was widened in place (no parallel field).
+const _snapshotWithCrash: DaemonSnapshot = {
+  state: "error",
+  hello: null,
+  status: null,
+  baselineTimestamp: null,
+  lastError: _rpcErrWithCrashData,
+  peerCount: 0,
+  discovered: [],
+  subscriptionError: null,
+};
+
+// Test 8: isCrashOnBoot narrows so .path is statically accessible —
+// the predicate signature must be `(e): e is CrashOnBootError`.
+function _narrowIsCrashOnBoot(e: DaemonLastError | null): string | null {
+  if (isCrashOnBoot(e)) {
+    // Inside this branch, TS knows e: CrashOnBootError.
+    const _path: string = e.path;
+    const _stderr: string = e.stderr_tail;
+    const _elapsed: number = e.elapsed_ms;
+    void _stderr;
+    void _elapsed;
+    return _path;
+  }
+  return null;
+}
+
+// Test 9: pickCrashOnBoot lifts an RpcError-with-crash-data into the
+// canonical CrashOnBootError shape, returning null when the input
+// isn't a crash variant.
+const _pickCanonical: CrashOnBootError | null = pickCrashOnBoot(
+  _rpcErrWithCrashData,
+);
+const _pickAlreadyCanonical: CrashOnBootError | null = pickCrashOnBoot(
+  _crashCanonical,
+);
+const _pickPlainRpc: CrashOnBootError | null = pickCrashOnBoot(_rpcErrCompat);
+const _pickNull: CrashOnBootError | null = pickCrashOnBoot(null);
+
+// Test 10 (NEGATIVE — re-asserts W1 invariant lives in this plan's tests):
+// the cross-phase commitment that no `crashOnBoot` key exists on
+// DaemonEvents. Restated here so this plan's checker greps see it
+// alongside the union/helper tests, not just under Task 1.
+type _NoCrashOnBootKeyTask2 = Extract<keyof typeof DaemonEvents, "crashOnBoot">;
+const _noCrashOnBootTask2: _NoCrashOnBootKeyTask2 extends never
+  ? true
+  : false = true;
+
 // All references are unused in runtime — the whole point is compile-time.
 void _methods;
 void _methodLookup;
@@ -276,3 +373,13 @@ void _bootstrapArgs;
 void _configExistsOk;
 void _configExistsShape;
 void _noCrashOnBoot;
+void _crashCanonical;
+void _rpcErrCompat;
+void _rpcErrWithCrashData;
+void _snapshotWithCrash;
+void _narrowIsCrashOnBoot;
+void _pickCanonical;
+void _pickAlreadyCanonical;
+void _pickPlainRpc;
+void _pickNull;
+void _noCrashOnBootTask2;
