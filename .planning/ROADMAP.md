@@ -69,7 +69,7 @@ Plans:
 **Plans**: 4 plans
 Plans:
 - [x] 01.1-01-PLAN.md — Rust foundation: config_path resolver + default_config TOML template + bootstrap_config + config_exists Tauri commands + sidecar crash-on-boot detection routed through existing daemon://state-changed event (SETUP-01/02/03 backend)
-- [ ] 01.1-02-PLAN.md — TS contract: bootstrapConfig + configExists wrappers + DaemonLastError discriminated union + isCrashOnBoot/pickCrashOnBoot helpers (SETUP-01/02/03 frontend types) — preserves W1 cross-phase invariant (listen() count unchanged)
+- [x] 01.1-02-PLAN.md — TS contract: bootstrapConfig + configExists wrappers + DaemonLastError discriminated union + isCrashOnBoot/pickCrashOnBoot helpers (SETUP-01/02/03 frontend types) — preserves W1 cross-phase invariant (listen() count unchanged)
 - [ ] 01.1-03-PLAN.md — UI: AppRoot router + FirstRunScreen (D-07/D-08/D-09/D-13) + useConfigBootstrap boot-sequence hook + main.tsx wire-in (SETUP-01/02 frontend)
 - [ ] 01.1-04-PLAN.md — LimitedModeBanner crash-on-boot variant (D-20) + final human-verify checkpoint walking all 6 ROADMAP Phase 01.1 SCs (SETUP-03)
 **UI hint**: yes
@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
-| 01.1. First-run config bootstrap | 1/4 | In Progress|  |
+| 01.1. First-run config bootstrap | 2/4 | In Progress|  |
 | 2. Honest Dashboard & Peer Surface | 0/6 | Not started | - |
 | 3. Configuration & Peer Management | 0/6 | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
