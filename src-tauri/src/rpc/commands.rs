@@ -8,11 +8,14 @@
 //! to match the frontend's { subscriptionId: string } call shape. Tauri's
 //! invoke bridge serde-maps camelCase -> snake_case automatically.
 
+use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
+use crate::daemon::config_path::resolve_config_path;
+use crate::daemon::default_config::{render_default_config, Role};
 use crate::daemon::jsonrpc::RpcError;
 use crate::daemon::state::{subscribe_method_for, unsubscribe_method_for, DaemonConnection};
 
@@ -106,4 +109,213 @@ pub async fn daemon_last_error(
     conn: State<'_, Arc<DaemonConnection>>,
 ) -> Result<Option<RpcError>, String> {
     Ok(conn.last_error().await)
+}
+
+// =============================================================================
+// Phase 01.1: first-run config bootstrap
+// =============================================================================
+
+/// Returned by `bootstrap_config` — Tauri serde defaults to snake_case on the
+/// wire, matching the JS-side `{ path }` call shape.
+#[derive(Debug, Clone, Serialize)]
+pub struct BootstrapResult {
+    pub path: String,
+}
+
+/// Returned by `config_exists` — `{ exists, path }` on both sides.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConfigExistsResult {
+    pub exists: bool,
+    pub path: String,
+}
+
+/// Phase 01.1 D-13 step 2: write a sane-default `pim.toml` to the
+/// platform-correct user-scope path.
+///
+/// Behavior:
+///   - Resolves the path via `daemon::config_path::resolve_config_path()`.
+///   - Renders the TOML via `daemon::default_config::render_default_config`.
+///   - Creates parent dirs at 0o700 (D-06; Unix only).
+///   - Writes atomically (D-14): `pim.toml.tmp` -> fsync -> rename.
+///   - Returns the canonical absolute path on success.
+///   - On failure, returns a human-readable message the UI surfaces verbatim
+///     (D-13: `Couldn't write config to {path}: {reason}` is assembled
+///     client-side from `{ path, error }`).
+#[tauri::command]
+pub async fn bootstrap_config(
+    node_name: String,
+    role: Role,
+) -> Result<BootstrapResult, String> {
+    let path = resolve_config_path();
+    let path_str = path.to_string_lossy().to_string();
+    let toml = render_default_config(&node_name, role);
+
+    if let Some(parent) = path.parent() {
+        // D-06: parent dir is 0o700 (owner-only — identity files live here).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(parent)
+                .map_err(|e| format!("create parent {}: {e}", parent.display()))?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("create parent {}: {e}", parent.display()))?;
+        }
+    }
+
+    // D-14 atomic write: tmp -> fsync -> rename.
+    let tmp = path.with_extension("toml.tmp");
+    {
+        use std::io::Write;
+        let mut f = std::fs::File::create(&tmp)
+            .map_err(|e| format!("open {}: {e}", tmp.display()))?;
+        f.write_all(toml.as_bytes())
+            .map_err(|e| format!("write {}: {e}", tmp.display()))?;
+        f.sync_all()
+            .map_err(|e| format!("fsync {}: {e}", tmp.display()))?;
+    }
+    std::fs::rename(&tmp, &path).map_err(|e| {
+        // Try to clean up the tmp on rename failure so we don't leave dangling
+        // half-written files. The remove_file error itself is intentionally
+        // ignored — the rename error is the real story.
+        let _ = std::fs::remove_file(&tmp);
+        format!("rename {} -> {}: {e}", tmp.display(), path.display())
+    })?;
+
+    Ok(BootstrapResult { path: path_str })
+}
+
+/// Phase 01.1 D-22: stat-check the resolved `pim.toml` path. Any IO error is
+/// treated as `exists=false` (graceful) — never returns `Err`.
+#[tauri::command]
+pub async fn config_exists() -> Result<ConfigExistsResult, String> {
+    let path = resolve_config_path();
+    let exists = path.try_exists().unwrap_or(false);
+    Ok(ConfigExistsResult {
+        exists,
+        path: path.to_string_lossy().to_string(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Lock used to serialize tests that mutate `PIM_CONFIG_PATH`. Without
+    /// this, parallel test execution races on the env var and produces
+    /// flaky "exists" results. We recover from a poisoned mutex (i.e. a
+    /// previous test panicked while holding the lock) by taking the inner
+    /// guard anyway — the env var is going to be re-set by us regardless.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn lock_env() -> std::sync::MutexGuard<'static, ()> {
+        match ENV_LOCK.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        }
+    }
+
+    /// Allocate a temp dir that does NOT honor `TMPDIR` — keeps us robust
+    /// against sibling tests that mutate `TMPDIR` for their own assertions
+    /// (e.g. `daemon::socket_path::tests::macos_uses_tmpdir` sets it to a
+    /// bogus path and never cleans up).
+    fn isolated_tempdir() -> tempfile::TempDir {
+        let base = if cfg!(target_os = "macos") {
+            // macOS: /tmp is always present and writable for tests.
+            std::path::PathBuf::from("/tmp")
+        } else if cfg!(unix) {
+            std::path::PathBuf::from("/tmp")
+        } else {
+            std::env::current_dir().expect("cwd")
+        };
+        tempfile::Builder::new()
+            .prefix("pim-ui-test-")
+            .tempdir_in(base)
+            .expect("tempdir_in")
+    }
+
+    #[tokio::test]
+    async fn bootstrap_writes_atomic() {
+        let _g = lock_env();
+        let dir = isolated_tempdir();
+        let path = dir.path().join("nested").join("pim.toml");
+        std::env::set_var("PIM_CONFIG_PATH", &path);
+
+        let res = bootstrap_config("test-node".to_string(), Role::JoinTheMesh)
+            .await
+            .expect("bootstrap_config");
+        assert_eq!(res.path, path.to_string_lossy().to_string());
+
+        let written = std::fs::read_to_string(&path).expect("read written config");
+        assert!(
+            written.contains(r#"name = "test-node""#),
+            "expected node.name interpolation; got:\n{written}"
+        );
+        assert!(
+            written.contains("gateway = false"),
+            "expected gateway = false for JoinTheMesh; got:\n{written}"
+        );
+
+        // D-14: the atomic-rename leaves no `.tmp` artifact behind.
+        let tmp = path.with_extension("toml.tmp");
+        assert!(
+            !tmp.exists(),
+            "expected pim.toml.tmp to be renamed, but it still exists at {}",
+            tmp.display()
+        );
+
+        std::env::remove_var("PIM_CONFIG_PATH");
+    }
+
+    #[tokio::test]
+    async fn bootstrap_writes_share_my_internet_gateway_true() {
+        let _g = lock_env();
+        let dir = isolated_tempdir();
+        let path = dir.path().join("pim.toml");
+        std::env::set_var("PIM_CONFIG_PATH", &path);
+
+        bootstrap_config("alice".to_string(), Role::ShareMyInternet)
+            .await
+            .expect("bootstrap_config");
+        let written = std::fs::read_to_string(&path).expect("read");
+        assert!(
+            written.contains("gateway = true"),
+            "expected gateway = true; got:\n{written}"
+        );
+
+        std::env::remove_var("PIM_CONFIG_PATH");
+    }
+
+    #[tokio::test]
+    async fn config_exists_returns_false_when_missing() {
+        let _g = lock_env();
+        let dir = isolated_tempdir();
+        let path = dir.path().join("missing").join("pim.toml");
+        std::env::set_var("PIM_CONFIG_PATH", &path);
+
+        let res = config_exists().await.expect("config_exists");
+        assert!(!res.exists, "expected exists=false for missing path");
+        assert_eq!(res.path, path.to_string_lossy().to_string());
+
+        std::env::remove_var("PIM_CONFIG_PATH");
+    }
+
+    #[tokio::test]
+    async fn config_exists_returns_true_when_present() {
+        let _g = lock_env();
+        let dir = isolated_tempdir();
+        let path = dir.path().join("pim.toml");
+        std::fs::write(&path, "[node]\nname = \"x\"\n").expect("write");
+        std::env::set_var("PIM_CONFIG_PATH", &path);
+
+        let res = config_exists().await.expect("config_exists");
+        assert!(res.exists, "expected exists=true for present file");
+
+        std::env::remove_var("PIM_CONFIG_PATH");
+    }
 }

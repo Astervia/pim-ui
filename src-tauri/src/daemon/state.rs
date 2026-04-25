@@ -48,6 +48,23 @@ pub enum DaemonState {
     Error,
 }
 
+/// Phase 01.1 D-18: payload the sidecar's tokio task hands back to
+/// DaemonConnection when `CommandEvent::Terminated` fires within 500 ms of
+/// `daemon_start`. Routed through the EXISTING `daemon://state-changed`
+/// event by `report_crash_on_boot` — no new event channel.
+#[derive(Debug, Clone)]
+pub struct CrashOnBootInfo {
+    pub exit_code: Option<i32>,
+    pub signal: Option<i32>,
+    /// Last 2 KiB of the daemon's stderr.
+    pub stderr_tail: String,
+    /// Wall-clock ms between spawn and Terminated; always < 500 here.
+    pub elapsed_ms: u64,
+    /// Resolved user-scope `pim.toml` path so the UI can show it without
+    /// re-resolving (which might pick up a different env at UI boot).
+    pub config_path: String,
+}
+
 pub struct DaemonConnection {
     state: Mutex<DaemonState>,
     last_error: Mutex<Option<RpcError>>,
@@ -125,7 +142,21 @@ impl DaemonConnection {
     pub async fn start(self: Arc<Self>, app: AppHandle) -> Result<()> {
         self.set_state(&app, DaemonState::Starting, None, None, None)
             .await;
-        if let Err(e) = self.sidecar.spawn(&app).await {
+        // Phase 01.1 D-18: closure routes sidecar's Terminated-within-500ms
+        // signal back to report_crash_on_boot, which transitions to Error and
+        // emits a single state-changed event. No new event channel.
+        let conn_for_crash = self.clone();
+        let app_for_crash = app.clone();
+        let on_crash_on_boot = move |info: CrashOnBootInfo| {
+            let conn = conn_for_crash.clone();
+            let app = app_for_crash.clone();
+            // tokio::spawn so the call from inside the sidecar's sync-style
+            // closure callsite stays cheap (no .await blocking the rx loop).
+            tokio::spawn(async move {
+                conn.report_crash_on_boot(app, info).await;
+            });
+        };
+        if let Err(e) = self.sidecar.spawn(&app, on_crash_on_boot).await {
             let err = RpcError {
                 code: -32000,
                 message: format!("{e}"),
@@ -205,7 +236,42 @@ impl DaemonConnection {
         }
     }
 
-    async fn set_state(
+    /// Phase 01.1 D-18 / D-19: route a sidecar crash-on-boot signal through
+    /// the EXISTING `daemon://state-changed` event by enriching `RpcError.data`
+    /// with the discriminator `{ kind: "crash_on_boot", path, stderr_tail,
+    /// elapsed_ms, exit_code, signal }`. NO new Tauri event channel — this
+    /// preserves the cross-phase W1 invariant that `use-daemon-state.ts`
+    /// holds exactly two `listen(` calls.
+    pub async fn report_crash_on_boot(self: Arc<Self>, app: AppHandle, info: CrashOnBootInfo) {
+        let data = serde_json::json!({
+            "kind": "crash_on_boot",
+            "path": info.config_path,
+            "stderr_tail": info.stderr_tail,
+            "elapsed_ms": info.elapsed_ms,
+            "exit_code": info.exit_code,
+            "signal": info.signal,
+        });
+        let err = RpcError {
+            code: -32000,
+            message: format!(
+                "pim-daemon exited in {} ms during startup",
+                info.elapsed_ms,
+            ),
+            data: Some(data),
+        };
+        // Cancel the handshake watchdog if still armed — the sidecar already
+        // died, so the 10s ceiling is moot and would otherwise fire a second
+        // (later, less informative) Error transition over the top of ours.
+        if let Some(tx) = self.watchdog_cancel.lock().await.take() {
+            let _ = tx.send(());
+        }
+        // set_state already updates last_error AND emits state-changed via
+        // events::emit_state — single existing helper, single existing channel.
+        self.set_state(&app, DaemonState::Error, Some(err), None, None)
+            .await;
+    }
+
+    pub(crate) async fn set_state(
         &self,
         app: &AppHandle,
         new_state: DaemonState,
@@ -350,5 +416,40 @@ pub fn unsubscribe_method_for(event: &str) -> Option<&'static str> {
         "peers.event" => Some("peers.unsubscribe"),
         "logs.event" => Some("logs.unsubscribe"),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Phase 01.1 D-19: locks the wire shape that the TS side
+    /// (Plan 01.1-02 — DaemonLastError narrow) discriminates on. If this
+    /// test ever flips, the TS union must flip in lockstep.
+    #[test]
+    fn crash_on_boot_data_shape_is_d19_compliant() {
+        let info = CrashOnBootInfo {
+            exit_code: Some(1),
+            signal: None,
+            stderr_tail: "boom\n".to_string(),
+            elapsed_ms: 42,
+            config_path: "/tmp/pim/pim.toml".to_string(),
+        };
+        // Mirrors the exact `serde_json::json!` block used by
+        // `report_crash_on_boot` so the test fails loudly if either drifts.
+        let data = serde_json::json!({
+            "kind": "crash_on_boot",
+            "path": info.config_path,
+            "stderr_tail": info.stderr_tail,
+            "elapsed_ms": info.elapsed_ms,
+            "exit_code": info.exit_code,
+            "signal": info.signal,
+        });
+        assert_eq!(data["kind"], "crash_on_boot");
+        assert_eq!(data["path"], "/tmp/pim/pim.toml");
+        assert_eq!(data["stderr_tail"], "boom\n");
+        assert_eq!(data["elapsed_ms"], 42);
+        assert_eq!(data["exit_code"], 1);
+        assert!(data["signal"].is_null());
     }
 }
