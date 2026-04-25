@@ -120,8 +120,20 @@ const _statusIface: _StatusFromMap["interface"]["name"] = "pim0";
 
 import type { DaemonSnapshot, DaemonState } from "./daemon-state";
 import { isTransientState } from "./daemon-state";
-import type { DaemonSubscription } from "./rpc";
-import { callDaemon, subscribeDaemon } from "./rpc";
+import type {
+  BootstrapConfigArgs,
+  BootstrapConfigResult,
+  ConfigExistsResult,
+  DaemonSubscription,
+  FirstRunRole,
+} from "./rpc";
+import {
+  bootstrapConfig,
+  callDaemon,
+  configExists,
+  DaemonEvents,
+  subscribeDaemon,
+} from "./rpc";
 
 // callDaemon<"status"> must accept null and return Promise<Status>.
 const _statusCall: Promise<RpcMethodMap["status"]["result"]> = callDaemon(
@@ -170,6 +182,68 @@ const _snapshot: DaemonSnapshot = {
   subscriptionError: null,
 };
 
+// ─── Plan 01.1-02 Task 1 guards: bootstrapConfig + configExists + FirstRunRole ─
+//
+// These compile-only tests fail to build (`pnpm typecheck`) if the rpc.ts
+// wrappers drift from the Rust contract shipped by Plan 01.1-01
+// (see `.planning/phases/01.1-first-run-config-bootstrap/01.1-01-SUMMARY.md`):
+//
+//   bootstrap_config(node_name: String, role: Role) -> { path: String }
+//   config_exists()                                   -> { exists: bool, path: String }
+//
+// The Tauri serde bridge maps JS camelCase `nodeName` to Rust snake_case
+// `node_name` automatically (matches the daemon_unsubscribe pattern at
+// rpc.ts L 124-125), so the JS-side type stays camelCase by convention.
+
+// Test 1: bootstrapConfig accepts the happy-path args and resolves to { path: string }.
+const _bootstrapOk: Promise<BootstrapConfigResult> = bootstrapConfig({
+  nodeName: "alice",
+  role: "join_the_mesh",
+});
+
+// The awaited result has a string `path`.
+const _bootstrapPath: Promise<string> = _bootstrapOk.then((r) => r.path);
+
+// Test 2: missing `role` fails typecheck (required field).
+// @ts-expect-error — missing required field `role`
+const _bootstrapNoRole = bootstrapConfig({ nodeName: "alice" });
+
+// Test 3: role literal outside FirstRunRole fails typecheck. The Rust enum
+// uses `#[serde(rename_all = "snake_case")]` so the only legal literals are
+// "join_the_mesh" and "share_my_internet"; "client" is a NodeRole, not a
+// FirstRunRole, and must be rejected.
+const _bootstrapBadRole = bootstrapConfig({
+  nodeName: "alice",
+  // @ts-expect-error — "client" is not in FirstRunRole
+  role: "client",
+});
+
+// Test 3b: FirstRunRole literal union is exactly the two snake_case values.
+const _roleJoin: FirstRunRole = "join_the_mesh";
+const _roleGateway: FirstRunRole = "share_my_internet";
+// @ts-expect-error — "gateway" (pre-rename_all literal) is not a FirstRunRole
+const _roleBad: FirstRunRole = "gateway";
+
+// BootstrapConfigArgs structural shape — nodeName string + role FirstRunRole.
+const _bootstrapArgs: BootstrapConfigArgs = {
+  nodeName: "alice",
+  role: "share_my_internet",
+};
+
+// Test 4: configExists() takes no params and resolves to { exists, path }.
+const _configExistsOk: Promise<ConfigExistsResult> = configExists();
+const _configExistsShape: Promise<{ exists: boolean; path: string }> =
+  _configExistsOk.then((r) => ({ exists: r.exists, path: r.path }));
+
+// Test 5 (NEGATIVE — proves no new event channel for crash-on-boot):
+// DaemonEvents must NOT grow a `crashOnBoot` key, because Plan 01.1-01
+// routes the crash signal through the existing `daemon://state-changed`
+// event (RpcError.data carries the D-19 discriminator). Adding a
+// `crashOnBoot` key would break the W1 cross-phase invariant
+// (`listen(` count in use-daemon-state.ts must stay exactly 2).
+type _NoCrashOnBootKey = Extract<keyof typeof DaemonEvents, "crashOnBoot">;
+const _noCrashOnBoot: _NoCrashOnBootKey extends never ? true : false = true;
+
 // All references are unused in runtime — the whole point is compile-time.
 void _methods;
 void _methodLookup;
@@ -191,3 +265,14 @@ void _forward;
 void _backward;
 void _transient;
 void _snapshot;
+void _bootstrapOk;
+void _bootstrapPath;
+void _bootstrapNoRole;
+void _bootstrapBadRole;
+void _roleJoin;
+void _roleGateway;
+void _roleBad;
+void _bootstrapArgs;
+void _configExistsOk;
+void _configExistsShape;
+void _noCrashOnBoot;
