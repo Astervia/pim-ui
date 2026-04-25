@@ -4,13 +4,13 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Phase 01.1 plans verified (4 plans, 4 waves)
-last_updated: "2026-04-25T01:46:16.795Z"
-last_activity: 2026-04-24
+last_updated: "2026-04-25T02:47:15.511Z"
+last_activity: 2026-04-25
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 9
+  completed_plans: 10
   percent: 25
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** One app that is honest about what the mesh is actually doing — never abstracts packets into a happy green dot — yet stays reachable enough that a first-time user can succeed in ≤ 3 interactions.
-**Current focus:** Phase 02 — honest-dashboard-peer-surface
+**Current focus:** Phase 01.1 — first-run-config-bootstrap
 
 ## Current Position
 
-Phase: 02 (honest-dashboard-peer-surface) — EXECUTING
-Plan: 6 of 6
+Phase: 01.1 (first-run-config-bootstrap) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-04-24
+Last activity: 2026-04-25
 
 Progress: [███░░░░░░░] 25%
 
