@@ -54,6 +54,18 @@ const CMD = {
   stopDaemon: "daemon_stop",
   /** Returns the most recent `RpcError` the Rust side raised, or null. */
   getLastError: "daemon_last_error",
+  /**
+   * Plan 01.1-01: writes platform-correct user-scope `pim.toml` with the
+   * D-16 default template, keyed on node name + role. Atomic (tmp+fsync+
+   * rename per D-14). Returns { path }.
+   */
+  bootstrapConfig: "bootstrap_config",
+  /**
+   * Plan 01.1-01: stat-checks the resolved user-scope pim.toml path.
+   * D-22 behavior — treats fs errors (EIO/EACCES/…) as `exists: false`
+   * so the AppRoot gate always lands on first-run on a stat failure.
+   */
+  configExists: "config_exists",
 } as const;
 
 /**
@@ -163,6 +175,96 @@ export async function stopDaemon(): Promise<void> {
  */
 export async function lastDaemonError(): Promise<RpcError | null> {
   return invoke(CMD.getLastError);
+}
+
+// ─── Phase 01.1 first-run config bootstrap (SETUP-01/02) ─────────────
+//
+// These two wrappers are Tauri commands, NOT JSON-RPC methods — they
+// bridge the UI to the Rust shell's filesystem operations, not the
+// pim-daemon wire. They deliberately live in rpc.ts (not rpc-types.ts)
+// because they have no entry in `RpcMethodMap`.
+//
+// W1 contract (unchanged by this plan): rpc.ts still owns ZERO Tauri
+// event subscriptions. Plan 01.1-01 routes the crash-on-boot signal
+// through the EXISTING `daemon://state-changed` event whose RpcError
+// payload.data carries the D-19 discriminator — see daemon-state.ts
+// `DaemonLastError` + `isCrashOnBoot` helper. No new event channel
+// here; `DaemonEvents` (aliased as `EVT` below) keeps its two keys.
+
+/**
+ * D-08 role union. The Rust `Role` enum
+ * (`src-tauri/src/daemon/default_config.rs`) uses
+ * `#[serde(rename_all = "snake_case")]`, so the wire values are
+ * `"join_the_mesh"` / `"share_my_internet"` exactly. FirstRunScreen
+ * (Plan 01.1-03) pre-selects `"join_the_mesh"` per D-08 and disables
+ * the gateway radio on macOS/Windows per D-08 platform gate.
+ */
+export type FirstRunRole = "join_the_mesh" | "share_my_internet";
+
+/**
+ * Arguments to `bootstrap_config`. camelCase on the JS side; Tauri
+ * serde auto-maps `nodeName` to Rust `node_name` (same pattern as the
+ * existing `subscriptionId` → `subscription_id` marshal at the
+ * unsubscribe wrapper above). `role` passes through the literal-union
+ * string directly.
+ *
+ * Defined as a `type` (not `interface`) so it structurally extends
+ * `Record<string, unknown>` and satisfies Tauri's `InvokeArgs`
+ * constraint without a manual index signature. Same trick the
+ * @tauri-apps/api types use for typed-args internally.
+ */
+export type BootstrapConfigArgs = {
+  /** Device name, e.g. "pedro-macbook". Validated client-side per D-11. */
+  nodeName: string;
+  /** D-08 role; maps to `[roles] gateway = true|false` in the template. */
+  role: FirstRunRole;
+};
+
+/**
+ * Result of `bootstrap_config`. The absolute resolved path the Rust
+ * side atomically wrote (D-14). Surfaced in the first-run footer
+ * line per D-10 and in the step-2-failure copy per D-13.
+ */
+export interface BootstrapConfigResult {
+  /** Absolute path on disk, e.g. `/Users/pedro/Library/Application Support/pim/pim.toml`. */
+  path: string;
+}
+
+/**
+ * D-13 step 2: write the platform-correct user-scope `pim.toml` with
+ * the D-16 default template. Rust creates the parent dir at 0o700 on
+ * Unix (D-06), writes atomically (tmp+fsync+rename per D-14), and
+ * returns the absolute path. Structured error on each failure mode
+ * (permission denied, read-only FS, etc.) — rendered by Plan 01.1-03
+ * FirstRunScreen as the step-2 inline-error copy.
+ */
+export async function bootstrapConfig(
+  args: BootstrapConfigArgs,
+): Promise<BootstrapConfigResult> {
+  return invoke(CMD.bootstrapConfig, args);
+}
+
+/**
+ * Result of `config_exists`. Both fields are always present — on a
+ * stat failure (D-22), Rust returns `{ exists: false, path: <resolved> }`
+ * so the UI can still render the footer-line path even when no file
+ * is on disk yet.
+ */
+export interface ConfigExistsResult {
+  exists: boolean;
+  /** Absolute path the daemon will look at — resolved even when exists=false. */
+  path: string;
+}
+
+/**
+ * D-01 AppRoot one-shot gate: ask Rust if the user-scope `pim.toml`
+ * exists at the platform-resolved path. Returns `{ exists, path }`.
+ * On any fs error, Rust swallows to `exists: false` per D-22 so the
+ * gate always lands on FirstRunScreen when there is no usable config
+ * (Plan 01.1-03 consumes this).
+ */
+export async function configExists(): Promise<ConfigExistsResult> {
+  return invoke(CMD.configExists);
 }
 
 /**
