@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import { AppRoot } from "./app-root";
 import { TunPermissionProvider } from "./components/brand/tun-permission-modal";
 import "./globals.css";
 
@@ -9,10 +9,16 @@ import "./globals.css";
 // SubscriptionErrorToast behind a single container. TunPermissionProvider
 // stays here — it renders a modal that must be reachable even before the
 // app shell mounts (e.g. first-run TUN grant before any screen renders).
+//
+// Plan 01.1-03 D-01: <AppRoot /> replaces the direct <App /> mount —
+// AppRoot decides whether to render <FirstRunScreen /> (no config yet)
+// or <App /> (config exists → AppShell). TunPermissionProvider stays
+// at the root so requestPermission() is reachable from BOTH branches
+// (D-02).
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <TunPermissionProvider>
-      <App />
+      <AppRoot />
     </TunPermissionProvider>
   </React.StrictMode>,
 );
