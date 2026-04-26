@@ -10,11 +10,10 @@ import "./globals.css";
 // stays here — it renders a modal that must be reachable even before the
 // app shell mounts (e.g. first-run TUN grant before any screen renders).
 //
-// Plan 01.1-03 D-01: <AppRoot /> replaces the direct <App /> mount —
-// AppRoot decides whether to render <FirstRunScreen /> (no config yet)
-// or <App /> (config exists → AppShell). TunPermissionProvider stays
-// at the root so requestPermission() is reachable from BOTH branches
-// (D-02).
+// Plan 01.1-03 D-01: AppRoot replaces the direct App mount — AppRoot
+// decides whether to render FirstRunScreen (no config yet) or AppShell
+// (via App, when config exists). TunPermissionProvider stays at the
+// root so requestPermission() is reachable from BOTH branches (D-02).
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <TunPermissionProvider>
