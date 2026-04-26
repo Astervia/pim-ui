@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 01.1 plans verified (4 plans, 4 waves)
-last_updated: "2026-04-25T03:45:42.033Z"
-last_activity: 2026-04-25
+stopped_at: Completed 01.1-03-PLAN.md
+last_updated: "2026-04-26T23:39:51.259Z"
+last_activity: 2026-04-26
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 11
+  completed_plans: 12
   percent: 25
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 01.1 (first-run-config-bootstrap) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
-Last activity: 2026-04-25
+Last activity: 2026-04-26
 
 Progress: [███░░░░░░░] 25%
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 02-honest-dashboard-peer-surface P03 | 7min | 3 tasks | 8 files |
 | Phase 02-honest-dashboard-peer-surface P04 | 11min | 3 tasks | 9 files |
 | Phase 02-honest-dashboard-peer-surface P05 | 9min | 4 tasks | 11 files |
+| Phase 01.1 P03 | 7 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [Phase 02-honest-dashboard-peer-surface]: Pinned react-window to v1.8.11 (not v2.x) because Plan 02-05's acceptance gate requires FixedSizeList + ListChildComponentProps + scrollToItem — v1 APIs only. v2 renamed to List + rowComponent + scrollToRow.
 - [Phase 02-honest-dashboard-peer-surface]: useLogsStream exposes errorStream: 'logs' | null on the hook result so Plan 02-06's toast can assemble the D-31 'Couldn't subscribe to {stream}' string without re-deriving it.
 - [Phase 02-honest-dashboard-peer-surface]: Narrowed .gitignore 'logs/' rule to root-anchored '/logs/' so src/components/logs/ (Logs-tab UI folder) tracks. Original rule still covers any future top-level log-output folder.
+- [Phase 01.1]: Plan 01.1-03: Platform detection via navigator.userAgent fallback (Tauri 2 plugin-os not in deps); UI-only gating, Rust is source of truth
+- [Phase 01.1]: Plan 01.1-03: D-13 inline-error copy formatted INSIDE useConfigBootstrap hook so screen renders bootstrap.error.message directly — no string interpolation in JSX
+- [Phase 01.1]: Plan 01.1-03: useRef-based dedupe guard for onBootstrapComplete (StrictMode-safe, render-invisible) — pattern matches TunPermissionProvider's resolverRef
 
 ### Roadmap Evolution
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T01:46:16.718Z
-Stopped at: Phase 01.1 plans verified (4 plans, 4 waves)
-Resume file: .planning/phases/01.1-first-run-config-bootstrap/01.1-01-PLAN.md
+Last session: 2026-04-26T23:39:01.611Z
+Stopped at: Completed 01.1-03-PLAN.md
+Resume file: None

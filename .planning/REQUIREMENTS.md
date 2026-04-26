@@ -69,8 +69,8 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### SETUP — first-run config bootstrap (added Phase 01.1)
 
-- [ ] **SETUP-01**: On first launch (no `pim.toml` at the platform-default path), UI detects missing config and renders a single-screen first-run surface instead of the Dashboard or Limited-mode banner; platform paths match the daemon's `DEFAULT_CONFIG` rules (`/etc/pim/pim.toml` Linux system, `~/.config/pim/pim.toml` Linux user, `~/Library/Application Support/pim/pim.toml` macOS, `%APPDATA%\pim\pim.toml` Windows)
-- [ ] **SETUP-02**: First-run surface captures device name (pre-filled from hostname) + role radio (Join the mesh / Share my internet — the latter disabled outside Linux with honest copy) and offers `[ Start pim ]` primary + `[ Customize… ]` secondary (Phase 3 stub); clicking `[ Start pim ]` writes a sane-default `pim.toml` via a new Tauri command and chains to `daemon_start`
+- [x] **SETUP-01**: On first launch (no `pim.toml` at the platform-default path), UI detects missing config and renders a single-screen first-run surface instead of the Dashboard or Limited-mode banner; platform paths match the daemon's `DEFAULT_CONFIG` rules (`/etc/pim/pim.toml` Linux system, `~/.config/pim/pim.toml` Linux user, `~/Library/Application Support/pim/pim.toml` macOS, `%APPDATA%\pim\pim.toml` Windows)
+- [x] **SETUP-02**: First-run surface captures device name (pre-filled from hostname) + role radio (Join the mesh / Share my internet — the latter disabled outside Linux with honest copy) and offers `[ Start pim ]` primary + `[ Customize… ]` secondary (Phase 3 stub); clicking `[ Start pim ]` writes a sane-default `pim.toml` via a new Tauri command and chains to `daemon_start`
 - [ ] **SETUP-03**: If the daemon exits within 500 ms of `daemon_start` (crash-on-boot, e.g. config validation failure), the UI surfaces a `DAEMON ERROR` banner citing the config path and daemon stderr — never a silent "nothing happened" state; detected via the existing Phase 1 `Sidecar::Terminated` event path
 
 ### UX — onboarding + error states + polish
@@ -139,8 +139,8 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | DAEMON-03 | Phase 1 | Complete |
 | DAEMON-04 | Phase 1 | Complete |
 | DAEMON-05 | Phase 1 | Pending |
-| SETUP-01 | Phase 01.1 | Pending |
-| SETUP-02 | Phase 01.1 | Pending |
+| SETUP-01 | Phase 01.1 | Complete |
+| SETUP-02 | Phase 01.1 | Complete |
 | SETUP-03 | Phase 01.1 | Pending |
 | STAT-01 | Phase 2 | Complete |
 | STAT-02 | Phase 2 | Complete |
