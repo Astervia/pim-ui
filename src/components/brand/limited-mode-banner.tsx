@@ -24,7 +24,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useTunPermission } from "./tun-permission-modal";
-import type { DaemonState } from "@/lib/daemon-state";
+import {
+  pickCrashOnBoot,
+  type DaemonState,
+  type DaemonLastError,
+} from "@/lib/daemon-state";
+import type { RpcError } from "@/lib/rpc-types";
 
 export interface LimitedModeBannerProps {
   onOpenLogs?: () => void;
@@ -36,13 +41,55 @@ interface Variant {
   headlineText: string;
   body: string;
   accentClass: string; // "accent" or "destructive"
+  /**
+   * Phase 01.1 D-20 crash-on-boot variant only: a one-line nested sub-row
+   * rendered below `body` carrying `·› {stderr_tail_first_line}`. Undefined
+   * for every other variant — the body `<div>` skips the `<span>` entirely.
+   */
+  subRow?: string;
+  /**
+   * Phase 01.1 D-20: crash-on-boot suppresses the START / RETRY action row
+   * entirely (Phase 3 owns the re-edit / re-bootstrap flow). All historic
+   * variants leave this undefined so their action row continues to render.
+   */
+  suppressActions?: boolean;
 }
 
 function variantFor(
   state: DaemonState,
-  errorMsg: string | null,
+  lastError: DaemonLastError | null,
   externalKill: boolean,
 ): Variant {
+  // Phase 01.1 D-20: crash-on-boot branch. Must run BEFORE the generic
+  // `state === "error"` branch so the more-specific crash copy wins —
+  // Plan 01.1-01 transitions to DaemonState::Error before emitting the
+  // crash payload, so without this ordering the generic body would
+  // render. `pickCrashOnBoot` returns `null` for every non-crash error.
+  const crash = pickCrashOnBoot(lastError);
+  if (crash !== null) {
+    const stderrFirstLine = crash.stderr_tail.split("\n")[0] ?? "";
+    return {
+      headlineGlyph: "✗",
+      headlineText: "DAEMON ERROR",
+      body: `pim-daemon exited in ${crash.elapsed_ms} ms during startup. Check config at ${crash.path}.`,
+      accentClass: "destructive",
+      subRow: stderrFirstLine.length === 0 ? undefined : `·› ${stderrFirstLine}`,
+      suppressActions: true,
+    };
+  }
+
+  // Historic branches: derive the legacy errorMsg locally from the union.
+  // The CrashOnBootError variant has no .message; only the rpc_error
+  // variant does. Narrow with `in` rather than a blanket cast so the
+  // crash variant (already handled above) stays type-safe in case a
+  // future caller forgets the early-return.
+  const errorMsg =
+    lastError === null
+      ? null
+      : "message" in lastError
+        ? (lastError as RpcError).message
+        : null;
+
   if (state === "error") {
     return {
       headlineGlyph: "✗",
@@ -99,21 +146,16 @@ export function LimitedModeBanner({
   const externalKill =
     snapshot.state === "stopped" && snapshot.baselineTimestamp !== null;
 
-  // Phase 01.1 widening: snapshot.lastError is now a discriminated union
-  // (RpcError-with-message OR CrashOnBootError-no-message). The historic
-  // path still reads .message off the rpc_error variant; the new
-  // CrashOnBootError variant doesn't have .message, so narrow with `in`
-  // before access. `null` falls back through to the existing variantFor
-  // logic without changing behavior.
-  const lastErrMessage =
-    snapshot.lastError === null
-      ? null
-      : "message" in snapshot.lastError
-        ? snapshot.lastError.message
-        : null;
+  // Phase 01.1: pass the full DaemonLastError union — variantFor() now
+  // owns the message-extraction AND the D-20 crash-on-boot branch
+  // (`pickCrashOnBoot(lastError)` runs first inside variantFor and wins
+  // when the rpc_error variant carries a `data.kind === "crash_on_boot"`
+  // discriminator). The local message-narrowing that used to live here
+  // was a Phase 1 workaround obsoleted by the union extension.
+  const lastError = snapshot.lastError;
   const v = useMemo(
-    () => variantFor(snapshot.state, lastErrMessage, externalKill),
-    [snapshot.state, lastErrMessage, externalKill],
+    () => variantFor(snapshot.state, lastError, externalKill),
+    [snapshot.state, lastError, externalKill],
   );
 
   const isDestructive = v.accentClass === "destructive";
@@ -158,30 +200,43 @@ export function LimitedModeBanner({
       </header>
       <div className="mt-4 border-t border-border pt-4 font-mono text-sm text-foreground max-w-[60ch] leading-[1.6]">
         {v.body}
-      </div>
-      <div className="mt-4 flex gap-4">
-        <Button
-          type="button"
-          size="lg"
-          onClick={() => {
-            void onStart();
-          }}
-          aria-disabled={
-            snapshot.state === "starting" ||
-            snapshot.state === "reconnecting" ||
-            undefined
-          }
-        >
-          {snapshot.state === "error" ? "RETRY START" : "START DAEMON"}
-        </Button>
-        {/* I2: only render [ VIEW LOGS ] if the parent provides a handler.
-            Phase 1 does not — Phase 2 wires the logs tab. */}
-        {onOpenLogs && (
-          <Button type="button" variant="ghost" size="lg" onClick={onOpenLogs}>
-            VIEW LOGS
-          </Button>
+        {/* Phase 01.1 D-20: crash-on-boot variant appends a one-line
+            stderr-tail sub-row. `·› ` lead-in is U+00B7 + U+203A. */}
+        {v.subRow === undefined ? null : (
+          <span className="block mt-2 text-xs text-muted-foreground font-code">
+            {v.subRow}
+          </span>
         )}
       </div>
+      {/* Phase 01.1 D-20: crash-on-boot suppresses START / RETRY entirely
+          — Phase 3 owns the re-edit / re-bootstrap flow. Every historic
+          variant leaves `suppressActions` undefined so the action row
+          continues to render with its existing button(s). */}
+      {v.suppressActions === true ? null : (
+        <div className="mt-4 flex gap-4">
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => {
+              void onStart();
+            }}
+            aria-disabled={
+              snapshot.state === "starting" ||
+              snapshot.state === "reconnecting" ||
+              undefined
+            }
+          >
+            {snapshot.state === "error" ? "RETRY START" : "START DAEMON"}
+          </Button>
+          {/* I2: only render [ VIEW LOGS ] if the parent provides a handler.
+              Phase 1 does not — Phase 2 wires the logs tab. */}
+          {onOpenLogs && (
+            <Button type="button" variant="ghost" size="lg" onClick={onOpenLogs}>
+              VIEW LOGS
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
