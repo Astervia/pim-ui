@@ -240,6 +240,7 @@ export function FirstRunScreen({
                   "border-l-2 border-transparent",
                   "focus-within:outline-2 focus-within:outline-ring focus-within:outline-offset-[-2px]",
                   "hover:bg-popover/60 hover:border-border-active",
+                  role === roleOptions[0].value && "border-primary bg-popover/30",
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -255,13 +256,19 @@ export function FirstRunScreen({
                     aria-hidden="true"
                     className={
                       role === roleOptions[0].value
-                        ? "text-primary"
+                        ? "text-primary phosphor"
                         : "text-muted-foreground"
                     }
                   >
                     {role === roleOptions[0].value ? "◆" : "○"}
                   </span>
-                  <span className="text-foreground">
+                  <span
+                    className={cn(
+                      role === roleOptions[0].value
+                        ? "text-primary font-semibold"
+                        : "text-foreground",
+                    )}
+                  >
                     {roleOptions[0].primary}
                   </span>
                 </span>
@@ -271,12 +278,16 @@ export function FirstRunScreen({
               </label>
               <label
                 className={cn(
-                  "flex flex-col gap-1 -ml-3 pl-3 cursor-pointer",
+                  "flex flex-col gap-1 -ml-3 pl-3",
                   "border-l-2 border-transparent",
-                  "focus-within:outline-2 focus-within:outline-ring focus-within:outline-offset-[-2px]",
                   roleOptions[1].disabled === true
-                    ? "opacity-60 cursor-not-allowed"
-                    : "hover:bg-popover/60 hover:border-border-active",
+                    ? "opacity-45 cursor-not-allowed select-none"
+                    : cn(
+                        "cursor-pointer",
+                        "focus-within:outline-2 focus-within:outline-ring focus-within:outline-offset-[-2px]",
+                        "hover:bg-popover/60 hover:border-border-active",
+                        role === roleOptions[1].value && "border-primary bg-popover/30",
+                      ),
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -295,22 +306,35 @@ export function FirstRunScreen({
                   />
                   <span
                     aria-hidden="true"
-                    className={
+                    className={cn(
+                      "font-mono",
                       role === roleOptions[1].value
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    }
+                        ? "text-primary phosphor"
+                        : "text-muted-foreground",
+                    )}
                   >
-                    {role === roleOptions[1].value ? "◆" : "○"}
+                    {roleOptions[1].disabled === true
+                      ? "⊘"
+                      : role === roleOptions[1].value
+                        ? "◆"
+                        : "○"}
                   </span>
                   <span
-                    className={
+                    className={cn(
+                      "flex items-baseline gap-2",
                       roleOptions[1].disabled === true
                         ? "text-muted-foreground"
-                        : "text-foreground"
-                    }
+                        : role === roleOptions[1].value
+                          ? "text-primary font-semibold"
+                          : "text-foreground",
+                    )}
                   >
-                    {roleOptions[1].primary}
+                    <span>{roleOptions[1].primary}</span>
+                    {roleOptions[1].disabled === true ? (
+                      <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                        (Linux only — unavailable)
+                      </span>
+                    ) : null}
                   </span>
                 </span>
                 <span className="font-code text-xs text-muted-foreground pl-6">
