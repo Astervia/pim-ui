@@ -23,6 +23,10 @@
  *   - Merge `status.event` into `snapshot.status` per D-06 (interface_up/down,
  *     gateway_selected/lost, route_on/off, role_changed); `kill_switch` is
  *     intentionally deferred to Phase 4.
+ *   - Phase 4 D-31: kill_switch handler upgraded — defensively sets
+ *     selected_gateway=null on snapshot.routes (so KillSwitchBanner's
+ *     derived condition fires) AND emits a sonner toast. W1 invariant
+ *     preserved (no new Tauri-side subscription).
  *   - Merge `peers.event { connected | disconnected | state_changed }` into
  *     `snapshot.status.peers` (new array ref); push `discovered` events onto
  *     `snapshot.discovered` with dedupe by (address + mechanism).
@@ -40,6 +44,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { toast } from "sonner";
 import {
   DaemonEvents,
   lastDaemonError,
@@ -50,6 +55,7 @@ import {
   type DaemonSubscription,
 } from "@/lib/rpc";
 import { callDaemon } from "@/lib/rpc";
+import { KILL_SWITCH_TOAST } from "@/lib/copy";
 import type {
   NodeRole,
   PeerDiscovered,
@@ -228,10 +234,19 @@ function handleStatusEvent(evt: StatusEvent): void {
       if (Array.isArray(role)) next.role = role as NodeRole[];
       break;
     }
-    case "kill_switch":
-      // Phase 4 surfaces kill_switch UI (UX-03). Phase 2 logs and ignores.
-      console.info("kill_switch event ignored in phase 2");
-      return;
+    case "kill_switch": {
+      // Phase 4 D-23 + D-31: defensive snapshot mutation. The daemon SHOULD
+      // emit gateway_lost before kill_switch (clearing selected_gateway
+      // already), but we cannot rely on that. Re-set null here so the
+      // KillSwitchBanner derived condition (route_on===true &&
+      // selected_gateway===null) is reliably satisfied even when
+      // kill_switch arrives standalone.
+      next.routes = { ...current.routes, selected_gateway: null };
+      // Phase 2 D-31 — sonner Toaster is mounted at AppShell. One-shot
+      // toast keeps the kill-switch arrival visible across screens.
+      void toast.error(KILL_SWITCH_TOAST, { duration: 6000 });
+      break;
+    }
     default:
       // Unknown kind — no-op, do not produce a new snapshot reference.
       return;
