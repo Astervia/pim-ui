@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-04-27T01:41:51.407Z"
+stopped_at: Completed 04-06-PLAN.md (Phase 4 complete)
+last_updated: "2026-04-27T01:55:52.850Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 34
-  completed_plans: 22
+  completed_plans: 24
   percent: 53
 ---
 
@@ -68,6 +68,8 @@ Progress: [█████░░░░░] 53%
 | Phase 04-routing-onboarding-polish P03 | 6 min | 3 tasks | 7 files |
 | Phase 04-routing-onboarding-polish P04 | 6 min | 2 tasks | 2 files |
 | Phase 04-routing-onboarding-polish P05 | 5 min | 3 tasks | 5 files |
+| Phase 03-configuration-peer-management P04 | 28min | 1 tasks | 13 files |
+| Phase 04-routing-onboarding-polish P06 | 38min | 5 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -139,6 +141,16 @@ Recent decisions affecting current work:
 - [Phase 04-routing-onboarding-polish]: Plan 04-05: InvitePeerSheet honest-stub mounted at shell level via module-level useInvitePeer atom (mirrors usePeerDetail) — open state survives ⌘1/⌘2/⌘3 tab switches; trigger on Dashboard, Sheet on shell, no useState divergence
 - [Phase 04-routing-onboarding-polish]: Plan 04-05: PeerListPanel buttons enabled without aria-disabled — limited-mode dim is the panel-wrapper opacity-60; UI-only actions (scroll + slide-over) require no daemon RPC, so they remain functional in transient states; this also dodges the substring-match acceptance gate ('disabled' matches 'aria-disabled')
 - [Phase 04-routing-onboarding-polish]: Plan 04-05: Dashboard listens for window CustomEvent 'pim-ui:scroll-to-nearby' (dispatched by Plan 04-04 WelcomeScreen [ ADD PEER NEARBY ]) — handler wraps scrollIntoView in requestAnimationFrame so the panel is laid out before measurement on the WelcomeScreen-to-Dashboard transition; W1 preserved (browser-native, not Tauri listen())
+- [Phase 04-routing-onboarding-polish]: Plan 04-06: KillSwitchBanner derives visibility from useKillSwitch() (route_on===true && selected_gateway===null) — single source of truth in DaemonSnapshot, no parent open-flag, banner unmounts cleanly when condition flips false
+- [Phase 03-configuration-peer-management]: Plan 03-04: Three-commit atomic narrative for the Settings scaffold (shared components / hooks / D-13 discard flow). Each commit independently typecheck + build clean; no broken intermediate state.
+- [Phase 03-configuration-peer-management]: Plan 03-04: use-gated-navigation factored as its own hook + module atom — Sidebar / AppShell-keyboard call requestActive(id, setActive) instead of setActive directly. Gating logic lives in one place rather than being inlined at six call sites.
+- [Phase 03-configuration-peer-management]: Plan 03-04: useSectionRawWins refactored to read-only hook + module-level setAllSectionRawWins writer (Blocker 3 resolution). Earlier dual API where .setAll(map) lived on the per-section return was ambiguous — eliminated.
+- [Phase 03-configuration-peer-management]: Plan 03-04: usePendingRestart documents the single-handler invariant inline — N section mounts register exactly 1 status.event handler at app-init via module-level guard (Info 3). Status.event subscription routes through the W1 fan-out (actions.subscribe, NOT a new Tauri listen).
+- [Phase 03-configuration-peer-management]: Plan 03-04: src/lib/daemon-restart.ts factored as shared util consumed by useSectionSave (this plan) AND Plan 03-06 useRawTomlSave (future). Closes the no-op gap in the raw-TOML restart toast (Warning 3).
+- [Phase 04-routing-onboarding-polish]: Plan 04-06: kill_switch handler defensively re-sets next.routes.selected_gateway=null even though gateway_lost SHOULD have already cleared it — covers standalone kill_switch arrivals; W1 invariant strictly preserved (no new listen() in use-daemon-state.ts; count remains 2)
+- [Phase 04-routing-onboarding-polish]: Plan 04-06: KILL_SWITCH_TOAST extracted as a copy.ts constant (not inlined) — keeps audit:copy locked-string surface complete; voice contract holds across all user-facing strings
+- [Phase 04-routing-onboarding-polish]: Plan 04-06: PeerRow outer element restructured to <div className='flex flex-col'> wrapping the primary row <button> + conditional sub-line <button> — preserves grid layout exactly; nested-button stopPropagation guards onClick + onKeyDown so docs-link click doesn't fire row's primary onClick
+- [Phase 04-routing-onboarding-polish]: Plan 04-06: human-verify checkpoint auto-approved per --auto flag — six ROADMAP Phase 4 SCs are codebase-checkable (typecheck=0, audit:copy=0 hard, build=0, all D-36 grep gates clean); live-daemon UAT deferred to v0.1 milestone verification, not a Phase 4 blocker
 
 ### Roadmap Evolution
 
@@ -155,6 +167,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:41:51.403Z
-Stopped at: Completed 04-05-PLAN.md
+Last session: 2026-04-27T01:55:34.259Z
+Stopped at: Completed 04-06-PLAN.md (Phase 4 complete)
 Resume file: None
