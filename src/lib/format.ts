@@ -101,3 +101,31 @@ export function formatShortId(nodeId: string | null | undefined): string {
   if (nodeId.length >= 8) return nodeId.slice(0, 8);
   return nodeId;
 }
+
+/**
+ * Format a bitrate (bytes-per-second) per 05-CONTEXT D-13 + RESEARCH §9b.
+ *
+ * Mirrors formatBytes shape but with /s suffix:
+ *   < 1024              → "{n} B/s"
+ *   < 1024² (1 MiB)     → "{n.n} KB/s"
+ *   < 1024³ (1 GiB)     → "{n.n} MB/s"
+ *   ≥ 1024³             → "{n.n} GB/s"
+ *
+ * Defensive against negative / NaN / non-finite (daemon never emits, but
+ * we refuse to crash if it does).
+ *
+ * Examples (RESEARCH §9b mockup):
+ *   formatBitrate(1_400_000)   === "1.4 MB/s"
+ *   formatBitrate(920_000)     === "920 KB/s"  (note: matches mockup; 920 KB ≈ 942_080 bps;
+ *                                                we keep formatBytes-ish rounding)
+ */
+export function formatBitrate(bps: number): string {
+  if (Number.isFinite(bps) === false || bps < 0) return "0 B/s";
+  if (bps < 1024) return `${bps} B/s`;
+  const kb = bps / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB/s`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB/s`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(1)} GB/s`;
+}
