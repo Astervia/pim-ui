@@ -52,6 +52,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 import { CollapsibleCliPanel } from "@/components/settings/collapsible-cli-panel";
+import { IdentitySection } from "@/components/settings/sections/identity-section";
+import { TransportSection } from "@/components/settings/sections/transport-section";
+import { DiscoverySection } from "@/components/settings/sections/discovery-section";
+import { TrustSection } from "@/components/settings/sections/trust-section";
 
 type OpenMap = Record<SectionId, boolean>;
 
@@ -114,45 +118,25 @@ export function SettingsScreen() {
     <TooltipProvider>
       <main aria-label="settings" className="flex flex-col">
         <div className="max-w-3xl flex flex-col gap-6">
-          <CollapsibleCliPanel
-            id="identity"
-            title="IDENTITY"
-            summary={stubSummary("plan 03-05 renders this")}
+          <IdentitySection
             open={open.identity}
             onOpenChange={setOpenFor("identity")}
-          >
-            <p className="text-muted-foreground">identity section — plan 03-05</p>
-          </CollapsibleCliPanel>
+          />
 
-          <CollapsibleCliPanel
-            id="transport"
-            title="TRANSPORT"
-            summary={stubSummary("plan 03-05 renders this")}
+          <TransportSection
             open={open.transport}
             onOpenChange={setOpenFor("transport")}
-          >
-            <p className="text-muted-foreground">transport section — plan 03-05</p>
-          </CollapsibleCliPanel>
+          />
 
-          <CollapsibleCliPanel
-            id="discovery"
-            title="DISCOVERY"
-            summary={stubSummary("plan 03-05 renders this")}
+          <DiscoverySection
             open={open.discovery}
             onOpenChange={setOpenFor("discovery")}
-          >
-            <p className="text-muted-foreground">discovery section — plan 03-05</p>
-          </CollapsibleCliPanel>
+          />
 
-          <CollapsibleCliPanel
-            id="trust"
-            title="TRUST"
-            summary={stubSummary("plan 03-05 renders this")}
+          <TrustSection
             open={open.trust}
             onOpenChange={setOpenFor("trust")}
-          >
-            <p className="text-muted-foreground">trust section — plan 03-05</p>
-          </CollapsibleCliPanel>
+          />
 
           <CollapsibleCliPanel
             id="routing"
