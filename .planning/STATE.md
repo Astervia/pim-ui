@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-27T01:30:54.001Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-04-27T01:32:03.520Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 34
-  completed_plans: 19
+  completed_plans: 20
   percent: 53
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -65,6 +65,7 @@ Progress: [█████░░░░░] 53%
 | Phase 03-configuration-peer-management P03 | 22min | 2 tasks | 12 files |
 | Phase 04-routing-onboarding-polish P01 | 15 min | 4 tasks | 8 files |
 | Phase 04-routing-onboarding-polish P02 | 6 min | 4 tasks | 5 files |
+| Phase 04-routing-onboarding-polish P03 | 6 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Recent decisions affecting current work:
 - [Phase 04-routing-onboarding-polish]: Plan 04-02: useRouteTable refcount + module-level shared state mirrors usePeerTroubleshootLog pattern — single subscription, single fetch regardless of consumer count, clean unmount on last-consumer-leave
 - [Phase 04-routing-onboarding-polish]: Plan 04-02: RouteTogglePanel pending state uses local pending flag overriding routeOn/expanded for badge derivation — keeps cursor-blink visible during in-flight RPC without optimistic UI; snapshot remains source of truth (route_on event flips the body line)
 - [Phase 04-routing-onboarding-polish]: Plan 04-02: badge cursor-blink rendered via wrapper-class [&_header_span:last-child]:cursor-blink rather than mutating CliPanel API — Phase 2 D-policy keeps shared primitives untouched
+- [Phase 04-routing-onboarding-polish]: Plan 04-03: CliPanel does not (currently) expose a headerActions slot — RouteTablePanel renders the D-20 [ refresh ] button as the first child inside the panel body (above the column header), keeping the panel primitive API untouched
+- [Phase 04-routing-onboarding-polish]: Plan 04-03: KnownGatewaysPanel renders 4-then-4 ellipsis short id (a3c2…7f8e) per D-17 mockup — distinct from the 8-char prefix convention used elsewhere because the routing screen wants the user to spot-match BOTH start AND end of the 64-char node id when comparing to log lines
+- [Phase 04-routing-onboarding-polish]: Plan 04-03: Brand-comment grep gates trip on JSDoc literal mentions of forbidden tokens (gradient/listen/rounded) — comments rephrased to 'fade-blends' / 'no new Tauri-side subscription' so the audit grep passes on file content alone. Future routing-folder panels must follow the same comment-vocabulary discipline
 
 ### Roadmap Evolution
 
@@ -143,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:30:53.997Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-04-27T01:32:03.517Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
