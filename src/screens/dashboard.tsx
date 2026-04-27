@@ -18,6 +18,14 @@
  * + useRouteTable; this screen passes only `limitedMode` so dim
  * opacity stays consistent across the panel stack.
  *
+ * D-06/D-07/D-08 (Phase 4 Plan 04-05): Dashboard wires PeerListPanel's
+ * two enabled action buttons. `[ + Add peer nearby ]` calls a local
+ * scrollToNearby() which scrolls the NearbyPanel into view via a ref;
+ * the same scroll is also triggered by the `pim-ui:scroll-to-nearby`
+ * window event dispatched by the WelcomeScreen (Plan 04-04) on the
+ * `[ ADD PEER NEARBY ]` path. `[ Invite peer ]` opens the shell-level
+ * InvitePeerSheet via useInvitePeer().open().
+ *
  * D-30 limited mode: when daemon.state is anything other than "running", every panel dims
  * to opacity-60 and badges flip to [STALE]. The IdentityPanel also
  * appends a relative "last seen: N ago" hint derived from
@@ -41,11 +49,13 @@
  * panels render cleanly before the slide-over plumbing lands.
  */
 
+import { useEffect, useRef } from "react";
 import type { PeerSummary, PeerDiscovered } from "@/lib/rpc-types";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useStatus } from "@/hooks/use-status";
 import { usePeers } from "@/hooks/use-peers";
 import { useDiscovered } from "@/hooks/use-discovered";
+import { useInvitePeer } from "@/hooks/use-invite-peer";
 import { IdentityPanel } from "@/components/identity/identity-panel";
 import { PeerListPanel } from "@/components/peers/peer-list-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
@@ -66,6 +76,32 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
   const status = useStatus();
   const peers = usePeers();
   const discovered = useDiscovered();
+  const { open: openInvite } = useInvitePeer();
+
+  // Phase 4 D-07: ref to the NearbyPanel wrapper so [ + Add peer nearby ]
+  // (and the WelcomeScreen window event below) can scroll it into view.
+  const nearbyRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToNearby = () => {
+    if (nearbyRef.current === null) return;
+    nearbyRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
+  // Phase 4 D-07: Plan 04-04's WelcomeScreen [ ADD PEER NEARBY ] path
+  // dispatches a `pim-ui:scroll-to-nearby` window event AFTER calling
+  // onComplete() (which mounts AppShell + Dashboard). We wrap the scroll
+  // in requestAnimationFrame so the panel is laid out before we measure.
+  // Browser-native event channel — W1 invariant preserved (no Tauri
+  // listen() call added by this hook).
+  useEffect(() => {
+    const handler = () => {
+      requestAnimationFrame(scrollToNearby);
+    };
+    window.addEventListener("pim-ui:scroll-to-nearby", handler);
+    return () => {
+      window.removeEventListener("pim-ui:scroll-to-nearby", handler);
+    };
+  }, []);
 
   // D-30: limited mode is any non-`running` daemon state. Panels stay
   // visible with last-known data but dim to opacity-60.
@@ -99,14 +135,18 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
       <PeerListPanel
         peers={peers}
         onPeerSelect={onPeerSelect}
+        onAddPeerNearby={scrollToNearby}
+        onInvitePeer={openInvite}
         limitedMode={limitedMode}
       />
 
-      <NearbyPanel
-        discovered={discovered}
-        onPair={onNearbyPair}
-        limitedMode={limitedMode}
-      />
+      <div ref={nearbyRef}>
+        <NearbyPanel
+          discovered={discovered}
+          onPair={onNearbyPair}
+          limitedMode={limitedMode}
+        />
+      </div>
 
       <MetricsPanel status={status} limitedMode={limitedMode} />
     </div>

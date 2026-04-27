@@ -8,11 +8,12 @@
  *   - Empty-state copy D-14 VERBATIM: `no peers connected · discovery is
  *     active`. Never the chipper onboarding-style exhortation we refuse
  *     by contract (P5 solo-mode, STYLE.md §Voice).
- *   - Two disabled ActionRow buttons below the list, visible regardless
+ *   - Two enabled ActionRow buttons below the list, visible regardless
  *     of whether the list is empty: `[ + Add peer nearby ]` and
- *     `[ Invite peer ]`, each with the tooltip `pairing UI lands in
- *     phase 4` (Phase 4 ships the pairing UI; Phase 2 is honest about
- *     what it can and cannot do).
+ *     `[ Invite peer ]`. Click handlers come from the parent (Dashboard)
+ *     via onAddPeerNearby / onInvitePeer props (Phase 4 D-06). The
+ *     Phase-2 placeholder tooltip is gone now that Phase 4 ships the
+ *     pairing affordances; aria-label replaces title=.
  *
  * D-30 limited mode: dims to opacity-60 and flips the connected-count
  * badge variant to muted.
@@ -32,12 +33,18 @@ import { cn } from "@/lib/utils";
 export interface PeerListPanelProps {
   peers: PeerSummary[];
   onPeerSelect?: (peer: PeerSummary) => void;
+  /** Phase 4 D-06/D-07: scroll the NearbyPanel into view. */
+  onAddPeerNearby?: () => void;
+  /** Phase 4 D-06/D-08: open the InvitePeerSheet. */
+  onInvitePeer?: () => void;
   limitedMode?: boolean;
 }
 
 export function PeerListPanel({
   peers,
   onPeerSelect,
+  onAddPeerNearby,
+  onInvitePeer,
   limitedMode = false,
 }: PeerListPanelProps) {
   const connectedCount = peers.filter(
@@ -87,20 +94,29 @@ export function PeerListPanel({
         </ul>
       )}
 
-      {/* ActionRow — disabled in Phase 2; pairing UI is Phase 4 work.
-          Button children start with "[" so <Button> does NOT re-bracket. */}
+      {/* ActionRow — Phase 4 D-06: both buttons enabled; click handlers
+          come from Dashboard (onAddPeerNearby / onInvitePeer). Button
+          children start with "[" so <Button> does NOT re-bracket.
+          Limited-mode dim is handled by the panel wrapper's opacity-60;
+          the buttons themselves remain functional so the user can still
+          open the InvitePeerSheet (UI-only, no daemon RPC) or scroll to
+          NearbyPanel while the daemon is in a transient state. */}
       <div className="mt-4 pt-3 border-t border-border flex gap-4 px-4">
         <Button
           variant="default"
-          disabled
-          title="pairing UI lands in phase 4"
+          aria-label="add peer nearby"
+          onClick={() => {
+            if (onAddPeerNearby !== undefined) onAddPeerNearby();
+          }}
         >
           [ + Add peer nearby ]
         </Button>
         <Button
           variant="default"
-          disabled
-          title="pairing UI lands in phase 4"
+          aria-label="invite peer"
+          onClick={() => {
+            if (onInvitePeer !== undefined) onInvitePeer();
+          }}
         >
           [ Invite peer ]
         </Button>
