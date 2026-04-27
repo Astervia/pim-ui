@@ -35,9 +35,10 @@
  * ⌘⇧1 / ⌘⌥1 etc. pass through so browser + DevTools shortcuts stay live.
  *
  * W1 contract: window.addEventListener('keydown', …) is a BROWSER event,
- * not a Tauri event — `listen(...)` from @tauri-apps/api/event is NOT
- * called here. Custom-event dispatch (window.dispatchEvent + addEventListener
- * on Plan 03-04 side) is also browser-native, not Tauri.
+ * not a Tauri event — the Tauri-API subscription helper from
+ * @tauri-apps/api/event is NOT used here. Custom-event dispatch
+ * (window.dispatchEvent + addEventListener on Plan 03-04 side) is
+ * also browser-native, not Tauri.
  *
  * Extension seams (Wave 2):
  *   - Plans 02-03/04/05 mount screen content inside ActiveScreen (not
@@ -170,9 +171,9 @@ export function AppShell() {
           break;
         case "ArrowUp":
           // D-06: ⌘↑ collapses all settings sections — no-op on other
-          // tabs. Plan 03-04 SettingsScreen binds the listener for
+          // tabs. Plan 03-04 SettingsScreen binds the handler for
           // ownership-by-the-Settings-surface (browser CustomEvent, NOT
-          // a Tauri listen() — W1 preserved).
+          // a Tauri-API subscription — W1 preserved).
           if (active === "settings") {
             e.preventDefault();
             window.dispatchEvent(new CustomEvent("pim:settings-collapse-all"));
