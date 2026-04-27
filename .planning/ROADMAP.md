@@ -160,7 +160,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
+| 1. RPC Bridge & Daemon Lifecycle | 4/4 | Complete   | 2026-04-27 |
 | 01.1. First-run config bootstrap | 4/4 | Complete    | 2026-04-27 |
 | 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
 | 3. Configuration & Peer Management | 6/7 | In progress | - |
