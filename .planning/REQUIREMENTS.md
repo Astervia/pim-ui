@@ -54,10 +54,10 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 ### CONF — configuration (form + raw)
 
 - [x] **CONF-01**: Settings page is organized by function — Identity, Transport, Discovery, Trust, Routing, Gateway, Notifications, Advanced (raw), About — each collapsible with a one-line summary visible collapsed
-- [ ] **CONF-02**: User can edit identity section (node name)
-- [ ] **CONF-03**: User can edit transport section (interface name, MTU, mesh_ip static/auto, listen port)
-- [ ] **CONF-04**: User can edit discovery section (broadcast on/off, bluetooth on/off, wifi_direct on/off, auto-connect)
-- [ ] **CONF-05**: User can edit trust section (authorization policy radio: allow_all / allow_list / TOFU, plus trusted-peers list)
+- [x] **CONF-02**: User can edit identity section (node name)
+- [x] **CONF-03**: User can edit transport section (interface name, MTU, mesh_ip static/auto, listen port)
+- [x] **CONF-04**: User can edit discovery section (broadcast on/off, bluetooth on/off, wifi_direct on/off, auto-connect)
+- [x] **CONF-05**: User can edit trust section (authorization policy radio: allow_all / allow_list / TOFU, plus trusted-peers list)
 - [x] **CONF-06**: Raw TOML editor with validation — server-side via `config.save({dry_run: true})`; inline errors with line/column when available
 - [x] **CONF-07**: When raw save contains content unrepresentable in the form view, banner shows "Raw is source of truth — form view shows a subset" on form reopen (1Password pattern)
 
@@ -154,10 +154,10 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | PEER-02 | Phase 3 | Complete |
 | PEER-03 | Phase 3 | Complete |
 | CONF-01 | Phase 3 | Complete |
-| CONF-02 | Phase 3 | Pending |
-| CONF-03 | Phase 3 | Pending |
-| CONF-04 | Phase 3 | Pending |
-| CONF-05 | Phase 3 | Pending |
+| CONF-02 | Phase 3 | Complete |
+| CONF-03 | Phase 3 | Complete |
+| CONF-04 | Phase 3 | Complete |
+| CONF-05 | Phase 3 | Complete |
 | CONF-06 | Phase 3 | Complete |
 | CONF-07 | Phase 3 | Complete |
 | OBS-02 | Phase 3 | Complete |

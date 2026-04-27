@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-06-PLAN.md (Phase 4 complete)
-last_updated: "2026-04-27T02:02:52.868Z"
+stopped_at: Completed 03-05-PLAN.md (CONF-02..05)
+last_updated: "2026-04-27T02:07:44.390Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 24
+  completed_plans: 25
   percent: 71
 ---
 
@@ -70,6 +70,7 @@ Progress: [███████░░░] 71%
 | Phase 04-routing-onboarding-polish P05 | 5 min | 3 tasks | 5 files |
 | Phase 03-configuration-peer-management P04 | 28min | 1 tasks | 13 files |
 | Phase 04-routing-onboarding-polish P06 | 38min | 5 tasks | 5 files |
+| Phase 03-configuration-peer-management P05 | 6min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,11 @@ Recent decisions affecting current work:
 - [Phase 04-routing-onboarding-polish]: Plan 04-06: KILL_SWITCH_TOAST extracted as a copy.ts constant (not inlined) — keeps audit:copy locked-string surface complete; voice contract holds across all user-facing strings
 - [Phase 04-routing-onboarding-polish]: Plan 04-06: PeerRow outer element restructured to <div className='flex flex-col'> wrapping the primary row <button> + conditional sub-line <button> — preserves grid layout exactly; nested-button stopPropagation guards onClick + onKeyDown so docs-link click doesn't fire row's primary onClick
 - [Phase 04-routing-onboarding-polish]: Plan 04-06: human-verify checkpoint auto-approved per --auto flag — six ROADMAP Phase 4 SCs are codebase-checkable (typecheck=0, audit:copy=0 hard, build=0, all D-36 grep gates clean); live-daemon UAT deferred to v0.1 milestone verification, not a Phase 4 blocker
+- [Phase 03-configuration-peer-management]: Plan 03-05: Single atomic commit per the plan's explicit ## Commit directive — four sections + SettingsScreen wire-up landed together; intermediate per-section split was rejected to honor the plan's commit-narrative.
+- [Phase 03-configuration-peer-management]: Plan 03-05: Identity Public key row renders fallback note 'pubkey not exposed yet · daemon Status v1 omits this' rather than omitting — preserves IA stability per UX-PLAN §1 P1 since rpc-types Status interface defines node_id + node_id_short but no public_key field.
+- [Phase 03-configuration-peer-management]: Plan 03-05: react-hook-form sections seed both defaultValues AND values from useSettingsConfig — the values prop keeps the form synced when refetch fires after a save (D-29) without losing dirty-state baseline.
+- [Phase 03-configuration-peer-management]: Plan 03-05: TrustSection tolerates either security.allow_list[] or security.trust_store[] for the read-only trusted-peers list — silently falls through to the empty state when neither shape is present in parsed base.
+- [Phase 03-configuration-peer-management]: Plan 03-05: Per-section error mapping wired via useEffect: when fieldErrors[wireName] is non-empty the section calls form.setError(localKey); cleared via form.clearErrors when daemon-side error goes away. Pattern bridges daemon error paths and react-hook-form's <FormMessage>.
 
 ### Roadmap Evolution
 
@@ -167,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:55:34.259Z
-Stopped at: Completed 04-06-PLAN.md (Phase 4 complete)
+Last session: 2026-04-27T02:07:44.387Z
+Stopped at: Completed 03-05-PLAN.md (CONF-02..05)
 Resume file: None
