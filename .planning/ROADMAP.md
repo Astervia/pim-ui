@@ -29,7 +29,7 @@ explicitly not in this roadmap.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: RPC Bridge & Daemon Lifecycle** - Live JSON-RPC 2.0 over Unix socket, daemon sidecar start/stop, honest connection state (completed 2026-04-24)
-- [ ] **Phase 2: Honest Dashboard & Peer Surface** - Reactive status stream, peer list with true transport info, nearby/incoming pair approval, live logs
+- [x] **Phase 2: Honest Dashboard & Peer Surface** - Reactive status stream, peer list with true transport info, nearby/incoming pair approval, live logs (completed 2026-04-27)
 - [ ] **Phase 3: Configuration & Peer Management** - Settings sections with raw-TOML-as-authority, static peer add/remove, log filters + debug snapshot
 - [ ] **Phase 4: Routing & Onboarding Polish** - Route-internet-via-mesh toggle with pre-flight, routing table, three-step onboarding, solo mode, honest error copy
 - [ ] **Phase 5: Gateway Mode & System Surfaces** - Gateway pre-flight + enable (Linux), conntrack gauge, menu-bar popover, tray/AppIndicator, command palette, toast + system notifications
@@ -71,7 +71,7 @@ Plans:
 - [x] 01.1-01-PLAN.md — Rust foundation: config_path resolver + default_config TOML template + bootstrap_config + config_exists Tauri commands + sidecar crash-on-boot detection routed through existing daemon://state-changed event (SETUP-01/02/03 backend)
 - [x] 01.1-02-PLAN.md — TS contract: bootstrapConfig + configExists wrappers + DaemonLastError discriminated union + isCrashOnBoot/pickCrashOnBoot helpers (SETUP-01/02/03 frontend types) — preserves W1 cross-phase invariant (listen() count unchanged)
 - [x] 01.1-03-PLAN.md — UI: AppRoot router + FirstRunScreen (D-07/D-08/D-09/D-13) + useConfigBootstrap boot-sequence hook + main.tsx wire-in (SETUP-01/02 frontend)
-- [ ] 01.1-04-PLAN.md — LimitedModeBanner crash-on-boot variant (D-20) + final human-verify checkpoint walking all 6 ROADMAP Phase 01.1 SCs (SETUP-03)
+- [x] 01.1-04-PLAN.md — LimitedModeBanner crash-on-boot variant (D-20) + final human-verify checkpoint walking all 6 ROADMAP Phase 01.1 SCs (SETUP-03) (completed 2026-04-27)
 **UI hint**: yes
 
 ### Phase 2: Honest Dashboard & Peer Surface
@@ -93,7 +93,7 @@ Plans:
 - [x] 02-03-PLAN.md — Dashboard 4-panel layout: IdentityPanel + PeerListPanel + NearbyPanel + MetricsPanel + PeerRow + NearbyRow (STAT-01, STAT-02, STAT-03, PEER-01, PEER-05)
 - [x] 02-04-PLAN.md — Peer Detail slide-over + Pair Approval modal + sheet primitive install + troubleshoot-log buffer (PEER-04, PEER-06)
 - [x] 02-05-PLAN.md — Logs tab: select + scroll-area primitives, react-window virtualized list, useLogsStream subscription lifecycle, level + peer filters (OBS-01)
-- [ ] 02-06-PLAN.md — Integration: sonner Toaster mount, SubscriptionErrorToast (D-31), show-why → Logs wiring (D-09), human-verify checkpoint against all 7 ROADMAP success criteria
+- [x] 02-06-PLAN.md — Integration: sonner Toaster mount, SubscriptionErrorToast (D-31), show-why → Logs wiring (D-09), human-verify checkpoint against all 7 ROADMAP success criteria (completed 2026-04-27)
 **UI hint**: yes
 
 ### Phase 3: Configuration & Peer Management
@@ -154,8 +154,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
-| 01.1. First-run config bootstrap | 3/4 | In Progress|  |
-| 2. Honest Dashboard & Peer Surface | 0/6 | Not started | - |
+| 01.1. First-run config bootstrap | 4/4 | Complete    | 2026-04-27 |
+| 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
 | 3. Configuration & Peer Management | 0/6 | Not started | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
 | 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
