@@ -13,10 +13,10 @@
  *   4. MetricsPanel   — one dense line with forwarded / dropped /
  *                       egress per D-23 (STAT-02, STAT-03).
  *
- * D-10 explicit: the Phase-4 routing toggle is NOT rendered in Phase 2.
- * Its semantics (route.set_split_default, pre-flight, honest surfacing)
- * belong to Phase 4; a disabled stub would be dishonest, so we omit the
- * control entirely.
+ * D-10 (Phase 4): RouteTogglePanel rendered between IdentityPanel and
+ * PeerListPanel. Component derives its own state from useDaemonState
+ * + useRouteTable; this screen passes only `limitedMode` so dim
+ * opacity stays consistent across the panel stack.
  *
  * D-30 limited mode: when daemon.state is anything other than "running", every panel dims
  * to opacity-60 and badges flip to [STALE]. The IdentityPanel also
@@ -52,6 +52,7 @@ import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { LimitedModeBanner } from "@/components/brand/limited-mode-banner";
 import { DaemonToggle } from "@/components/brand/daemon-toggle";
+import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 
 export interface DashboardProps {
   /** Wired by Plan 02-04 to open the Peer Detail slide-over. */
@@ -92,6 +93,8 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
         limitedMode={limitedMode}
         lastSeenTimestamp={snapshot.baselineTimestamp}
       />
+
+      <RouteTogglePanel limitedMode={limitedMode} />
 
       <PeerListPanel
         peers={peers}
