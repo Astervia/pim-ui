@@ -4,7 +4,7 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 03-06-PLAN.md (CONF-01 + CONF-06 + CONF-07)
-last_updated: "2026-04-27T02:28:52.436Z"
+last_updated: "2026-04-27T02:28:59.501Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
@@ -165,6 +165,8 @@ Recent decisions affecting current work:
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: AppShell ⌘4 binding routes through requestActive('gateway', setActive) NOT bare setActive — every other shortcut (⌘1/⌘2/⌘3/⌘5/⌘6/⌘,) goes through requestActive (Phase 3 D-13 dirty-Settings nav-away gating). Bare setActive would silently bypass the discard-unsaved-changes dialog.
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: Stub useCommandPalette returns Object.freeze({ open: false, setOpen: noop, toggle: noop }) — frozen-stable identity so AppShell useEffect deps stay stable across re-renders. Plan 05-05 replaces with real module-level atom + useSyncExternalStore returning a stable getSnapshot() ref — same stability contract.
 - [Phase 03-configuration-peer-management]: Plan 03-06: Three atomic commits (Routing/Gateway/Notifications; raw-TOML editor + Advanced; About + vite.config.ts) closed CONF-01 + CONF-06; CONF-07 wiring from 03-04 preserved via AdvancedSection's CollapsibleCliPanel id=settings-section-advanced anchor.
+- [Phase 03-configuration-peer-management]: Plan 03-06: Raw-TOML editor is a plain textarea + 48px gutter (NOT CodeMirror/Monaco/Prism per D-14); save flow per D-12 dry_run-first with textarea VERBATIM and buffer preserved on reject; click-gutter-marker moves cursor to (line, column) per offsetOfLineCol.
+- [Phase 03-configuration-peer-management]: Plan 03-06: vite.config.ts define block injects VITE_APP_VERSION (from package.json via fs.readFileSync) + VITE_APP_COMMIT (from git rev-parse --short HEAD with try/catch fallback to undefined); AboutSection consumes both via import.meta.env reads typed by vite-env.d.ts.
 
 ### Roadmap Evolution
 
