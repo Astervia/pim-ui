@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-04-PLAN.md (UX-05 + UX-06 — tray + popover + native menu)
-last_updated: "2026-04-27T02:53:57.101Z"
+stopped_at: Completed 05-gateway-mode-system-surfaces/05-03-PLAN.md
+last_updated: "2026-04-27T03:09:14.202Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 30
+  completed_plans: 32
   percent: 71
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 5 (gateway-mode-system-surfaces) — EXECUTING
-Plan: 5 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -76,6 +76,8 @@ Progress: [███████░░░] 71%
 | Phase 05-gateway-mode-system-surfaces P02 | 5min | 3 tasks | 9 files |
 | Phase 05-gateway-mode-system-surfaces P05 | 5min | 2 tasks | 8 files |
 | Phase 05-gateway-mode-system-surfaces P04 | 7min | 2 tasks | 17 files |
+| Phase 05-gateway-mode-system-surfaces P03 | 8min | 3 tasks | 8 files |
+| Phase 05-gateway-mode-system-surfaces P06 | 7min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -183,6 +185,10 @@ Recent decisions affecting current work:
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-04 W1 fix: popover Quit emits pim://quit; Rust setup hook listens via app.listen('pim://quit', ...) and calls app.exit(0). Single source of truth = Rust listener. The Tauri shell plugin does not export 'exit' (only Command/open/Child); the process plugin is NOT a Phase 5 dependency. Add peer nearby uses the same emit pattern (pim://open-add-peer) — established as the popover's W1 cross-window IPC convention.
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-04 W2 fix: tauri features extended with image-png so Image::from_path resolves the bundle.resources-copied icons/tray.png at runtime via app.path().resource_dir(). Plan 05-01's truth statement (Cargo.toml NOT modified) is now stale — the W2 fix introduced a transitive feature requirement Plan 05-01 couldn't anticipate. cargo check exit 0 after the feature flag.
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-04: per-window listener pattern formalized. The popover window has its own onFocusChanged subscription (D-21 hide-on-blur) and its own useDaemonState mount; W1 main-window invariant (rpc.ts listen=0; use-daemon-state.ts listen=2) preserved verbatim. Per RESEARCH §11c: W1 is per-window, not per-app. Plan 05-07 audit grep targets src/lib/rpc.ts + src/hooks/use-daemon-state.ts only — popover listeners are separate budget.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-03: TBD-RPC-FALLBACK as off-by-default const flag annotated boolean — ships both subscription + polling paths; flipping the literal is one-line activation per RESEARCH §5e
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-03: ConntrackGauge re-fetch on every gateway.event rather than per-kind merging — daemon-as-source-of-truth (P3) wins over RPC efficiency; avoids local merge drift while RPC contract still TBD
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-03: bang-free across all 5 new files via positive-nesting refactors and (alive as boolean) cast for cleanup-guard — TS narrowing trap on let alive = true requires cast at comparison site, not annotation at binding
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-06: notification policy module exports per-event channel mapping (silent | toast | system | both) per D-31 + D-33 + RESEARCH §8 — single source of truth at src/lib/notifications/policy.ts; getChannelFor(eventKey) lookup; verbatim D-34 TOAST_COPY + SYSTEM_COPY templates. Plan 03-06 (Phase 3 Settings) consumes the exports for read-only display per revised D-36 — no cross-phase file conflict.
 
 ### Roadmap Evolution
 
@@ -199,6 +205,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T02:53:57.097Z
-Stopped at: Completed 05-04-PLAN.md (UX-05 + UX-06 — tray + popover + native menu)
+Last session: 2026-04-27T03:08:21.623Z
+Stopped at: Completed 05-gateway-mode-system-surfaces/05-03-PLAN.md
 Resume file: None
