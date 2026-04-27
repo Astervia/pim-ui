@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 03-05-PLAN.md (CONF-02..05)
-last_updated: "2026-04-27T02:07:44.390Z"
+status: executing
+stopped_at: Completed 05-01-PLAN.md (GATE-01..04)
+last_updated: "2026-04-27T02:25:50.528Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 25
+  completed_plans: 26
   percent: 71
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** One app that is honest about what the mesh is actually doing — never abstracts packets into a happy green dot — yet stays reachable enough that a first-time user can succeed in ≤ 3 interactions.
-**Current focus:** Phase 04 complete — ready for Phase 03 form sections (03-04..03-07) or Phase 05 Gateway Mode & System Surfaces
+**Current focus:** Phase 5 — gateway-mode-system-surfaces
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 5 (gateway-mode-system-surfaces) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-04-27
 
 Progress: [███████░░░] 71%
@@ -71,6 +71,7 @@ Progress: [███████░░░] 71%
 | Phase 03-configuration-peer-management P04 | 28min | 1 tasks | 13 files |
 | Phase 04-routing-onboarding-polish P06 | 38min | 5 tasks | 5 files |
 | Phase 03-configuration-peer-management P05 | 6min | 1 tasks | 5 files |
+| Phase 05-gateway-mode-system-surfaces P01 | 8 min | 4 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,11 @@ Recent decisions affecting current work:
 - [Phase 03-configuration-peer-management]: Plan 03-05: react-hook-form sections seed both defaultValues AND values from useSettingsConfig — the values prop keeps the form synced when refetch fires after a save (D-29) without losing dirty-state baseline.
 - [Phase 03-configuration-peer-management]: Plan 03-05: TrustSection tolerates either security.allow_list[] or security.trust_store[] for the read-only trusted-peers list — silently falls through to the empty state when neither shape is present in parsed base.
 - [Phase 03-configuration-peer-management]: Plan 03-05: Per-section error mapping wired via useEffect: when fieldErrors[wireName] is non-empty the section calls form.setError(localKey); cleared via form.clearErrors when daemon-side error goes away. Pattern bridges daemon error paths and react-hook-form's <FormMessage>.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: cmdk@1.1.1 + tauri-plugin-notification@2.3.3 + tauri-plugin-positioner@2.3.1 installed; tauri tray-icon feature flag flipped on; plugins registered in Builder before .manage(); main-window capability gains notification:default + positioner:default. No tray construction code (Plan 05-04 boundary preserved).
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: TBD-RPC tagging pattern established — every speculative type addition tagged with // TBD-RPC: comment naming RESEARCH §section, so Plan 05-07 audit can grep them and the future kernel-repo docs/RPC.md push can locate every confirmation site (D-37). Marker count: exactly 5.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: Sidebar gateway flipped to NAV at ⌘4 between routing (⌘3) and logs (⌘5); RESERVED group emptied (gateway was the last reserved row) so the bottom <ul> + second separator dropped together. Plan was authored pre-Phase-4; reality post-Phase-4 already had routing in NAV — adapted by collapsing reserved entirely.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: AppShell ⌘4 binding routes through requestActive('gateway', setActive) NOT bare setActive — every other shortcut (⌘1/⌘2/⌘3/⌘5/⌘6/⌘,) goes through requestActive (Phase 3 D-13 dirty-Settings nav-away gating). Bare setActive would silently bypass the discard-unsaved-changes dialog.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: Stub useCommandPalette returns Object.freeze({ open: false, setOpen: noop, toggle: noop }) — frozen-stable identity so AppShell useEffect deps stay stable across re-renders. Plan 05-05 replaces with real module-level atom + useSyncExternalStore returning a stable getSnapshot() ref — same stability contract.
 
 ### Roadmap Evolution
 
@@ -173,6 +179,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T02:07:44.387Z
-Stopped at: Completed 03-05-PLAN.md (CONF-02..05)
+Last session: 2026-04-27T02:25:50.516Z
+Stopped at: Completed 05-01-PLAN.md (GATE-01..04)
 Resume file: None

@@ -46,10 +46,10 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [x] **ROUTE-02**: When route-on is active, dashboard shows "Routing through gateway-c (via relay-b)" — honest topology, not just "on"
 - [x] **ROUTE-03**: UI shows the routing table via `route.table()` in a dedicated view — destination, via, hops, learned_from, age
 - [x] **ROUTE-04**: UI shows known gateways with their score and marks the selected one
-- [ ] **GATE-01**: Settings → Gateway shows pre-flight check results (`gateway.preflight()`) with each check's pass/fail + detail
-- [ ] **GATE-02**: User can enable gateway mode (Linux only) after pre-flight passes, choosing nat_interface from detected list
-- [ ] **GATE-03**: When gateway is active, UI shows conntrack utilization gauge, throughput, and peer-through-me count
-- [ ] **GATE-04**: On macOS/Windows, Gateway section shows clear "Gateway mode is Linux-only today" messaging (not hidden)
+- [x] **GATE-01**: Settings → Gateway shows pre-flight check results (`gateway.preflight()`) with each check's pass/fail + detail
+- [x] **GATE-02**: User can enable gateway mode (Linux only) after pre-flight passes, choosing nat_interface from detected list
+- [x] **GATE-03**: When gateway is active, UI shows conntrack utilization gauge, throughput, and peer-through-me count
+- [x] **GATE-04**: On macOS/Windows, Gateway section shows clear "Gateway mode is Linux-only today" messaging (not hidden)
 
 ### CONF — configuration (form + raw)
 
@@ -170,10 +170,10 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | UX-02 | Phase 4 | Complete |
 | UX-03 | Phase 4 | Complete |
 | UX-08 | Phase 4 | Complete |
-| GATE-01 | Phase 5 | Pending |
-| GATE-02 | Phase 5 | Pending |
-| GATE-03 | Phase 5 | Pending |
-| GATE-04 | Phase 5 | Pending |
+| GATE-01 | Phase 5 | Complete |
+| GATE-02 | Phase 5 | Complete |
+| GATE-03 | Phase 5 | Complete |
+| GATE-04 | Phase 5 | Complete |
 | UX-04 | Phase 5 | Pending |
 | UX-05 | Phase 5 | Pending |
 | UX-06 | Phase 5 | Pending |
