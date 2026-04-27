@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray-popover",
+  "description": "Capability for the tray-popover window — minimal surface area for show/hide/focus.",
+  "windows": ["tray-popover"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus"
+  ]
+}

@@ -57,6 +57,20 @@ export default defineConfig(async () => ({
     "import.meta.env.VITE_APP_COMMIT": JSON.stringify(commit),
   },
 
+  // Plan 05-04: Vite multi-entry — index.html (main window) +
+  // tray-popover.html (the borderless React popover window built by
+  // src-tauri/src/tray.rs::build_popover_window). Both bundles ship in
+  // the same `dist/` so Tauri's resource resolver finds them via
+  // WebviewUrl::App("tray-popover.html").
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        "tray-popover": path.resolve(__dirname, "tray-popover.html"),
+      },
+    },
+  },
+
   // Tauri expects a fixed port and can fail if the port is busy
   clearScreen: false,
   server: {

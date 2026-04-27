@@ -40,6 +40,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": ["icons/tray.png"],
     "category": "DeveloperTool",
     "copyright": "Copyright © 2026 Astervia",
     "shortDescription": "Proximity mesh UI",
