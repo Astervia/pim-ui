@@ -195,9 +195,18 @@ Each task was committed atomically (`--no-verify` per Wave-1 parallel-agent comm
 - **Verification:** `pnpm typecheck` exit 0 after the test edit
 - **Committed in:** `a26d0c0` (Task 2 commit)
 
+**4. [Rule 1 - Bug] Removed duplicate `case "gateway"` branch in active-screen switch (cross-agent collision)**
+
+- **Found during:** Final verification (post-Task-4)
+- **Issue:** Two `case "gateway":` branches in `src/components/shell/active-screen.tsx`. Root cause: while this agent was mid-execution between Task 2 and Task 3, a sibling agent (working on Phase 3 Plan 03-06) hit a typecheck failure because Plan 05-01's Task 2 commit (a26d0c0) had partially edited active-screen.tsx — the `import { GatewayScreen }` line landed but the `case "gateway":` branch had not yet been committed (Task 3 hadn't run). The sibling agent landed a one-line fix-up commit (7e49cfb) inserting a `case "gateway"` branch between `case "settings":` and `default:` so its own typecheck passed. Plan 05-01 Task 3 (commit 2d48589) then added the same branch in its proper ordered position between `case "routing":` and `case "logs":`. TypeScript silently picks the first match so runtime behavior was correct, but the second branch was dead code and the comment block duplicated documentation.
+- **Fix:** Removed the trailing duplicate (the one inserted by 7e49cfb at line 153) and kept the ordered branch at line 139 (which sits with the other tab cases in numerical shortcut order — ⌘3 routing → ⌘4 gateway → ⌘5 logs).
+- **Files modified:** `src/components/shell/active-screen.tsx`
+- **Verification:** `grep -c 'case "gateway":' src/components/shell/active-screen.tsx` → 1; `pnpm typecheck` exit 0
+- **Committed in:** `0fb2ce3` (post-final-verification fix)
+
 ---
 
-**Total deviations:** 3 auto-fixed (3 blocking)
+**Total deviations:** 4 auto-fixed (3 blocking + 1 bug)
 **Impact on plan:** All three deviations were necessary to land the plan. None were scope creep — Deviation 1 reflects Phase 4 already shipped (the plan was authored pre-Phase-4); Deviation 2 honors the existing nav-gating pattern; Deviation 3 was anticipated by the plan itself. The plan's INTENT was preserved verbatim: gateway is in NAV at ⌘4, routing untouched by this plan, all four GATE-* requirements claimed as the foundation.
 
 ## Issues Encountered
