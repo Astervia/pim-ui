@@ -249,8 +249,19 @@ impl Sidecar {
         // wrapper exit cleanly. </dev/null >log 2>&1 ensures all three
         // standard fds are closed/redirected so nothing remains tied to
         // the wrapper's process group.
+        // `cd /` first — suppresses 'shell-init: error retrieving current
+        // directory: getcwd: cannot access parent directories' that fires
+        // when admin osascript inherits the user's cwd (which root can't
+        // access under macOS TCC). Cosmetic but the warning would mash
+        // into the same line as our debug output.
+        //
+        // TMPDIR= goes INSIDE the subshell because `VAR=val (subshell)` is
+        // a sh syntax error (sh exits 2): variable assignment prefix only
+        // applies to SIMPLE commands, not compound commands like ( ... ).
+        // Inside the subshell, `TMPDIR=val daemon args` is the simple-cmd
+        // form — valid.
         let shell_cmd = format!(
-            "umask 000; TMPDIR={tmpdir} ( {daemon} {cfg} {pid} </dev/null >{log} 2>&1 & )",
+            "cd /; umask 000; ( TMPDIR={tmpdir} {daemon} {cfg} {pid} </dev/null >{log} 2>&1 & )",
             tmpdir = shell_quote(&user_tmpdir),
             daemon = shell_quote(&daemon_bin.to_string_lossy()),
             cfg = shell_quote(&config_path.to_string_lossy()),
