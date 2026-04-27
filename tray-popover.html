@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>pim · tray</title>
+    <script>
+      // Polyfill `global` for CJS deps — mirror index.html so the popover
+      // stays safe if a future dep chain pulls in @iarna/toml or similar
+      // Node-only CJS code.
+      window.global = window;
+    </script>
   </head>
   <body class="bg-background text-foreground">
     <div id="tray-popover-root"></div>

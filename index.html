@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>pim</title>
+    <script>
+      // Polyfill `global` for CJS deps that reference Node's global object
+      // at module-load time. Required by @iarna/toml (Phase 3 D-15 raw-TOML
+      // parser): its CJS bundle does `var DateTime = global.Date;` which
+      // throws ReferenceError in a browser webview where `global` is
+      // undefined. This inline classic <script> runs BEFORE any module
+      // script (browser spec: classic scripts before module scripts in
+      // document order), so the polyfill is in place when esbuild's
+      // pre-bundled deps evaluate. Vite's `define` config does not reach
+      // pre-bundled deps reliably; this inline approach is surefire.
+      window.global = window;
+    </script>
   </head>
   <body>
     <div id="root"></div>
