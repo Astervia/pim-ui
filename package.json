@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
+    "audit:copy": "node scripts/audit-copy.mjs",
     "sync-brand": "bash scripts/sync-brand.sh",
     "fetch-daemon": "bash scripts/fetch-daemon.sh"
   },
