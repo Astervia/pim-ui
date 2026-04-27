@@ -75,7 +75,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### UX — onboarding + error states + polish
 
-- [ ] **UX-01**: First-run onboarding completes in ≤ 3 interactions (name device → grant TUN permission → connect or run solo)
+- [x] **UX-01**: First-run onboarding completes in ≤ 3 interactions (name device → grant TUN permission → connect or run solo)
 - [ ] **UX-02**: Zero-peer state is a valid "solo mode" — dashboard is fully functional, offering "Add peer nearby" and "Invite peer remotely" at all times
 - [ ] **UX-03**: Critical error states render with honest copy: "Blocking internet — gateway unreachable" (kill-switch), "Couldn't verify this peer" (handshake fail), pointing to relevant `docs/` section
 - [ ] **UX-04**: Toast notifications fire for non-critical lifecycle events (gateway failover, peer connected) — never system notifications except for all-gateways-lost + kill-switch-active
@@ -166,7 +166,7 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | ROUTE-02 | Phase 4 | Complete |
 | ROUTE-03 | Phase 4 | Complete |
 | ROUTE-04 | Phase 4 | Complete |
-| UX-01 | Phase 4 | Pending |
+| UX-01 | Phase 4 | Complete |
 | UX-02 | Phase 4 | Pending |
 | UX-03 | Phase 4 | Pending |
 | UX-08 | Phase 4 | Complete |
