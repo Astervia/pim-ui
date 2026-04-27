@@ -1,15 +1,49 @@
 /**
- * useCommandPalette — Phase 5 Plan 05-01 stub.
+ * useCommandPalette — module-level atom for the ⌘K palette open state.
  *
- * Plan 05-05 replaces this with a real module-level atom + useSyncExternalStore
- * (mirroring src/hooks/use-active-screen.ts pattern). The export shape stays
- * stable: { open: boolean, setOpen: (v) => void, toggle: () => void }.
+ * Plan 05-05 D-28 + RESEARCH §7d: mirrors src/hooks/use-active-screen.ts
+ * pattern — single atom + listeners + useSyncExternalStore. Multiple
+ * consumers (AppShell keyboard handler, palette Dialog onOpenChange,
+ * action handlers that call closePalette) read/write the same state.
  *
- * Why a stub here: Plan 05-01's ⌘K keyboard binding in AppShell needs a hook
- * to call. Without this stub AppShell.tsx would not compile until 05-05 lands.
- * The stub renders a no-op atom — pressing ⌘K does nothing useful until 05-05
- * lands the real Dialog component.
+ * Replaces the Plan 05-01 stub. The export shape is unchanged so
+ * AppShell's case "k": case "K": handler from Plan 05-01 keeps working
+ * without a touch — Plan 05-01 imported { useCommandPalette } from this
+ * module path; that import now resolves to the real atom.
+ *
+ * W1 invariant: this file contains zero Tauri listen() calls. The atom
+ * is purely in-memory + browser-event-free.
  */
+
+import { useCallback, useSyncExternalStore } from "react";
+
+let open: boolean = false;
+const listeners = new Set<() => void>();
+
+function notify() {
+  listeners.forEach((fn) => fn());
+}
+
+function subscribeLocal(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+export function getPaletteOpen(): boolean {
+  return open;
+}
+
+export function setPaletteOpen(next: boolean): void {
+  if (next === open) return;
+  open = next;
+  notify();
+}
+
+export function togglePalette(): void {
+  setPaletteOpen(open === false);
+}
 
 export interface UseCommandPaletteResult {
   open: boolean;
@@ -17,16 +51,16 @@ export interface UseCommandPaletteResult {
   toggle: () => void;
 }
 
-const STUB_RESULT: UseCommandPaletteResult = Object.freeze({
-  open: false,
-  setOpen: (_open: boolean) => {
-    // Plan 05-05 wires this to the real atom.
-  },
-  toggle: () => {
-    // Plan 05-05 wires this to the real atom.
-  },
-});
-
 export function useCommandPalette(): UseCommandPaletteResult {
-  return STUB_RESULT;
+  const current = useSyncExternalStore(subscribeLocal, getPaletteOpen, getPaletteOpen);
+  const setOpen = useCallback(setPaletteOpen, []);
+  const toggle = useCallback(togglePalette, []);
+  return { open: current, setOpen, toggle };
 }
+
+// Exposed for tests to reset module state between cases — matches the
+// __test_resetActiveScreenAtom convention in src/hooks/use-active-screen.ts.
+export const __test_resetPaletteAtom = (): void => {
+  open = false;
+  listeners.clear();
+};
