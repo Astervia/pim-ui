@@ -42,8 +42,8 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### ROUTE — routing + gateway mode
 
-- [ ] **ROUTE-01**: User can toggle "Route internet via mesh" (split-default) with a single action on the dashboard
-- [ ] **ROUTE-02**: When route-on is active, dashboard shows "Routing through gateway-c (via relay-b)" — honest topology, not just "on"
+- [x] **ROUTE-01**: User can toggle "Route internet via mesh" (split-default) with a single action on the dashboard
+- [x] **ROUTE-02**: When route-on is active, dashboard shows "Routing through gateway-c (via relay-b)" — honest topology, not just "on"
 - [ ] **ROUTE-03**: UI shows the routing table via `route.table()` in a dedicated view — destination, via, hops, learned_from, age
 - [ ] **ROUTE-04**: UI shows known gateways with their score and marks the selected one
 - [ ] **GATE-01**: Settings → Gateway shows pre-flight check results (`gateway.preflight()`) with each check's pass/fail + detail
@@ -162,8 +162,8 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | CONF-07 | Phase 3 | Complete |
 | OBS-02 | Phase 3 | Complete |
 | OBS-03 | Phase 3 | Complete |
-| ROUTE-01 | Phase 4 | Pending |
-| ROUTE-02 | Phase 4 | Pending |
+| ROUTE-01 | Phase 4 | Complete |
+| ROUTE-02 | Phase 4 | Complete |
 | ROUTE-03 | Phase 4 | Pending |
 | ROUTE-04 | Phase 4 | Pending |
 | UX-01 | Phase 4 | Pending |

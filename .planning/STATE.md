@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-27T01:20:13.813Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-27T01:30:54.001Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 34
-  completed_plans: 18
+  completed_plans: 19
   percent: 53
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -64,6 +64,7 @@ Progress: [█████░░░░░] 53%
 | Phase 03-configuration-peer-management P02 | 12 min | 2 tasks | 9 files |
 | Phase 03-configuration-peer-management P03 | 22min | 2 tasks | 12 files |
 | Phase 04-routing-onboarding-polish P01 | 15 min | 4 tasks | 8 files |
+| Phase 04-routing-onboarding-polish P02 | 6 min | 4 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Recent decisions affecting current work:
 - [Phase 04-routing-onboarding-polish]: Plan 04-01: formatRouteLine returns a single string (not a structured object) — D-15 left the choice open; downstream call sites in 04-02/03/04 render the line directly into a CliPanel body, simpler return type wins
 - [Phase 04-routing-onboarding-polish]: Plan 04-01: copy.test.ts + routing.test.ts use the Phase-1/2 if(false)-guarded compile-only pattern (matches format.test.ts and rpc-types.test.ts); routing.test.ts assertions verified via one-shot tsx run before commit (18/18 pass), then guarded for production
 - [Phase 04-routing-onboarding-polish]: Plan 04-01: src/components/ui/form.tsx:53 'should be used within FormField' soft warning is a runtime-error message thrown for misuse, not user-visible copy — deferred to 04-06's voice pass for triage rather than touching shadcn-generated code in the foundation plan
+- [Phase 04-routing-onboarding-polish]: Plan 04-02: useRouteTable refcount + module-level shared state mirrors usePeerTroubleshootLog pattern — single subscription, single fetch regardless of consumer count, clean unmount on last-consumer-leave
+- [Phase 04-routing-onboarding-polish]: Plan 04-02: RouteTogglePanel pending state uses local pending flag overriding routeOn/expanded for badge derivation — keeps cursor-blink visible during in-flight RPC without optimistic UI; snapshot remains source of truth (route_on event flips the body line)
+- [Phase 04-routing-onboarding-polish]: Plan 04-02: badge cursor-blink rendered via wrapper-class [&_header_span:last-child]:cursor-blink rather than mutating CliPanel API — Phase 2 D-policy keeps shared primitives untouched
 
 ### Roadmap Evolution
 
@@ -139,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:20:01.239Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-27T01:30:53.997Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
