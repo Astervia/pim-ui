@@ -78,7 +78,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [x] **UX-01**: First-run onboarding completes in ≤ 3 interactions (name device → grant TUN permission → connect or run solo)
 - [x] **UX-02**: Zero-peer state is a valid "solo mode" — dashboard is fully functional, offering "Add peer nearby" and "Invite peer remotely" at all times
 - [x] **UX-03**: Critical error states render with honest copy: "Blocking internet — gateway unreachable" (kill-switch), "Couldn't verify this peer" (handshake fail), pointing to relevant `docs/` section
-- [ ] **UX-04**: Toast notifications fire for non-critical lifecycle events (gateway failover, peer connected) — never system notifications except for all-gateways-lost + kill-switch-active
+- [x] **UX-04**: Toast notifications fire for non-critical lifecycle events (gateway failover, peer connected) — never system notifications except for all-gateways-lost + kill-switch-active
 - [x] **UX-05**: macOS menu-bar popover provides status dot + "Route internet via mesh" toggle + Open pim → main window at any time (window-first default, menu-bar secondary)
 - [x] **UX-06**: Windows tray + Linux AppIndicator parity with macOS menu-bar popover
 - [x] **UX-07**: Command palette (⌘K) exposes every major action — `route on/off`, `peers.list`, `gateway.preflight`, `logs.subscribe`, plus navigation between tabs
@@ -174,7 +174,7 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | GATE-02 | Phase 5 | Complete |
 | GATE-03 | Phase 5 | Complete |
 | GATE-04 | Phase 5 | Complete |
-| UX-04 | Phase 5 | Pending |
+| UX-04 | Phase 5 | Complete |
 | UX-05 | Phase 5 | Complete |
 | UX-06 | Phase 5 | Complete |
 | UX-07 | Phase 5 | Complete |

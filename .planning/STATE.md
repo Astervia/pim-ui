@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-gateway-mode-system-surfaces/05-03-PLAN.md
-last_updated: "2026-04-27T03:09:14.202Z"
+stopped_at: Completed 05-06-PLAN.md (UX-04 — notification policy + system notifications)
+last_updated: "2026-04-27T03:09:31.455Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
@@ -189,6 +189,9 @@ Recent decisions affecting current work:
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-03: ConntrackGauge re-fetch on every gateway.event rather than per-kind merging — daemon-as-source-of-truth (P3) wins over RPC efficiency; avoids local merge drift while RPC contract still TBD
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-03: bang-free across all 5 new files via positive-nesting refactors and (alive as boolean) cast for cleanup-guard — TS narrowing trap on let alive = true requires cast at comparison site, not annotation at binding
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-06: notification policy module exports per-event channel mapping (silent | toast | system | both) per D-31 + D-33 + RESEARCH §8 — single source of truth at src/lib/notifications/policy.ts; getChannelFor(eventKey) lookup; verbatim D-34 TOAST_COPY + SYSTEM_COPY templates. Plan 03-06 (Phase 3 Settings) consumes the exports for read-only display per revised D-36 — no cross-phase file conflict.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-06: useSystemNotifications generic helper with D-32 lazy permission flow — useRef<boolean | null> caches first probe; isPermissionGranted at first send() call; requestPermission deferred until the first system / both event arrives (NO app-launch prompt). Denial cached so we don't re-prompt the session. focusMain() helper exported for future click-to-focus wiring.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-06: <GatewayNotificationsListener /> shell-level subscriber via W1 fan-out (actions.subscribe) to status.event + peers.event + gateway.event — ZERO new Tauri-API listeners on the daemon-event domain. Per-event policy lookup via getChannelFor; dispatch to sonner toast (TOAST_COPY) and/or tauri-plugin-notification (SYSTEM_COPY). Synthesized all-gateways-lost detection via previousGatewayRef state machine (RESEARCH §14 q7) — when gateway_lost arrives AND current selected_gateway is null AND previousGatewayRef indicates we had a gateway, fire allGatewaysLostSystem.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-06: AppShell adds the SINGLE documented W1 exception — a custom Tauri event subscription for pim://open-add-peer (counterpart to Plan 05-04 popover Add-peer click + Plan 05-05 palette peers.add_nearby emit). The event is NOT a daemon RPC event — it bypasses the daemon-event-domain W1 contract (which governs src/lib/rpc.ts + src/hooks/use-daemon-state.ts only). On receipt, requestActive('peers', setActive) routes the user to the peers tab. TBD-PHASE-4-G marker reserved for Phase 4 PEER-05/06 destination refinement.
 
 ### Roadmap Evolution
 
@@ -205,6 +208,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T03:08:21.623Z
-Stopped at: Completed 05-gateway-mode-system-surfaces/05-03-PLAN.md
+Last session: 2026-04-27T03:09:31.449Z
+Stopped at: Completed 05-06-PLAN.md (UX-04 — notification policy + system notifications)
 Resume file: None
