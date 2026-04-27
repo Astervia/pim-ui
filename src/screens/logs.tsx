@@ -27,6 +27,7 @@ import { CliPanel } from "@/components/brand/cli-panel";
 import { LogFilterBar } from "@/components/logs/log-filter-bar";
 import { LogList } from "@/components/logs/log-list";
 import { useLogsStream, type StreamStatus } from "@/hooks/use-logs-stream";
+import { useFilteredLogs } from "@/hooks/use-log-filters";
 import type { BadgeVariant } from "@/components/ui/badge";
 
 interface BadgeSpec {
@@ -43,15 +44,12 @@ function badgeFor(status: StreamStatus): BadgeSpec {
 }
 
 export function LogsScreen() {
-  const {
-    events,
-    level,
-    setLevel,
-    peerFilter,
-    setPeerFilter,
-    status,
-    errorMessage,
-  } = useLogsStream();
+  const { level, setLevel, peerFilter, setPeerFilter, status, errorMessage } =
+    useLogsStream();
+  // 03-03 Phase 3: events arrive pre-filtered by level (server-side) +
+  // peer / source (client-side) from useLogsStream; useFilteredLogs adds
+  // the search-text + time-range filters on top per D-21 / D-22.
+  const { rows } = useFilteredLogs();
 
   const badge = badgeFor(status);
   const hasError =
@@ -71,7 +69,7 @@ export function LogsScreen() {
             Couldn't subscribe to logs.event. {errorMessage}
           </p>
         ) : (
-          <LogList events={events} />
+          <LogList events={rows} />
         )}
       </CliPanel>
     </div>

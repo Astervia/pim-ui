@@ -115,6 +115,26 @@ export function LogList({ events }: LogListProps) {
       ? `[ ${newCount} new · jump to bottom ]`
       : "[ paused · jump to bottom ]";
 
+  // 03-03 Phase 3: empty-state line when combined filters produce zero
+  // rows. Verbatim copy per 03-UI-SPEC §Empty states. Replaces the
+  // virtualized list (rendering FixedSizeList with itemCount=0 produces
+  // a blank rectangle which is both semantically wrong and visually
+  // odd — single centered line is the intended Layer-2 affordance).
+  if (display.length === 0) {
+    return (
+      <div
+        role="log"
+        aria-live="off"
+        className="flex items-center justify-center"
+        style={{ height: LIST_HEIGHT }}
+      >
+        <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          no log rows match these filters
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="relative"
