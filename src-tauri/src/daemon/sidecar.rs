@@ -238,13 +238,19 @@ impl Sidecar {
 
         // umask 000 — socket created by daemon (root) ends up world-rw
         // so the user-mode UI can connect.
-        // nohup + </dev/null — detach properly so the daemon survives the
-        // osascript wrapper exit. Without this, `do shell script with
-        // administrator privileges` may kill backgrounded children when
-        // its wrapper terminates (TN2065 doesn't document this combo;
-        // community pattern is nohup + closed-stdin to be safe).
+        //
+        // Subshell pattern `( cmd &)` — the most portable daemonization
+        // trick on macOS where `nohup` fails ("can't detach from console:
+        // Inappropriate ioctl for device", because the admin osascript
+        // shell has no controlling TTY) and `setsid` is not shipped by
+        // default. The outer `()` creates a subshell that exits
+        // immediately after backgrounding the daemon; the daemon is then
+        // orphaned and adopted by launchd, surviving the osascript
+        // wrapper exit cleanly. </dev/null >log 2>&1 ensures all three
+        // standard fds are closed/redirected so nothing remains tied to
+        // the wrapper's process group.
         let shell_cmd = format!(
-            "umask 000; TMPDIR={tmpdir} nohup {daemon} {cfg} {pid} </dev/null >{log} 2>&1 &",
+            "umask 000; TMPDIR={tmpdir} ( {daemon} {cfg} {pid} </dev/null >{log} 2>&1 & )",
             tmpdir = shell_quote(&user_tmpdir),
             daemon = shell_quote(&daemon_bin.to_string_lossy()),
             cfg = shell_quote(&config_path.to_string_lossy()),
