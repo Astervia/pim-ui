@@ -6,7 +6,7 @@
  * (gauge + throughput + peer-through-me) when the daemon's
  * gateway.status({ active: true }).
  *
- * Branch order (Plan 05-03 will inject an active-state branch BEFORE
+ * Branch order (Plan 05-03 prepends an active-state branch BEFORE
  * branches 4/5/6 by adding a useGatewayStatus() check that early-returns
  * <GatewayActivePanel />):
  *   1. Daemon not running       → CliPanel with hint to Phase-1 Limited
@@ -14,6 +14,8 @@
  *   2. Preflight loading + null → CliPanel with "checking pre-flight…" hint.
  *   3. Preflight error          → CliPanel with inline destructive error
  *      (D-43, no toast — pre-flight failures are tab-scoped).
+ *   3b. (Plan 05-03) gateway.status().active === true on Linux
+ *       → <GatewayActivePanel /> + dynamic [ACTIVE]/[NEAR LIMIT] badge.
  *   4. platform other-than-linux → <LinuxOnlyPanel /> (D-10, GATE-04).
  *   5. platform linux AND not all checks ok → <PreflightSection />.
  *   6. platform linux AND all checks ok     → <PreflightSection /> +
@@ -28,14 +30,22 @@
 
 import { CliPanel } from "@/components/brand/cli-panel";
 import { useGatewayPreflight } from "@/hooks/use-gateway-preflight";
+import { useGatewayStatus } from "@/hooks/use-gateway-status";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { LinuxOnlyPanel } from "@/components/gateway/linux-only-panel";
 import { PreflightSection } from "@/components/gateway/preflight-section";
 import { NatInterfaceSelect } from "@/components/gateway/nat-interface-select";
+import { GatewayActivePanel } from "@/components/gateway/gateway-active-panel";
+import { gaugeBadgeLabel } from "@/components/gateway/conntrack-gauge";
 
 export function GatewayScreen() {
   const { snapshot } = useDaemonState();
   const { result, loading, error, refetch } = useGatewayPreflight();
+  // Plan 05-03: only run gateway.status when on Linux (avoids unnecessary
+  // RPC chatter on macOS/Windows where the call would resolve with active: false
+  // anyway). The hook gates internally on snapshot.state === "running".
+  const platformIsLinux = result === null ? false : result.platform === "linux";
+  const gatewayStatus = useGatewayStatus({ enabled: platformIsLinux });
 
   // Branch 1 — daemon not running
   if (snapshot.state !== "running") {
@@ -86,6 +96,34 @@ export function GatewayScreen() {
   if (result === null) {
     // Defensive: should never hit (loading + null is branch 2)
     return null;
+  }
+
+  // Plan 05-03 active-state branch — fires when daemon reports gateway active
+  // on Linux. Wins over branches 5/6 (pre-flight) so the active body replaces
+  // the enable form for as long as the daemon reports active === true.
+  if (
+    gatewayStatus.status === null
+      ? false
+      : gatewayStatus.status.active === true && result.platform === "linux"
+  ) {
+    const activeStatus = gatewayStatus.status;
+    if (activeStatus !== null) {
+      const badge = gaugeBadgeLabel(
+        activeStatus.conntrack.used,
+        activeStatus.conntrack.max,
+      );
+      return (
+        <div className="max-w-5xl">
+          <CliPanel title="gateway" status={{ label: badge }}>
+            <GatewayActivePanel
+              status={activeStatus}
+              onDisable={gatewayStatus.disable}
+              disabling={gatewayStatus.loading}
+            />
+          </CliPanel>
+        </div>
+      );
+    }
   }
 
   // Branch 4 — non-Linux (GATE-04, D-10)
