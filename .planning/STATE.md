@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-04-PLAN.md (parallel)
-last_updated: "2026-04-27T01:38:50.875Z"
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-04-27T01:41:51.407Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 34
-  completed_plans: 21
+  completed_plans: 22
   percent: 53
 ---
 
@@ -67,6 +67,7 @@ Progress: [█████░░░░░] 53%
 | Phase 04-routing-onboarding-polish P02 | 6 min | 4 tasks | 5 files |
 | Phase 04-routing-onboarding-polish P03 | 6 min | 3 tasks | 7 files |
 | Phase 04-routing-onboarding-polish P04 | 6 min | 2 tasks | 2 files |
+| Phase 04-routing-onboarding-polish P05 | 5 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Recent decisions affecting current work:
 - [Phase 04-routing-onboarding-polish]: Plan 04-04: WelcomeScreen onboarding step 3 — AppRoot extended with localStorage["pim-ui.onboarding.completed"] gate; returning users (flag === "true") skip directly to AppShell on first render via synchronous useState lazy initializer (no UI flash)
 - [Phase 04-routing-onboarding-polish]: Plan 04-04: cross-screen scroll signal uses window CustomEvent "pim-ui:scroll-to-nearby" (not module-level atom, not prop chain) — AppRoot dispatches on add-peer-nearby branch, Plan 04-05 Task 2 will register a one-shot self-removing listener on dashboard.tsx; W1 single-listener invariant preserved (zero new Tauri listen() calls)
 - [Phase 04-routing-onboarding-polish]: Plan 04-04: D-03 flag-set-before-navigate ordering enforced inside WelcomeScreen.handle() — localStorage written BEFORE onComplete() is invoked, so the flag is durable even if the parent setState is interrupted (window close, hot-reload). useEffect-mount short-circuit covers reload-mid-flight by re-firing onComplete(false) when the flag is already "true"
+- [Phase 04-routing-onboarding-polish]: Plan 04-05: InvitePeerSheet honest-stub mounted at shell level via module-level useInvitePeer atom (mirrors usePeerDetail) — open state survives ⌘1/⌘2/⌘3 tab switches; trigger on Dashboard, Sheet on shell, no useState divergence
+- [Phase 04-routing-onboarding-polish]: Plan 04-05: PeerListPanel buttons enabled without aria-disabled — limited-mode dim is the panel-wrapper opacity-60; UI-only actions (scroll + slide-over) require no daemon RPC, so they remain functional in transient states; this also dodges the substring-match acceptance gate ('disabled' matches 'aria-disabled')
+- [Phase 04-routing-onboarding-polish]: Plan 04-05: Dashboard listens for window CustomEvent 'pim-ui:scroll-to-nearby' (dispatched by Plan 04-04 WelcomeScreen [ ADD PEER NEARBY ]) — handler wraps scrollIntoView in requestAnimationFrame so the panel is laid out before measurement on the WelcomeScreen-to-Dashboard transition; W1 preserved (browser-native, not Tauri listen())
 
 ### Roadmap Evolution
 
@@ -151,6 +155,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:38:50.871Z
-Stopped at: Completed 04-04-PLAN.md (parallel)
+Last session: 2026-04-27T01:41:51.403Z
+Stopped at: Completed 04-05-PLAN.md
 Resume file: None
