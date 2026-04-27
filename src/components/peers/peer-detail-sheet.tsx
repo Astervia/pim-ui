@@ -24,11 +24,19 @@
  *   - Close via `Esc`, click outside, or × glyph (Radix Sheet default).
  *   - showFull is reset whenever the selected peer changes.
  *
+ * Phase 4 D-25: the failed-event callout in the troubleshoot log gets
+ * a docs link appended below the reason line — same SECURITY_DOCS_URL
+ * + HANDSHAKE_FAIL_SUBLINE copy as the PeerRow sub-line (voice-contract
+ * consistency). The link is a nested <button> calling Tauri shell.open;
+ * the detail sheet's troubleshoot log already shows the daemon's
+ * reason string, the docs link is the resolution affordance.
+ *
  * NO border-radius, NO gradients, NO literal palette colors, NO
  * exclamation marks.
  */
 
 import { useEffect, useState } from "react";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import {
   Sheet,
   SheetContent,
@@ -43,6 +51,7 @@ import {
   usePeerTroubleshootLog,
   type PeerLogEntry,
 } from "@/hooks/use-peer-troubleshoot-log";
+import { HANDSHAKE_FAIL_SUBLINE, SECURITY_DOCS_URL } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import type { PeerState, PeerSummary } from "@/lib/rpc-types";
 
@@ -193,14 +202,31 @@ export function PeerDetailSheet() {
               className="font-code text-sm leading-[1.7] space-y-0.5 overflow-y-auto"
             >
               {failedEvent === undefined ? null : (
-                <li className="pb-2 mb-2 border-b border-border">
-                  <span className="text-muted-foreground">
-                    {formatTime(failedEvent.at)}
-                  </span>{" "}
-                  <span className="text-destructive">✗ pair_failed</span>{" "}
-                  <span className="text-destructive">
-                    reason: {failedEvent.reason === undefined ? "unknown" : failedEvent.reason}
-                  </span>
+                <li className="pb-2 mb-2 border-b border-border flex flex-col gap-1">
+                  <div>
+                    <span className="text-muted-foreground">
+                      {formatTime(failedEvent.at)}
+                    </span>{" "}
+                    <span className="text-destructive">✗ pair_failed</span>{" "}
+                    <span className="text-destructive">
+                      reason: {failedEvent.reason === undefined ? "unknown" : failedEvent.reason}
+                    </span>
+                  </div>
+                  {/* Phase 4 D-25: docs-link button appended to the
+                      failed-event callout. Verbatim HANDSHAKE_FAIL_SUBLINE
+                      from copy.ts; opens SECURITY_DOCS_URL via Tauri
+                      shell.open — same handler shape as the PeerRow
+                      sub-line (D-24) for voice-contract consistency. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void shellOpen(SECURITY_DOCS_URL);
+                    }}
+                    className="text-left font-code text-xs text-primary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-100 ease-linear"
+                    aria-label="open security docs section 3.2"
+                  >
+                    {HANDSHAKE_FAIL_SUBLINE}
+                  </button>
                 </li>
               )}
               {log

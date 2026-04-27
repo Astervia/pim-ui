@@ -26,11 +26,23 @@
  *   - Focus-visible ring is inset 2px signal-green (UI-SPEC §Focus-ring
  *     policy for large click targets).
  *
+ * Phase 4 D-24: when peer.state === "failed", a second sub-line appears
+ * below the standard row. Sub-line content is the verbatim
+ * HANDSHAKE_FAIL_SUBLINE constant rendered as a single nested <button>
+ * that calls the Tauri shell.open with SECURITY_DOCS_URL. The nested
+ * button stops event propagation so the row's primary click (open
+ * Peer Detail) does not fire when the user clicks the docs link. The
+ * outer element is a <div className="flex flex-col"> so the primary
+ * row <button> + the sub-line <button> stack vertically without
+ * breaking the primary row's CSS grid.
+ *
  * NO border-radius, NO gradients, NO literal Tailwind palette colors.
  */
 
 import type { PeerSummary } from "@/lib/rpc-types";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { StatusIndicator } from "@/components/brand/status-indicator";
+import { HANDSHAKE_FAIL_SUBLINE, SECURITY_DOCS_URL } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 export interface PeerRowProps {
@@ -60,45 +72,80 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
   };
 
   return (
-    <button
-      type="button"
-      role="button"
-      tabIndex={0}
-      onClick={handleActivate}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleActivate();
-        }
-      }}
-      aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
-      className={cn(
-        "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
-        "items-center gap-x-2 px-4 py-1",
-        "font-code text-sm leading-[1.5] text-left",
-        "text-foreground",
-        "hover:bg-popover/60 hover:border-l-2 hover:border-border-active",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
-        "active:translate-y-[1px]",
-        "transition-colors duration-100 ease-linear",
-      )}
-    >
-      {/* short_id — signal-green per UI-SPEC §Interaction §Peer row */}
-      <span className="text-primary">{peer.node_id_short}</span>
+    <div className="flex flex-col">
+      <button
+        type="button"
+        role="button"
+        tabIndex={0}
+        onClick={handleActivate}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleActivate();
+          }
+        }}
+        aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
+        className={cn(
+          "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
+          "items-center gap-x-2 px-4 py-1",
+          "font-code text-sm leading-[1.5] text-left",
+          "text-foreground",
+          "hover:bg-popover/60 hover:border-l-2 hover:border-border-active",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
+          "active:translate-y-[1px]",
+          "transition-colors duration-100 ease-linear",
+        )}
+      >
+        {/* short_id — signal-green per UI-SPEC §Interaction §Peer row */}
+        <span className="text-primary">{peer.node_id_short}</span>
 
-      <span>{label}</span>
-      <span>{peer.mesh_ip}</span>
-      <span className="text-muted-foreground">via {peer.transport}</span>
+        <span>{label}</span>
+        <span>{peer.mesh_ip}</span>
+        <span className="text-muted-foreground">via {peer.transport}</span>
 
-      {/* state glyph + word — honesty contract lives here */}
-      <span className="flex items-center gap-1">
-        <StatusIndicator state={peer.state} />
-        <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
-      </span>
+        {/* state glyph + word — honesty contract lives here */}
+        <span className="flex items-center gap-1">
+          <StatusIndicator state={peer.state} />
+          <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
+        </span>
 
-      <span className="text-muted-foreground">{hopsText}</span>
-      <span className="text-muted-foreground">{latencyText}</span>
-      <span className="text-muted-foreground">{peer.last_seen_s}s</span>
-    </button>
+        <span className="text-muted-foreground">{hopsText}</span>
+        <span className="text-muted-foreground">{latencyText}</span>
+        <span className="text-muted-foreground">{peer.last_seen_s}s</span>
+      </button>
+      {/* Phase 4 D-24: handshake-fail sub-line. Single implementation
+          pattern — when state==="failed" the row gets a second nested
+          <button> below it carrying HANDSHAKE_FAIL_SUBLINE and opening
+          SECURITY_DOCS_URL via Tauri shell.open. event.stopPropagation
+          on click + keydown so the row's primary onClick (open Peer
+          Detail) does not fire when the user clicks the docs link. Tab
+          order: primary row button THEN docs-link button. */}
+      {peer.state === "failed" ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void shellOpen(SECURITY_DOCS_URL);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              void shellOpen(SECURITY_DOCS_URL);
+            }
+          }}
+          className={cn(
+            "px-4 pb-1 text-left",
+            "font-code text-xs text-destructive",
+            "hover:text-foreground",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
+            "transition-colors duration-100 ease-linear",
+          )}
+          aria-label="open security docs section 3.2"
+        >
+          {HANDSHAKE_FAIL_SUBLINE}
+        </button>
+      ) : null}
+    </div>
   );
 }
