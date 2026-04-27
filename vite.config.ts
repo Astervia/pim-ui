@@ -52,9 +52,33 @@ export default defineConfig(async () => ({
   // - VITE_APP_COMMIT  = `git rev-parse --short HEAD`; undefined when
   //   git isn't reachable so AboutSection's optional render branch
   //   takes over.
+  // - global = "globalThis" — polyfill for CJS deps that reference
+  //   the Node `global` object inside the browser webview. Required
+  //   by `@iarna/toml` (Phase 3 D-15 raw-TOML parser): its CJS bundle
+  //   evaluates `global` at module-load time, which crashes the entire
+  //   app in a browser context where `global` is undefined. The
+  //   AST-level replacement here turns every bare `global` reference
+  //   into `globalThis` (which IS defined in browsers), unblocking
+  //   module init. Same fix applied to `optimizeDeps.esbuildOptions`
+  //   below so the pre-bundled CJS dep gets the polyfill too.
   define: {
     "import.meta.env.VITE_APP_VERSION": JSON.stringify(uiVersion),
     "import.meta.env.VITE_APP_COMMIT": JSON.stringify(commit),
+    global: "globalThis",
+  },
+
+  // Pre-bundle polyfill (esbuild step) for CJS deps that use `global`.
+  // Vite uses esbuild internally to pre-bundle CommonJS dependencies
+  // (`@iarna/toml`, etc.) before serving them to the browser. The
+  // top-level `define` above doesn't reach esbuild's pre-bundle pass —
+  // we have to repeat the polyfill here so the cached bundle
+  // (node_modules/.vite/deps) also gets `global → globalThis`.
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+      },
+    },
   },
 
   // Plan 05-04: Vite multi-entry — index.html (main window) +
