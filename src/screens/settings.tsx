@@ -59,6 +59,7 @@ import { TrustSection } from "@/components/settings/sections/trust-section";
 import { RoutingSection } from "@/components/settings/sections/routing-section";
 import { GatewaySection } from "@/components/settings/sections/gateway-section";
 import { NotificationsSection } from "@/components/settings/sections/notifications-section";
+import { AdvancedSection } from "@/components/settings/sections/advanced-section";
 
 type OpenMap = Record<SectionId, boolean>;
 
@@ -156,25 +157,10 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("notifications")}
           />
 
-          <CollapsibleCliPanel
-            id="advanced"
-            title="ADVANCED — RAW CONFIG"
-            summary={stubSummary("plan 03-06 renders this")}
+          <AdvancedSection
             open={open.advanced}
             onOpenChange={setOpenFor("advanced")}
-          >
-            {/* Anchor target for RawWinsBanner's [ Open Advanced ] action.
-                The CollapsibleCliPanel wrapper already renders
-                <section id="settings-section-advanced">; this inner div
-                is a redundant scroll target so smoothScroll resolves
-                even if the panel is collapsed. */}
-            <p
-              id="settings-section-advanced-anchor"
-              className="text-muted-foreground"
-            >
-              advanced section — plan 03-06
-            </p>
-          </CollapsibleCliPanel>
+          />
 
           <CollapsibleCliPanel
             id="about"
