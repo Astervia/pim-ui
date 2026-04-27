@@ -23,20 +23,43 @@ pub enum Role {
     ShareMyInternet,
 }
 
-/// Render the sane-default `pim.toml`. Two interpolation points:
+/// Render the sane-default `pim.toml`. Three interpolation points:
 ///   - `[node].name = "{node_name}"`
 ///   - `[roles].gateway = true` if `Role::ShareMyInternet`, else `false`.
+///   - `[interface].name` is platform-aware: `pim0` on Linux (kernel
+///     daemon creates it), `utun8` on macOS (daemon binary's interface
+///     validation rejects non-`utun*` names — the kernel will rename
+///     to the next available `utunN` if 8 is taken).
 ///
 /// All other fields come from D-16 verbatim.
 pub fn render_default_config(node_name: &str, role: Role) -> String {
     let escaped = node_name.replace('\\', "\\\\").replace('"', "\\\"");
     let gateway = matches!(role, Role::ShareMyInternet);
+
+    // The shipped pim-daemon binary in src-tauri/binaries/ rejects `pim0` on
+    // macOS at TUN-creation time (`unsupported interface name for this
+    // platform: pim0`). macOS requires `utun*`. We pre-fill a high index
+    // (`utun8`) to dodge collisions with system utuns (utun0..3 are used by
+    // various OS services); the kernel falls back to the next free index if
+    // 8 is occupied. Linux keeps `pim0` because the kernel daemon creates a
+    // named TUN device verbatim there.
+    #[cfg(target_os = "macos")]
+    let interface_name = "utun8";
+    #[cfg(not(target_os = "macos"))]
+    let interface_name = "pim0";
+
+    let interface_comment = if cfg!(target_os = "macos") {
+        "# macOS — utun* is the only allowed prefix; kernel resolves to next free utunN"
+    } else {
+        "# Linux daemon creates this; macOS daemon re-maps to utunN automatically"
+    };
+
     format!(
         r#"[node]
 name = "{name}"
 
 [interface]
-name = "pim0"         # Linux daemon creates this; macOS daemon re-maps to utunN automatically
+name = "{iface}"         {iface_comment}
 mtu = 1400
 mesh_ip = "auto"      # daemon picks a CIDR it hasn't seen
 
@@ -60,6 +83,8 @@ require_encryption = true
 gateway = {gateway}   # true if role == "share_my_internet", false otherwise
 "#,
         name = escaped,
+        iface = interface_name,
+        iface_comment = interface_comment,
         gateway = gateway,
     )
 }
