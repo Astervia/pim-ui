@@ -165,4 +165,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
 | 3. Configuration & Peer Management | 7/7 | Complete   | 2026-04-27 |
 | 4. Routing & Onboarding Polish | 6/6 | Complete    | 2026-04-27 |
-| 5. Gateway Mode & System Surfaces | 7/7 | Complete   | 2026-04-27 |
+| 5. Gateway Mode & System Surfaces | 7/7 | Complete    | 2026-04-27 |
