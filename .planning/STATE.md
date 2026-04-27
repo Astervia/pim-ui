@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-04-27T00:44:57.186Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-04-27T01:15:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 30
-  completed_plans: 16
-  percent: 65
+  total_plans: 34
+  completed_plans: 18
+  percent: 53
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** One app that is honest about what the mesh is actually doing — never abstracts packets into a happy green dot — yet stays reachable enough that a first-time user can succeed in ≤ 3 interactions.
-**Current focus:** Phase 03 — configuration-peer-management
+**Current focus:** Phase 04 — routing-onboarding-polish
 
 ## Current Position
 
 Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
-Progress: [███████░░░] 65%
+Progress: [█████░░░░░] 53%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [███████░░░] 65%
 | Phase 01.1 P03 | 7 min | 3 tasks | 4 files |
 | Phase 03-configuration-peer-management P01 | 30 min | 1 tasks | 19 files |
 | Phase 03-configuration-peer-management P02 | 12 min | 2 tasks | 9 files |
+| Phase 03-configuration-peer-management P03 | 22min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,12 @@ Recent decisions affecting current work:
 - [Phase 03-configuration-peer-management]: Plan 03-02: react-hook-form useForm lives in the Sheet, not the atom — buildOnSubmit(form) factory binds field-level setError mapping (D-18) to the Sheet's instance, while open/submitting stay shared via the module atom
 - [Phase 03-configuration-peer-management]: Plan 03-02: peers.remove uses node_id (not config_entry_id) — PeerSummary doesn't expose config_entry_id; daemon accepts either; node_id is unambiguous for the CONNECTED-list scope
 - [Phase 03-configuration-peer-management]: Plan 03-02: AlertDialogAction onClick uses preventDefault + void confirm() — prevents Radix's auto-close from racing the in-flight peers.remove and dropping aria-busy state; close happens inside confirm() after RPC resolves
+- [Phase 03-configuration-peer-management]: Plan 03-03: useLogsStream refactored to module-level atoms (level/peer/source) + module-level ring buffer + reference-counted daemon subscription — required so applyLogsFilter() can reach level/peer/source from any non-React caller for cross-plan [Show in Logs →] toast routing (D-32), and so multiple components (LogsScreen + CustomTimeRangeDialog) share one logs.subscribe call without spawning duplicates
+- [Phase 03-configuration-peer-management]: Plan 03-03: Filter chain split — level/peer/source on use-logs-stream (close to the daemon subscription), search/time-range on use-log-filters (Phase 3 additions). useFilteredLogs composes them via useMemo over events
+- [Phase 03-configuration-peer-management]: Plan 03-03: Source filter is client-side, not server-side via daemon's `sources: []` param — pushing it server-side would force resubscribes on every source change, fighting the reference-counted lifecycle
+- [Phase 03-configuration-peer-management]: Plan 03-03: DebugSnapshot schema = D-23 verbatim (8 top-level snake_case fields + 4 filters_applied sub-fields) — load-bearing per D-24 so the JSON diffs cleanly against `pim status --json` + `pim logs --json` for kernel-repo bug reports
+- [Phase 03-configuration-peer-management]: Plan 03-03: snapshotFilename strips colons via `.replace(/:/g, "-")` — Windows-safe per D-24; downloadSnapshot uses Blob + <a download> + microtask URL revoke (no Tauri FS API; works in both webview and future mobile)
+- [Phase 03-configuration-peer-management]: Plan 03-03: vite-env.d.ts created — baseline tsconfig had no /// <reference types="vite/client" />, so `import.meta.env.VITE_APP_VERSION` failed typecheck. Added typed augmentation for VITE_APP_VERSION + VITE_APP_COMMIT (the latter is consumed by Plan 03-06 About section, D-27)
 
 ### Roadmap Evolution
 
@@ -127,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:44:57.182Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-04-27T01:15:00.000Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
