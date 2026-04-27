@@ -31,6 +31,7 @@
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
 import { Dashboard } from "@/screens/dashboard";
 import { LogsScreen } from "@/screens/logs";
+import { PeersScreen } from "@/screens/peers";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
@@ -79,14 +80,12 @@ function renderScreen(
         <Dashboard onPeerSelect={onPeerSelect} onNearbyPair={onNearbyPair} />
       );
     case "peers":
-      // Plan 03-01 D-02: peers stops aliasing Dashboard; this is the
-      // dedicated route. Plan 03-02 replaces this stub with the real
-      // PeersScreen (connected list + Nearby + Add static peer + Remove).
-      return (
-        <div className="p-8 font-mono text-muted-foreground">
-          peers — plan 03-02 renders here
-        </div>
-      );
+      // Plan 03-02: dedicated PeersScreen — composes PeersPanel +
+      // NearbyPanel + AddPeerSheet (PEER-02) and (Task 2)
+      // RemovePeerAlertDialog (PEER-03). The Phase-2 D-01 alias to
+      // Dashboard is gone for good — this route owns its own peer-list
+      // chrome and add/remove affordances per 03-CONTEXT D-02.
+      return <PeersScreen />;
     case "logs":
       // Real Logs screen: useLogsStream + LogFilterBar + virtualized
       // LogList + D-28 auto-scroll pill.
