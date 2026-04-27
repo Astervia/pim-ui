@@ -11,6 +11,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
+        // Plan 05-01: register notification + positioner plugins.
+        // Tray construction code is added by Plan 05-04 in the .setup() hook.
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_positioner::init())
         .manage(daemon::DaemonConnection::new())
         .invoke_handler(tauri::generate_handler![
             rpc::commands::daemon_call,
