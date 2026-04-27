@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-06-PLAN.md (CONF-01 + CONF-06 + CONF-07)
-last_updated: "2026-04-27T02:28:59.501Z"
+stopped_at: Completed 05-05-PLAN.md (UX-07)
+last_updated: "2026-04-27T02:51:11.465Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 27
+  completed_plans: 29
   percent: 71
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 5 (gateway-mode-system-surfaces) — EXECUTING
-Plan: 2 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -73,6 +73,8 @@ Progress: [███████░░░] 71%
 | Phase 03-configuration-peer-management P05 | 6min | 1 tasks | 5 files |
 | Phase 05-gateway-mode-system-surfaces P01 | 8 min | 4 tasks | 12 files |
 | Phase 03-configuration-peer-management P06 | 11min | 3 tasks | 11 files |
+| Phase 05-gateway-mode-system-surfaces P02 | 5min | 3 tasks | 9 files |
+| Phase 05-gateway-mode-system-surfaces P05 | 5min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -167,6 +169,15 @@ Recent decisions affecting current work:
 - [Phase 03-configuration-peer-management]: Plan 03-06: Three atomic commits (Routing/Gateway/Notifications; raw-TOML editor + Advanced; About + vite.config.ts) closed CONF-01 + CONF-06; CONF-07 wiring from 03-04 preserved via AdvancedSection's CollapsibleCliPanel id=settings-section-advanced anchor.
 - [Phase 03-configuration-peer-management]: Plan 03-06: Raw-TOML editor is a plain textarea + 48px gutter (NOT CodeMirror/Monaco/Prism per D-14); save flow per D-12 dry_run-first with textarea VERBATIM and buffer preserved on reject; click-gutter-marker moves cursor to (line, column) per offsetOfLineCol.
 - [Phase 03-configuration-peer-management]: Plan 03-06: vite.config.ts define block injects VITE_APP_VERSION (from package.json via fs.readFileSync) + VITE_APP_COMMIT (from git rev-parse --short HEAD with try/catch fallback to undefined); AboutSection consumes both via import.meta.env reads typed by vite-env.d.ts.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-02: GatewayScreen 6-branch render-switch designed for Plan 05-03 single-file additive extension — branches 1-3 (state guards) above branch 4 (non-Linux LinuxOnlyPanel), branches 5-6 (Linux pre-flight failing/passing) at bottom; Plan 05-03 inserts active-state branch BEFORE branch 4 without touching existing branches
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: real useCommandPalette atom (module-level + useSyncExternalStore mirror of useActiveScreen) replaces Plan 05-01 stub; export shape unchanged so AppShell call site needed zero edits. Module-level helpers setPaletteOpen/togglePalette/getPaletteOpen exposed for non-React callers (action handlers).
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-02: humanizeCheckName fall-through pattern — known names (RESEARCH §10a) map to brand-voice strings, unknown daemon-side check names degrade via name.replace(/_/g, ' ') so future daemon check additions render gracefully without UI redeploy
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: PALETTE_ACTIONS readonly array of 17 D-27 verbatim labels in locked navigate(6)→routing(3)→peers(3)→gateway(3)→logs(2) registration order — cmdk default ranking falls back to registration order on score ties so navigate-first ensures 'g' resolves to 'go to gateway' over 'gateway preflight'.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-02: NatInterfaceSelect D-44 redundancy belt — inline destructive error AND sonner toast.error fired together; inline is primary (user is on tab), toast covers slow gateway.enable RPC where user navigated away mid-call
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: TBD-PHASE-4-A/F/G markers ship verbatim despite Phase 4 already shipping routing@⌘3 — handlers stay as console.warn + closePalette per execution-context user directive, keeping the marker greppable for the Plan 05-07 audit + future Phase-4 follow-on planner.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-02: GATE-04 verbatim-string preservation — long copy strings split across JSX lines reassembled inline via JSX expression {' iptables-equivalent NAT — ...'} so Plan 05-07 audit grep matches the literal substring contiguously on-disk; pattern available for any future verbatim-string gate
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: cmdk brand-override CSS appended to globals.css with 9 [cmdk-*] selectors (added [cmdk-overlay] + [cmdk-list] beyond the plan's 6-selector list) — explicit border-radius:0, monospace fonts, lowercase + tracked text, tokens-only colors via existing @theme variables (--color-popover/--color-border/--font-mono/etc.).
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: bang-free source policy honored — !== rewrites to === false / === undefined ternary inversion (early-continue) to keep the project-wide no-exclamation grep rule clean across state.ts/actions.ts/command-palette.tsx (all three files: 0 bangs).
 
 ### Roadmap Evolution
 
@@ -183,6 +194,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T02:26:55.616Z
-Stopped at: Completed 03-06-PLAN.md (CONF-01 + CONF-06 + CONF-07)
+Last session: 2026-04-27T02:51:11.462Z
+Stopped at: Completed 05-05-PLAN.md (UX-07)
 Resume file: None
