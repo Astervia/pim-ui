@@ -75,10 +75,16 @@ import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
 import { KillSwitchBanner } from "@/components/brand/kill-switch-banner";
-// Phase 5 Plan 05-01 D-03 + D-29: ⌘K toggles the command palette. Stub
-// atom in src/lib/command-palette/state.ts (Plan 05-05 replaces with the
-// real module-level atom + Dialog component).
+// Phase 5 Plan 05-01 D-03 + D-29: ⌘K toggles the command palette atom.
+// Plan 05-05 replaced the Plan 05-01 stub at src/lib/command-palette/state.ts
+// with the real module-level atom + useSyncExternalStore — this import path
+// stays the same; the atom shape stayed identical so this call site needs
+// zero changes.
 import { useCommandPalette } from "@/lib/command-palette/state";
+// Plan 05-05 D-28: <CommandPalette /> mounts ONCE at AppShell level next
+// to <Toaster /> + <SubscriptionErrorToast />. Reads the same
+// useCommandPalette atom we toggle via ⌘K above.
+import { CommandPalette } from "@/components/command-palette";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
@@ -215,6 +221,12 @@ export function AppShell() {
           is mounted above; SubscriptionErrorToast (Plan 02-06 / D-31)
           fires on snapshot.subscriptionError changes. */}
       <SubscriptionErrorToast />
+      {/* Plan 05-05 D-28: ⌘K palette — global shell-level mount. Reads
+          the useCommandPalette atom toggled by the AppShell keyboard
+          handler above (Plan 05-01 case "k": / case "K":). The palette
+          renders nothing when open === false; cmdk's Dialog handles its
+          own portal + Esc close + focus trap. */}
+      <CommandPalette />
     </div>
   );
 }
