@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-01-PLAN.md (GATE-01..04)
-last_updated: "2026-04-27T02:25:50.528Z"
+stopped_at: Completed 03-06-PLAN.md (CONF-01 + CONF-06 + CONF-07)
+last_updated: "2026-04-27T02:28:52.436Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 26
+  completed_plans: 27
   percent: 71
 ---
 
@@ -72,6 +72,7 @@ Progress: [███████░░░] 71%
 | Phase 04-routing-onboarding-polish P06 | 38min | 5 tasks | 5 files |
 | Phase 03-configuration-peer-management P05 | 6min | 1 tasks | 5 files |
 | Phase 05-gateway-mode-system-surfaces P01 | 8 min | 4 tasks | 12 files |
+| Phase 03-configuration-peer-management P06 | 11min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,7 @@ Recent decisions affecting current work:
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: Sidebar gateway flipped to NAV at ⌘4 between routing (⌘3) and logs (⌘5); RESERVED group emptied (gateway was the last reserved row) so the bottom <ul> + second separator dropped together. Plan was authored pre-Phase-4; reality post-Phase-4 already had routing in NAV — adapted by collapsing reserved entirely.
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: AppShell ⌘4 binding routes through requestActive('gateway', setActive) NOT bare setActive — every other shortcut (⌘1/⌘2/⌘3/⌘5/⌘6/⌘,) goes through requestActive (Phase 3 D-13 dirty-Settings nav-away gating). Bare setActive would silently bypass the discard-unsaved-changes dialog.
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-01: Stub useCommandPalette returns Object.freeze({ open: false, setOpen: noop, toggle: noop }) — frozen-stable identity so AppShell useEffect deps stay stable across re-renders. Plan 05-05 replaces with real module-level atom + useSyncExternalStore returning a stable getSnapshot() ref — same stability contract.
+- [Phase 03-configuration-peer-management]: Plan 03-06: Three atomic commits (Routing/Gateway/Notifications; raw-TOML editor + Advanced; About + vite.config.ts) closed CONF-01 + CONF-06; CONF-07 wiring from 03-04 preserved via AdvancedSection's CollapsibleCliPanel id=settings-section-advanced anchor.
 
 ### Roadmap Evolution
 
@@ -179,6 +181,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T02:25:50.516Z
-Stopped at: Completed 05-01-PLAN.md (GATE-01..04)
+Last session: 2026-04-27T02:26:55.616Z
+Stopped at: Completed 03-06-PLAN.md (CONF-01 + CONF-06 + CONF-07)
 Resume file: None
