@@ -19,9 +19,13 @@ import { useCallback, useSyncExternalStore } from "react";
 
 // Union of screen ids the shell can render.
 // Phase 3 added "settings" (D-01: ⌘6 flips Settings live).
-// Phase 4/5 will extend with "routing" / "gateway" — those rows remain
-// grayed-reserved in the sidebar until then.
-export type ActiveScreenId = "dashboard" | "peers" | "logs" | "settings";
+// Phase 4 added "routing" (⌘3). Phase 5 will extend with "gateway".
+export type ActiveScreenId =
+  | "dashboard"
+  | "peers"
+  | "logs"
+  | "settings"
+  | "routing";
 
 // ─── Module-level atom ─────────────────────────────────────────────
 

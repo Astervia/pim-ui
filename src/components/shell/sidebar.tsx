@@ -45,26 +45,31 @@ interface ReservedRow {
   // Reserved rows live OUTSIDE the ActiveScreenId union — they are not
   // navigable in the current phase. Typed as string literals so the
   // reserved-list copy is checked at compile time.
-  readonly id: "routing" | "gateway";
+  // Phase 4 Plan 04-03 D-16: "routing" promoted from RESERVED to NAV
+  // (⌘3); only "gateway" remains reserved (Phase 5).
+  readonly id: "gateway";
   readonly label: string;
   readonly reservedFor: string;
 }
 
 // Phase 3 Plan 03-01 (D-01): "settings" appended to NAV with ⌘6 hint —
 // the row stops being reserved and becomes a navigable target.
+// Phase 4 Plan 04-03 (D-16): "routing" promoted to NAV with ⌘3 hint,
+// inserted between peers (⌘2) and logs (⌘5) so the cluster reads in
+// numerical-shortcut order.
 const NAV: readonly ActiveRow[] = [
   { id: "dashboard", label: "dashboard", shortcut: "⌘1" },
   { id: "peers", label: "peers", shortcut: "⌘2" },
+  { id: "routing", label: "routing", shortcut: "⌘3" },
   { id: "logs", label: "logs", shortcut: "⌘5" },
   { id: "settings", label: "settings", shortcut: "⌘6" },
 ];
 
 // Phase-hint copy per 02-UI-SPEC §Shell chrome §Sidebar reserved rows:
-//   routing  → (phase 4)  — ROUTE-* lives in Phase 4
 //   gateway  → (phase 5)  — GATE-* lives in Phase 5
 // settings was reserved in Phase 2 and went live in Phase 3 (Plan 03-01).
+// routing was reserved in Phase 2 and went live in Phase 4 (Plan 04-03).
 const RESERVED: readonly ReservedRow[] = [
-  { id: "routing", label: "routing", reservedFor: "(phase 4)" },
   { id: "gateway", label: "gateway", reservedFor: "(phase 5)" },
 ];
 

@@ -1,5 +1,6 @@
 /**
- * <ActiveScreen /> — shell tab router switch (Phase 2 + Phase 3 03-01).
+ * <ActiveScreen /> — shell tab router switch (Phase 2 + Phase 3 03-01 +
+ * Phase 4 04-03).
  *
  * Pure navigation glue: reads the active screen id from useActiveScreen()
  * and renders the matching screen component. Owns ZERO daemon logic —
@@ -9,6 +10,7 @@
  * Phase 3 Plan 03-01 D-02: "peers" gets a dedicated stub branch (the
  *       real PeersScreen lands in Plan 03-02). "settings" likewise gets
  *       a stub branch (real SettingsScreen lands in Plan 03-04).
+ * Phase 4 Plan 04-03 D-16: "routing" case added; renders <RouteScreen />.
  * D-03: AppShell owns the outer <main> landmark — ActiveScreen renders
  *       a <section aria-label={active}> to avoid a second <main> inside
  *       <main> (axe landmark-unique violation).
@@ -32,6 +34,8 @@ import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen"
 import { Dashboard } from "@/screens/dashboard";
 import { LogsScreen } from "@/screens/logs";
 import { PeersScreen } from "@/screens/peers";
+import { SettingsScreen } from "@/screens/settings";
+import { RouteScreen } from "@/screens/routing";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
@@ -86,19 +90,20 @@ function renderScreen(
       // Dashboard is gone for good — this route owns its own peer-list
       // chrome and add/remove affordances per 03-CONTEXT D-02.
       return <PeersScreen />;
+    case "routing":
+      // Phase 4 Plan 04-03 D-16/D-17: ⌘3 Routing tab. Three-panel stack
+      // — RouteTogglePanel (D-15 same instance as Dashboard) +
+      // RouteTablePanel + KnownGatewaysPanel.
+      return <RouteScreen />;
     case "logs":
       // Real Logs screen: useLogsStream + LogFilterBar + virtualized
       // LogList + D-28 auto-scroll pill.
       return <LogsScreen />;
     case "settings":
       // Plan 03-01 D-01: settings route is now active (⌘6). Plan 03-04
-      // replaces this stub with the real SettingsScreen (nine
-      // collapsible sections in fixed order).
-      return (
-        <div className="p-8 font-mono text-muted-foreground">
-          settings — plan 03-04 renders here
-        </div>
-      );
+      // ships the SettingsScreen scaffold (nine CollapsibleCliPanel
+      // section stubs in fixed order; bodies populated by 03-05/06).
+      return <SettingsScreen />;
     default:
       return assertNever(active);
   }

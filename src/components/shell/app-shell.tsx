@@ -10,10 +10,12 @@
  * many peers) scroll inside the right pane.
  *
  * Global keyboard shortcuts (02-UI-SPEC §Accessibility §Keyboard nav
- * + 03-UI-SPEC §Keyboard navigation):
+ * + 03-UI-SPEC §Keyboard navigation + 04-CONTEXT D-16):
  *   ⌘1 / Ctrl+1 → dashboard
  *   ⌘2 / Ctrl+2 → peers (Phase 3 Plan 03-01 D-02: now its own dedicated
  *                  route; Plan 03-02 populates the screen)
+ *   ⌘3 / Ctrl+3 → routing (Phase 4 Plan 04-03 D-16: ⌘3 routes to the
+ *                  Routing tab; Plan 04-03 populates the screen)
  *   ⌘5 / Ctrl+5 → logs
  *   ⌘6 / Ctrl+6 → settings (Phase 3 Plan 03-01 D-01: now active; Plan
  *                  03-04 populates the screen)
@@ -69,6 +71,11 @@ export function AppShell() {
           // aliased to Dashboard).
           e.preventDefault();
           setActive("peers");
+          break;
+        case "3":
+          // Plan 04-03 D-16: ⌘3 routes to the Routing tab.
+          e.preventDefault();
+          setActive("routing");
           break;
         case "5":
           e.preventDefault();
