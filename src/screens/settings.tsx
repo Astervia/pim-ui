@@ -1,5 +1,6 @@
 /**
- * <SettingsScreen /> — orchestrator screen for ⌘6. Phase 3 Plan 03-04 §Part J.
+ * <SettingsScreen /> — orchestrator screen for ⌘6. Phase 3 Plan 03-04 §Part J,
+ * completed by Plan 03-06.
  *
  * Spec: 03-UI-SPEC §S1 Settings page + 03-CONTEXT D-03/D-04/D-05/D-06 +
  *        ROADMAP §Phase 3 success criterion 1.
@@ -7,20 +8,17 @@
  * Composition: a single scrollable column hosting nine `CollapsibleCliPanel`
  * sections in a fixed order (per UX-PLAN §6f / SECTION_IDS):
  *
- *   1. IDENTITY      ─┐
- *   2. TRANSPORT      │  Plan 03-05 replaces these four form-heavy
- *   3. DISCOVERY      │  stubs (IdentitySection / TransportSection /
- *   4. TRUST         ─┘  DiscoverySection / TrustSection).
- *   5. ROUTING       ─┐
- *   6. GATEWAY        │
- *   7. NOTIFICATIONS  │  Plan 03-06 replaces these five stubs (Routing,
- *   8. ADVANCED       │  Gateway placeholder, Notifications, Advanced
- *   9. ABOUT         ─┘  raw-TOML editor, About).
+ *   1. IDENTITY              (CONF-02 — Plan 03-05)
+ *   2. TRANSPORT             (CONF-03 — Plan 03-05)
+ *   3. DISCOVERY             (CONF-04 — Plan 03-05)
+ *   4. TRUST                 (CONF-05 — Plan 03-05)
+ *   5. ROUTING               (CONF-01 — Plan 03-06)
+ *   6. GATEWAY (placeholder) (CONF-01 — Plan 03-06; full GATE-* in Phase 5)
+ *   7. NOTIFICATIONS         (CONF-01 — Plan 03-06; firing in Phase 5)
+ *   8. ADVANCED — RAW CONFIG (CONF-06 — Plan 03-06)
+ *   9. ABOUT                 (CONF-01 — Plan 03-06)
  *
- * Until Plans 03-05 / 03-06 land, every section is a stub that prints a
- * single muted-foreground paragraph identifying which downstream plan
- * owns the body. The chrome (header + summary + collapse glyph) is real
- * — clicks toggle, ⌘↑/⌘↓ collapse/expand all, anchor ids resolve.
+ * Every section is a real component as of Plan 03-06; there are no stubs.
  *
  * Keyboard shortcuts (consumed via window CustomEvent dispatched by
  * src/components/shell/app-shell.tsx — see 03-01 D-06):
@@ -51,7 +49,6 @@ import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
-import { CollapsibleCliPanel } from "@/components/settings/collapsible-cli-panel";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { TransportSection } from "@/components/settings/sections/transport-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -60,6 +57,7 @@ import { RoutingSection } from "@/components/settings/sections/routing-section";
 import { GatewaySection } from "@/components/settings/sections/gateway-section";
 import { NotificationsSection } from "@/components/settings/sections/notifications-section";
 import { AdvancedSection } from "@/components/settings/sections/advanced-section";
+import { AboutSection } from "@/components/settings/sections/about-section";
 
 type OpenMap = Record<SectionId, boolean>;
 
@@ -110,14 +108,6 @@ export function SettingsScreen() {
     );
   }
 
-  // Stub-summary helper — every section uses the same muted-foreground
-  // line until Plans 03-05 / 03-06 replace the bodies. Plan 03-05 swaps
-  // the IDENTITY/TRANSPORT/DISCOVERY/TRUST stubs for real components;
-  // Plan 03-06 swaps ROUTING/GATEWAY/NOTIFICATIONS/ADVANCED/ABOUT.
-  const stubSummary = (slot: string) => (
-    <span className="font-mono text-xs text-muted-foreground">{slot}</span>
-  );
-
   return (
     <TooltipProvider>
       <main aria-label="settings" className="flex flex-col">
@@ -162,15 +152,10 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("advanced")}
           />
 
-          <CollapsibleCliPanel
-            id="about"
-            title="ABOUT"
-            summary={stubSummary("plan 03-06 renders this")}
+          <AboutSection
             open={open.about}
             onOpenChange={setOpenFor("about")}
-          >
-            <p className="text-muted-foreground">about section — plan 03-06</p>
-          </CollapsibleCliPanel>
+          />
         </div>
       </main>
     </TooltipProvider>
