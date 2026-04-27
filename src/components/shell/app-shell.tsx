@@ -59,10 +59,28 @@
  * above the active-screen content but inside the main content pane so
  * it scrolls with the page if content overflows (mirrors
  * LimitedModeBanner placement convention).
+ *
+ * Phase 5 Plan 05-06 D-31 + TBD-PHASE-4-G: a single
+ * `pim://open-add-peer` Tauri event subscription lives in this file —
+ * the documented exception to the W1 invariant. The event is a CUSTOM
+ * Tauri event emitted by Plan 05-04's tray popover Add-peer click and
+ * Plan 05-05's command-palette `peers.add_nearby` action. It is NOT
+ * carried by the daemon's `daemon://rpc-event` channel, so it does not
+ * fall under the daemon-event-domain W1 contract (which governs
+ * src/lib/rpc.ts + src/hooks/use-daemon-state.ts only). Do NOT add any
+ * other Tauri-API subscriptions in this file.
+ *
+ * Phase 5 Plan 05-06 D-31: <GatewayNotificationsListener /> mounts at
+ * shell level alongside <SubscriptionErrorToast /> + <CommandPalette />.
+ * The listener subscribes via actions.subscribe (W1 fan-out, no new
+ * Tauri listener) to status.event + peers.event + gateway.event and
+ * dispatches per-event toasts / OS notifications per the policy at
+ * src/lib/notifications/policy.ts.
  */
 
 import { useEffect } from "react";
 import { Toaster } from "sonner";
+import { listen } from "@tauri-apps/api/event";
 import { Sidebar } from "./sidebar";
 import { ActiveScreen } from "./active-screen";
 import { useActiveScreen } from "@/hooks/use-active-screen";
@@ -85,6 +103,11 @@ import { useCommandPalette } from "@/lib/command-palette/state";
 // to <Toaster /> + <SubscriptionErrorToast />. Reads the same
 // useCommandPalette atom we toggle via ⌘K above.
 import { CommandPalette } from "@/components/command-palette";
+// Plan 05-06 D-31: <GatewayNotificationsListener /> mounts ONCE at AppShell
+// level next to <SubscriptionErrorToast /> + <CommandPalette />. Subscribes
+// to status.event + peers.event + gateway.event via the W1 fan-out and
+// dispatches per-event to toast / system / both per the policy table.
+import { GatewayNotificationsListener } from "@/hooks/use-gateway-notifications";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
@@ -171,6 +194,35 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, setActive, togglePalette]);
 
+  // Plan 05-06 + TBD-PHASE-4-G: subscribe to the custom Tauri event
+  // pim://open-add-peer emitted by Plan 05-04's tray popover Add-peer
+  // click and Plan 05-05's palette peers.add_nearby action. On receipt,
+  // route the user to the Phase 2 Nearby panel (currently the peers
+  // tab). Phase 4 PEER-05/06 may refine the destination — this hook
+  // brings the user to the right surface; Phase 4 owns the Add-peer flow.
+  // This is the SINGLE documented W1 exception in this file — the event
+  // is a custom IPC bridge from the popover/palette to the main window,
+  // NOT a daemon RPC event.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void listen<unknown>("pim://open-add-peer", () => {
+      requestActive("peers", setActive);
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch((e) => {
+        console.warn("pim://open-add-peer subscription failed —", e);
+      });
+    return () => {
+      if (unlisten === null) {
+        // subscription never resolved — nothing to clean up
+      } else {
+        unlisten();
+      }
+    };
+  }, [setActive]);
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
@@ -227,6 +279,12 @@ export function AppShell() {
           renders nothing when open === false; cmdk's Dialog handles its
           own portal + Esc close + focus trap. */}
       <CommandPalette />
+      {/* Plan 05-06 D-31: notification policy dispatcher — single
+          shell-level mount. Subscribes to status.event + peers.event +
+          gateway.event via actions.subscribe (W1 fan-out, no new Tauri
+          listener) and dispatches per-event to toast / system / both
+          per the policy table at src/lib/notifications/policy.ts. */}
+      <GatewayNotificationsListener />
     </div>
   );
 }
