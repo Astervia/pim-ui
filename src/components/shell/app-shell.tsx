@@ -10,17 +10,22 @@
  * many peers) scroll inside the right pane.
  *
  * Global keyboard shortcuts (02-UI-SPEC §Accessibility §Keyboard nav
- * + 03-UI-SPEC §Keyboard navigation + 04-CONTEXT D-16):
+ * + 03-UI-SPEC §Keyboard navigation + 04-CONTEXT D-16 + 05-CONTEXT D-03/D-29/D-42):
  *   ⌘1 / Ctrl+1 → dashboard
  *   ⌘2 / Ctrl+2 → peers (Phase 3 Plan 03-01 D-02: now its own dedicated
  *                  route; Plan 03-02 populates the screen)
  *   ⌘3 / Ctrl+3 → routing (Phase 4 Plan 04-03 D-16: ⌘3 routes to the
  *                  Routing tab; Plan 04-03 populates the screen)
+ *   ⌘4 / Ctrl+4 → gateway (Phase 5 Plan 05-01 D-03: ⌘4 routes to the
+ *                  Gateway tab; Plan 05-02/05-03 populate the body)
  *   ⌘5 / Ctrl+5 → logs
  *   ⌘6 / Ctrl+6 → settings (Phase 3 Plan 03-01 D-01: now active; Plan
  *                  03-04 populates the screen)
  *   ⌘, / Ctrl+, → alias for ⌘6 (macOS Preferences idiom per 03-UI-SPEC
  *                  §Shell chrome note)
+ *   ⌘K / Ctrl+K → toggles the command palette (Phase 5 Plan 05-01 D-03 +
+ *                  D-29: stub atom in src/lib/command-palette/state.ts;
+ *                  Plan 05-05 replaces with the real Dialog)
  *   ⌘↑ / Ctrl+↑ → dispatches `pim:settings-collapse-all` window event
  *                  (Plan 03-04 SettingsScreen listens). No-op on other tabs.
  *   ⌘↓ / Ctrl+↓ → dispatches `pim:settings-expand-all` window event.
@@ -70,9 +75,16 @@ import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
 import { KillSwitchBanner } from "@/components/brand/kill-switch-banner";
+// Phase 5 Plan 05-01 D-03 + D-29: ⌘K toggles the command palette. Stub
+// atom in src/lib/command-palette/state.ts (Plan 05-05 replaces with the
+// real module-level atom + Dialog component).
+import { useCommandPalette } from "@/lib/command-palette/state";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
+  // Phase 5 Plan 05-01 D-03: ⌘K binding calls togglePalette(). Stub
+  // implementation is a no-op until Plan 05-05 ships the real atom.
+  const { toggle: togglePalette } = useCommandPalette();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -97,6 +109,11 @@ export function AppShell() {
           e.preventDefault();
           requestActive("routing", setActive);
           break;
+        case "4":
+          // Plan 05-01 D-03: ⌘4 routes to Gateway (Plan 05-02 fills the body).
+          e.preventDefault();
+          requestActive("gateway", setActive);
+          break;
         case "5":
           e.preventDefault();
           requestActive("logs", setActive);
@@ -112,6 +129,15 @@ export function AppShell() {
           // native Preferences menu.
           e.preventDefault();
           requestActive("settings", setActive);
+          break;
+        case "k":
+        case "K":
+          // Plan 05-01 D-03 + D-29: ⌘K toggles the command palette.
+          // Plan 05-05 ships the real palette Dialog; until then toggle()
+          // is a no-op (stub atom in src/lib/command-palette/state.ts).
+          // Modifier guard above already rejects ⌘⇧K and ⌘⌥K (D-42).
+          e.preventDefault();
+          togglePalette();
           break;
         case "ArrowUp":
           // D-06: ⌘↑ collapses all settings sections — no-op on other
@@ -137,7 +163,7 @@ export function AppShell() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, setActive]);
+  }, [active, setActive, togglePalette]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
