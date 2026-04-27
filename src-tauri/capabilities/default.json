@@ -8,6 +8,17 @@
     "shell:default",
     "log:default",
     "notification:default",
-    "positioner:default"
+    "positioner:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "osascript",
+          "cmd": "osascript",
+          "args": true,
+          "sidecar": false
+        }
+      ]
+    }
   ]
 }
