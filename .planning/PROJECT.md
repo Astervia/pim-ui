@@ -27,11 +27,22 @@ that a first-time user can succeed in ≤ 3 interactions.
 - ✓ **UX-02** — Solo-mode dashboard with enabled `[ + Add peer nearby ]` + `[ Invite peer ]` actions — Phase 4 · 2026-04-27
 - ✓ **UX-03** — KillSwitchBanner + handshake-fail peer-row sub-line linking `docs/SECURITY.md §3.2` — Phase 4 · 2026-04-27
 - ✓ **UX-08** — `docs/COPY.md` voice contract + `pnpm audit:copy` script enforces brand voice — Phase 4 · 2026-04-27
+- ✓ **CONF-01..07, PEER-02/03, OBS-02/03** — Settings (9 collapsible sections) + dedicated Peers screen (add/remove static) + Logs search/time-range/export + raw-TOML editor with daemon dry-run validation — Phase 3 · 2026-04-27 (live UAT deferred to milestone-end batch)
+- ✓ **GATE-01..04** — Gateway pre-flight + Linux enable + active conntrack/throughput/peer-through-me view + macOS/Windows Linux-only messaging — Phase 5 · 2026-04-27 (live UAT deferred)
+- ✓ **UX-04** — Notification policy: toasts for non-critical lifecycle events, OS notifications only for kill-switch + conntrack-saturated + all-gateways-lost — Phase 5 · 2026-04-27 (live UAT deferred)
+- ✓ **UX-05/06** — macOS menu-bar popover + Windows tray + Linux AppIndicator parity (status dot + node + mesh IP + route toggle + Add peer + Open pim + Quit) — Phase 5 · 2026-04-27 (live UAT deferred; route toggle currently a TBD-PHASE-4-A placeholder pending Phase-5↔Phase-4 integration pass)
+- ✓ **UX-07** — ⌘K command palette with 17 actions across 5 groups (cmdk-backed) — Phase 5 · 2026-04-27 (live UAT deferred)
 
 ### Active
 
-See `.planning/REQUIREMENTS.md` for the full v1 list (36 requirements
-across 6 categories) with traceability to phases.
+All v1 requirements are now validated against source code. Live runtime UAT is deferred to a single milestone-end batch (per user policy 2026-04-27) — see `/gsd:audit-uat` for the cross-phase pending walkthrough queue.
+
+Outstanding integration work:
+- **Phase-5↔Phase-4 integration pass** — swap the `TBD-PHASE-4-A/B/C/D/F/G` placeholders shipped in Phase 5 (popover route toggle, palette routing actions, kill-switch event source, etc.) for the real Phase-4 components (`src/components/routing/route-toggle-panel.tsx`, `src/screens/routing.tsx`, `src/components/brand/kill-switch-banner.tsx`, `docs/COPY.md` audit). Greppable via `grep -rn "TBD-PHASE-4-" src/ src-tauri/`. Plan 05-07 audit confirmed inventory counts (A=10, B=4, C=4, D=1, F=5, G=9).
+- **Kernel-side `gateway.event` RPC stream** — Phase 5 ships speculative TBD-RPC types tagged in `src/lib/rpc-types.ts`; `gateway.status` polling fallback (TBD-RPC-FALLBACK in `src/hooks/use-gateway-status.ts`) is the no-event-stream-yet path. Confirm with kernel maintainer when `proximity-internet-mesh/docs/RPC.md` push unblocks.
+- **Milestone-end UAT batch** — 24+ live walkthrough items across Phases 1, 3, 4, 5 persisted in `*-HUMAN-UAT.md` files. Run on a real `pim-daemon` binary (Linux for gateway-mode SCs; any OS for SC3/4/5/6).
+
+See `.planning/REQUIREMENTS.md` for the full v1 traceability table.
 
 ### Out of Scope
 
@@ -104,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-27 after Phase 4 (Routing & Onboarding Polish) complete*
+*Last updated: 2026-04-27 after Phase 5 (Gateway Mode & System Surfaces) complete — milestone v0.1 closes pending milestone-end UAT batch*
