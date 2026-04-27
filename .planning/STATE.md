@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-05-PLAN.md (UX-07)
-last_updated: "2026-04-27T02:51:11.465Z"
+stopped_at: Completed 05-04-PLAN.md (UX-05 + UX-06 — tray + popover + native menu)
+last_updated: "2026-04-27T02:53:57.101Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 34
-  completed_plans: 29
+  completed_plans: 30
   percent: 71
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 5 (gateway-mode-system-surfaces) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -75,6 +75,7 @@ Progress: [███████░░░] 71%
 | Phase 03-configuration-peer-management P06 | 11min | 3 tasks | 11 files |
 | Phase 05-gateway-mode-system-surfaces P02 | 5min | 3 tasks | 9 files |
 | Phase 05-gateway-mode-system-surfaces P05 | 5min | 2 tasks | 8 files |
+| Phase 05-gateway-mode-system-surfaces P04 | 7min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,10 @@ Recent decisions affecting current work:
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-02: GATE-04 verbatim-string preservation — long copy strings split across JSX lines reassembled inline via JSX expression {' iptables-equivalent NAT — ...'} so Plan 05-07 audit grep matches the literal substring contiguously on-disk; pattern available for any future verbatim-string gate
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: cmdk brand-override CSS appended to globals.css with 9 [cmdk-*] selectors (added [cmdk-overlay] + [cmdk-list] beyond the plan's 6-selector list) — explicit border-radius:0, monospace fonts, lowercase + tracked text, tokens-only colors via existing @theme variables (--color-popover/--color-border/--font-mono/etc.).
 - [Phase 05-gateway-mode-system-surfaces]: Plan 05-05: bang-free source policy honored — !== rewrites to === false / === undefined ternary inversion (early-continue) to keep the project-wide no-exclamation grep rule clean across state.ts/actions.ts/command-palette.tsx (all three files: 0 bangs).
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-04: Cross-platform tray surface ships hybrid pattern — borderless React popover (macOS+Windows left-click via Position::TrayCenter) + native menu (Linux right-click; Windows right-click fallback). show_menu_on_left_click(false) preserves Linux's right-click idiom. Tray icon at 16×16 sips-resized PNG (Plan 05-07 design pass can refine).
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-04 W1 fix: popover Quit emits pim://quit; Rust setup hook listens via app.listen('pim://quit', ...) and calls app.exit(0). Single source of truth = Rust listener. The Tauri shell plugin does not export 'exit' (only Command/open/Child); the process plugin is NOT a Phase 5 dependency. Add peer nearby uses the same emit pattern (pim://open-add-peer) — established as the popover's W1 cross-window IPC convention.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-04 W2 fix: tauri features extended with image-png so Image::from_path resolves the bundle.resources-copied icons/tray.png at runtime via app.path().resource_dir(). Plan 05-01's truth statement (Cargo.toml NOT modified) is now stale — the W2 fix introduced a transitive feature requirement Plan 05-01 couldn't anticipate. cargo check exit 0 after the feature flag.
+- [Phase 05-gateway-mode-system-surfaces]: Plan 05-04: per-window listener pattern formalized. The popover window has its own onFocusChanged subscription (D-21 hide-on-blur) and its own useDaemonState mount; W1 main-window invariant (rpc.ts listen=0; use-daemon-state.ts listen=2) preserved verbatim. Per RESEARCH §11c: W1 is per-window, not per-app. Plan 05-07 audit grep targets src/lib/rpc.ts + src/hooks/use-daemon-state.ts only — popover listeners are separate budget.
 
 ### Roadmap Evolution
 
@@ -194,6 +199,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T02:51:11.462Z
-Stopped at: Completed 05-05-PLAN.md (UX-07)
+Last session: 2026-04-27T02:53:57.097Z
+Stopped at: Completed 05-04-PLAN.md (UX-05 + UX-06 — tray + popover + native menu)
 Resume file: None
