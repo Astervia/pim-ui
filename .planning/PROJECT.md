@@ -22,6 +22,11 @@ that a first-time user can succeed in ≤ 3 interactions.
 - ✓ **SCAF-01** — Tauri 2 + React 19 + Vite + Tailwind v4 + shadcn/ui scaffold builds and runs — existing (`pim-ui/src`, `src-tauri`)
 - ✓ **SCAF-02** — Animated `█ pim` hero logo + mock CliPanel dashboard render at localhost:1420 — existing
 - ✓ **DOCS-01** — UX plan + research + RPC contract authored — existing (`docs/UX-PLAN.md`, `docs/research/`, kernel `docs/RPC.md`)
+- ✓ **ROUTE-01..04** — Route-internet-via-mesh toggle with honest gateway/relay surfacing + Routing view (table + known gateways) — Phase 4 · 2026-04-27
+- ✓ **UX-01** — Three-interaction first-run onboarding (FirstRunScreen + TUN modal + WelcomeScreen pick) — Phase 4 · 2026-04-27
+- ✓ **UX-02** — Solo-mode dashboard with enabled `[ + Add peer nearby ]` + `[ Invite peer ]` actions — Phase 4 · 2026-04-27
+- ✓ **UX-03** — KillSwitchBanner + handshake-fail peer-row sub-line linking `docs/SECURITY.md §3.2` — Phase 4 · 2026-04-27
+- ✓ **UX-08** — `docs/COPY.md` voice contract + `pnpm audit:copy` script enforces brand voice — Phase 4 · 2026-04-27
 
 ### Active
 
@@ -99,4 +104,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after initialization*
+*Last updated: 2026-04-27 after Phase 4 (Routing & Onboarding Polish) complete*
