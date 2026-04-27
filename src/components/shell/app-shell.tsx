@@ -40,6 +40,13 @@
  *   - If a future plan needs an app-wide overlay (e.g. Pair Approval
  *     modal), render it from main.tsx alongside TunPermissionProvider,
  *     NOT here — AppShell stays focused on the Sidebar + main split.
+ *
+ * Phase 4 D-08: <InvitePeerSheet /> mounted at shell level alongside
+ * ReconnectToast / StopConfirmDialog, so the slide-over overlays every
+ * screen and its open state survives ⌘1/⌘2/⌘3 tab switches. The trigger
+ * (PeerListPanel's [ Invite peer ] button) lives on the Dashboard but
+ * the Sheet must NOT unmount when the user navigates away — module-level
+ * useInvitePeer atom is the shared boolean.
  */
 
 import { useEffect } from "react";
@@ -50,6 +57,7 @@ import { useActiveScreen } from "@/hooks/use-active-screen";
 import { ReconnectToast } from "@/components/brand/reconnect-toast";
 import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
+import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
@@ -134,6 +142,11 @@ export function AppShell() {
           layer rather than inside a specific screen. */}
       <ReconnectToast />
       <StopConfirmDialog />
+      {/* Phase 4 D-08 (Plan 04-05): InvitePeerSheet sibling so the
+          right-edge slide-over overlays every screen; its open state
+          survives ⌘1/⌘2/⌘3 tab switches via the module-level
+          useInvitePeer atom. */}
+      <InvitePeerSheet />
 
       {/* Sonner Toaster — single app-wide toast container. Previously
           mounted as <ReconnectToaster /> in main.tsx; consolidated here
