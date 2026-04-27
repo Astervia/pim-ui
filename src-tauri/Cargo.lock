@@ -2857,6 +2857,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dirs 5.0.1",
+ "log",
  "serde",
  "serde_json",
  "tauri",

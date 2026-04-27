@@ -114,13 +114,13 @@ impl Sidecar {
 
             while let Some(event) = rx.recv().await {
                 match event {
-                    CommandEvent::Stdout(bytes) => tracing::info!(
+                    CommandEvent::Stdout(bytes) => log::info!(
                         target: "pim-daemon",
                         "{}",
                         String::from_utf8_lossy(&bytes).trim_end()
                     ),
                     CommandEvent::Stderr(bytes) => {
-                        tracing::warn!(
+                        log::warn!(
                             target: "pim-daemon",
                             "{}",
                             String::from_utf8_lossy(&bytes).trim_end()
@@ -132,10 +132,10 @@ impl Sidecar {
                             stderr_buf.drain(0..drop);
                         }
                     }
-                    CommandEvent::Error(e) => tracing::error!(target: "pim-daemon", "{e}"),
+                    CommandEvent::Error(e) => log::error!(target: "pim-daemon", "{e}"),
                     CommandEvent::Terminated(payload) => {
                         let elapsed_ms = spawned_at.elapsed().as_millis() as u64;
-                        tracing::warn!(
+                        log::warn!(
                             target: "pim-daemon",
                             "terminated: code={:?} signal={:?} elapsed_ms={}",
                             payload.code,
@@ -186,10 +186,31 @@ impl Sidecar {
     ///    until we ship a privileged-helper kill flow.
     #[cfg(target_os = "macos")]
     async fn spawn_macos_privileged(&self, app: &AppHandle) -> Result<()> {
+        // Fast-path: if a daemon is already serving the socket (e.g. user
+        // started it manually with `sudo` in another terminal), skip spawn
+        // entirely. The state.rs connect loop will handshake against the
+        // existing socket. Use this as the dev workaround when osascript
+        // detachment misbehaves.
+        let socket_path = crate::daemon::socket_path::resolve_socket_path();
+        if socket_path.exists() {
+            log::info!(
+                target: "pim-daemon-osa",
+                "socket {} already exists; skipping privileged spawn (assuming daemon is already running externally — likely a manual `sudo pim-daemon ...`)",
+                socket_path.display()
+            );
+            eprintln!("[pim-ui] daemon socket exists at {}; skipping spawn", socket_path.display());
+            return Ok(());
+        }
+
+        eprintln!("[pim-ui] spawn_macos_privileged: starting (socket {} does not exist yet)", socket_path.display());
+
         let daemon_bin = resolve_sidecar_binary_path()?;
         let config_path = resolve_config_path();
         let pid_file = std::path::PathBuf::from("/tmp/pim.pid");
         let log_file = std::path::PathBuf::from("/tmp/pim-daemon.log");
+
+        eprintln!("[pim-ui] daemon_bin = {}", daemon_bin.display());
+        eprintln!("[pim-ui] config_path = {}", config_path.display());
 
         // Pre-spawn: pick a free utunN and rewrite the on-disk pim.toml's
         // [interface] name field. macOS leaks utun interfaces when the
@@ -201,7 +222,7 @@ impl Sidecar {
         // index, or (b) we ship a Network Extension entitlement that
         // routes utun creation through the OS-managed path.
         if let Err(e) = pick_and_apply_free_utun(&config_path) {
-            tracing::warn!(
+            log::warn!(
                 target: "pim-daemon-osa",
                 "could not auto-pick free utun (will use existing pim.toml value): {e}"
             );
@@ -215,17 +236,23 @@ impl Sidecar {
         // socket binding in agreement.
         let user_tmpdir = std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp/".to_string());
 
-        // umask 000 — socket created by daemon (root) ends up world-rw,
-        // so the user-mode UI can connect. Without this, the default
-        // umask (022) creates a 0644 socket which the user can't write to.
+        // umask 000 — socket created by daemon (root) ends up world-rw
+        // so the user-mode UI can connect.
+        // nohup + </dev/null — detach properly so the daemon survives the
+        // osascript wrapper exit. Without this, `do shell script with
+        // administrator privileges` may kill backgrounded children when
+        // its wrapper terminates (TN2065 doesn't document this combo;
+        // community pattern is nohup + closed-stdin to be safe).
         let shell_cmd = format!(
-            "umask 000; TMPDIR={tmpdir} {daemon} {cfg} {pid} >{log} 2>&1 &",
+            "umask 000; TMPDIR={tmpdir} nohup {daemon} {cfg} {pid} </dev/null >{log} 2>&1 &",
             tmpdir = shell_quote(&user_tmpdir),
             daemon = shell_quote(&daemon_bin.to_string_lossy()),
             cfg = shell_quote(&config_path.to_string_lossy()),
             pid = shell_quote(&pid_file.to_string_lossy()),
             log = shell_quote(&log_file.to_string_lossy()),
         );
+
+        eprintln!("[pim-ui] shell_cmd: {}", shell_cmd);
 
         // The osascript itself — wrap the shell command in a privileged
         // context with a custom prompt message. The dialog shows
@@ -241,7 +268,7 @@ impl Sidecar {
             .spawn()
             .map_err(|e| anyhow!("spawn osascript wrapper for pim-daemon: {e}"))?;
 
-        tracing::info!(
+        log::info!(
             target: "pim-daemon-osa",
             "spawned via osascript (privileged); daemon log: {}",
             log_file.display()
@@ -253,24 +280,24 @@ impl Sidecar {
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
                 match event {
-                    CommandEvent::Stdout(bytes) => tracing::info!(
+                    CommandEvent::Stdout(bytes) => log::info!(
                         target: "pim-daemon-osa",
                         "{}",
                         String::from_utf8_lossy(&bytes).trim_end()
                     ),
-                    CommandEvent::Stderr(bytes) => tracing::warn!(
+                    CommandEvent::Stderr(bytes) => log::warn!(
                         target: "pim-daemon-osa",
                         "{}",
                         String::from_utf8_lossy(&bytes).trim_end()
                     ),
-                    CommandEvent::Error(e) => tracing::error!(target: "pim-daemon-osa", "{e}"),
+                    CommandEvent::Error(e) => log::error!(target: "pim-daemon-osa", "{e}"),
                     CommandEvent::Terminated(payload) => {
                         // Wrapper exits ~immediately after backgrounding the
                         // daemon. A non-zero code USUALLY means user canceled
                         // the auth dialog or osascript itself failed. The
                         // daemon's actual exit cannot be observed through this
                         // wrapper — rely on rpc.hello timeout in state.rs.
-                        tracing::info!(
+                        log::info!(
                             target: "pim-daemon-osa",
                             "osascript wrapper exited code={:?} signal={:?} (daemon detached)",
                             payload.code,
@@ -302,7 +329,7 @@ impl Sidecar {
         // and the kill propagates as a clean SIGTERM.
         if let Some(child) = self.child.lock().await.take() {
             if let Err(e) = child.kill() {
-                tracing::warn!(
+                log::warn!(
                     target: "pim-daemon",
                     "kill child handle failed (osascript wrapper already exited on macOS — expected): {e}"
                 );
@@ -315,7 +342,7 @@ impl Sidecar {
         #[cfg(target_os = "macos")]
         {
             if let Err(e) = kill_macos_privileged().await {
-                tracing::warn!(
+                log::warn!(
                     target: "pim-daemon",
                     "privileged daemon kill failed: {e}; daemon may still be running — operator may need to sudo kill -9 {{PID in /tmp/pim.pid}}"
                 );
@@ -498,7 +525,7 @@ fn pick_and_apply_free_utun(config_path: &std::path::Path) -> Result<()> {
     std::fs::rename(&tmp, config_path)
         .map_err(|e| anyhow!("rename {} -> {}: {e}", tmp.display(), config_path.display()))?;
 
-    tracing::info!(
+    log::info!(
         target: "pim-daemon-osa",
         "auto-picked free interface: {chosen} (rewrote [interface] name in pim.toml)"
     );
@@ -516,7 +543,7 @@ async fn kill_macos_privileged() -> Result<()> {
     let pid_text = match std::fs::read_to_string(pid_file) {
         Ok(s) => s.trim().to_string(),
         Err(_) => {
-            tracing::info!(
+            log::info!(
                 target: "pim-daemon",
                 "no /tmp/pim.pid — assuming daemon already stopped"
             );

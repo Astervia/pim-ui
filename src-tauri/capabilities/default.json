@@ -15,7 +15,7 @@
         {
           "name": "osascript",
           "cmd": "osascript",
-          "args": true,
+          "args": [{ "validator": "\\S+" }, { "validator": "[\\s\\S]+" }],
           "sidecar": false
         }
       ]
