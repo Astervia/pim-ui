@@ -47,6 +47,13 @@
  * (PeerListPanel's [ Invite peer ] button) lives on the Dashboard but
  * the Sheet must NOT unmount when the user navigates away — module-level
  * useInvitePeer atom is the shared boolean.
+ *
+ * Phase 4 D-21: <KillSwitchBanner /> mounted above <ActiveScreen />
+ * inside <main>. Banner derives visibility from useKillSwitch() —
+ * renders only when route_on===true && selected_gateway===null. Sits
+ * above the active-screen content but inside the main content pane so
+ * it scrolls with the page if content overflows (mirrors
+ * LimitedModeBanner placement convention).
  */
 
 import { useEffect } from "react";
@@ -58,6 +65,7 @@ import { ReconnectToast } from "@/components/brand/reconnect-toast";
 import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
+import { KillSwitchBanner } from "@/components/brand/kill-switch-banner";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
@@ -134,6 +142,11 @@ export function AppShell() {
         aria-label="content"
         className="flex-1 overflow-y-auto px-8 py-8"
       >
+        {/* Phase 4 D-21: KillSwitchBanner sits above active-screen content
+            but inside <main> so it scrolls with the page on overflow. The
+            banner self-derives visibility from useKillSwitch() and
+            renders nothing when the kill-switch condition is false. */}
+        <KillSwitchBanner />
         <ActiveScreen />
       </main>
       {/* App-level chrome moved from Dashboard by Plan 02-03 — neither
