@@ -56,6 +56,9 @@ import { IdentitySection } from "@/components/settings/sections/identity-section
 import { TransportSection } from "@/components/settings/sections/transport-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
 import { TrustSection } from "@/components/settings/sections/trust-section";
+import { RoutingSection } from "@/components/settings/sections/routing-section";
+import { GatewaySection } from "@/components/settings/sections/gateway-section";
+import { NotificationsSection } from "@/components/settings/sections/notifications-section";
 
 type OpenMap = Record<SectionId, boolean>;
 
@@ -138,37 +141,20 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("trust")}
           />
 
-          <CollapsibleCliPanel
-            id="routing"
-            title="ROUTING"
-            summary={stubSummary("plan 03-06 renders this")}
+          <RoutingSection
             open={open.routing}
             onOpenChange={setOpenFor("routing")}
-          >
-            <p className="text-muted-foreground">routing section — plan 03-06</p>
-          </CollapsibleCliPanel>
+          />
 
-          <CollapsibleCliPanel
-            id="gateway"
-            title="GATEWAY"
-            summary={stubSummary("linux-only · disabled")}
+          <GatewaySection
             open={open.gateway}
             onOpenChange={setOpenFor("gateway")}
-          >
-            <p className="text-muted-foreground">gateway section — plan 03-06</p>
-          </CollapsibleCliPanel>
+          />
 
-          <CollapsibleCliPanel
-            id="notifications"
-            title="NOTIFICATIONS"
-            summary={stubSummary("plan 03-06 renders this")}
+          <NotificationsSection
             open={open.notifications}
             onOpenChange={setOpenFor("notifications")}
-          >
-            <p className="text-muted-foreground">
-              notifications section — plan 03-06
-            </p>
-          </CollapsibleCliPanel>
+          />
 
           <CollapsibleCliPanel
             id="advanced"
