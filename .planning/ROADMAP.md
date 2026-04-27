@@ -129,7 +129,14 @@ Plans:
   4. User can open a Routing view that shows the live routing table (destination · via · hops · learned_from · age) and a known-gateways list with scores and the currently-selected gateway highlighted.
   5. When the kill-switch engages (route-on + all gateways lost), a blocking banner reads "Blocking internet — gateway unreachable" with an explicit "Turn off kill-switch" action; when a handshake fails, the peer row shows "Couldn't verify this peer" with a link to `docs/SECURITY.md §3.2`.
   6. Every user-facing string matches `docs/COPY.md`: no exclamation marks, crypto primitives named explicitly on first use, declarative not hedging — verified by a copy audit pass against the Aria-copy column.
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 04-01-PLAN.md — Foundation: docs/COPY.md + docs/SECURITY.md + src/lib/copy.ts + src/lib/routing.ts + scripts/audit-copy.mjs (UX-08)
+- [ ] 04-02-PLAN.md — RouteTogglePanel + useRouting selectors + useRouteTable + Dashboard insertion (ROUTE-01, ROUTE-02)
+- [ ] 04-03-PLAN.md — RouteScreen + sidebar/active-screen wiring (⌘3) + RouteTablePanel + KnownGatewaysPanel (ROUTE-03, ROUTE-04)
+- [ ] 04-04-PLAN.md — WelcomeScreen + AppRoot welcome branch (UX-01)
+- [ ] 04-05-PLAN.md — Solo-mode actions enabling + InvitePeerSheet (UX-02)
+- [ ] 04-06-PLAN.md — Critical error states (KillSwitchBanner + handshake-fail sub-line) + final audit gate (UX-03, UX-08)
 **UI hint**: yes
 
 ### Phase 5: Gateway Mode & System Surfaces
@@ -157,5 +164,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 01.1. First-run config bootstrap | 4/4 | Complete    | 2026-04-27 |
 | 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
 | 3. Configuration & Peer Management | 1/7 | In progress | - |
-| 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
+| 4. Routing & Onboarding Polish | 0/6 | Not started | - |
 | 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
