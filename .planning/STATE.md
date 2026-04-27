@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-04-27T00:27:48.531Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-04-27T00:44:57.186Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 23
-  completed_plans: 15
-  percent: 50
+  total_plans: 30
+  completed_plans: 16
+  percent: 65
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 2 of 7
-Status: 03-01 complete; ready to execute 03-02 (dedicated Peers screen)
+Plan: 3 of 7
+Status: Ready to execute
 Last activity: 2026-04-27
 
 Progress: [███████░░░] 65%
@@ -61,6 +61,7 @@ Progress: [███████░░░] 65%
 | Phase 02-honest-dashboard-peer-surface P05 | 9min | 4 tasks | 11 files |
 | Phase 01.1 P03 | 7 min | 3 tasks | 4 files |
 | Phase 03-configuration-peer-management P01 | 30 min | 1 tasks | 19 files |
+| Phase 03-configuration-peer-management P02 | 12 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,10 @@ Recent decisions affecting current work:
 - [Phase 03-configuration-peer-management]: Plan 03-01: AlertDialogAction defaults variant=destructive + AlertDialogCancel defaults variant=ghost — every Phase 3 use site is a destructive prompt, defaults shift removes call-site boilerplate
 - [Phase 03-configuration-peer-management]: Plan 03-01: useSettingsConfig moved from 03-04 to 03-01 + module-level refetchSettingsConfig() exposed (D-30) — 03-02 peer hooks call refetch on add/remove without holding a hook reference
 - [Phase 03-configuration-peer-management]: Plan 03-01: ⌘↑/⌘↓ dispatch window CustomEvents (pim:settings-collapse-all / -expand-all) guarded by active==='settings' — browser-native channel keeps W1 invariant intact while letting Plan 03-04 own the collapse-all behavior
+- [Phase 03-configuration-peer-management]: Plan 03-02: useAddPeer + useRemovePeer module-level atoms with useSyncExternalStore — required so trigger (ActionRow / RemoveButton) and consumer (Sheet / AlertDialog) read the SAME open flag; per-component useState would diverge
+- [Phase 03-configuration-peer-management]: Plan 03-02: react-hook-form useForm lives in the Sheet, not the atom — buildOnSubmit(form) factory binds field-level setError mapping (D-18) to the Sheet's instance, while open/submitting stay shared via the module atom
+- [Phase 03-configuration-peer-management]: Plan 03-02: peers.remove uses node_id (not config_entry_id) — PeerSummary doesn't expose config_entry_id; daemon accepts either; node_id is unambiguous for the CONNECTED-list scope
+- [Phase 03-configuration-peer-management]: Plan 03-02: AlertDialogAction onClick uses preventDefault + void confirm() — prevents Radix's auto-close from racing the in-flight peers.remove and dropping aria-busy state; close happens inside confirm() after RPC resolves
 
 ### Roadmap Evolution
 
@@ -122,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:27:48.528Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-04-27T00:44:57.182Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
