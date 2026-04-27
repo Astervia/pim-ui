@@ -356,6 +356,55 @@ export interface GatewayDisableResult {
   active: false;
 }
 
+// TBD-RPC (RESEARCH §5a): gateway.status method shape — speculative
+// pending kernel-repo docs/RPC.md push (BLOCKED per STATE.md). Confirm
+// with kernel maintainer when the RPC contract drafts merge.
+export interface GatewayStatusResult {
+  active: boolean;
+  /** Echoed nat_interface; null when active === false. */
+  nat_interface: string | null;
+  /** Conntrack utilization. Both numerator AND denominator are
+   *  required so the brand-fit gauge can render `[████] n / max (pct%)`
+   *  per RESEARCH §9a. */
+  conntrack: {
+    used: number;
+    max: number;
+  };
+  throughput: {
+    in_bps: number;
+    out_bps: number;
+    /** Session-cumulative since gateway enabled. */
+    in_total_bytes: number;
+    out_total_bytes: number;
+  };
+  /** Count of paired peers whose egress is THIS node. */
+  peers_through_me: number;
+  /** Optional list of node_ids routing through this gateway; may be
+   *  empty when count > 0 if the daemon truncates for cardinality. */
+  peers_through_me_ids?: string[];
+  /** ISO-8601; drives the "4h 12m" uptime line. */
+  enabled_at: string;
+}
+
+// TBD-RPC (RESEARCH §5b): gateway.event notification stream — kinds.
+export type GatewayEventKind =
+  | "enabled"
+  | "disabled"
+  | "conntrack_pressure"
+  | "throughput_sample"
+  | "peer_through_me_added"
+  | "peer_through_me_removed";
+
+// TBD-RPC (RESEARCH §5b): gateway.event payload shape.
+export interface GatewayEvent {
+  kind: GatewayEventKind;
+  /** ISO-8601. */
+  at: string;
+  /** For throughput_sample: { in_bps, out_bps, conntrack_used, conntrack_max }.
+   *  For conntrack_pressure: { level: 1 | 2, used, max }. */
+  detail?: Record<string, unknown>;
+}
+
 // ─── §5.5 config ─────────────────────────────────────────────────────
 
 export type ConfigFormat = "toml" | "json";
@@ -498,6 +547,13 @@ export interface RpcMethodMap {
     result: GatewayEnableResult;
   };
   "gateway.disable": { params: null; result: GatewayDisableResult };
+  // TBD-RPC (RESEARCH §5c): gateway.status one-shot + subscribe lifecycle.
+  "gateway.status": { params: null; result: GatewayStatusResult };
+  "gateway.subscribe": { params: null; result: SubscriptionResult };
+  "gateway.unsubscribe": {
+    params: SubscriptionUnsubscribeParams;
+    result: null;
+  };
   // §5.5
   "config.get": { params: ConfigGetParams; result: ConfigGetResult };
   "config.save": { params: ConfigSaveParams; result: ConfigSaveResult };
@@ -517,6 +573,8 @@ export interface RpcEventMap {
   "status.event": StatusEvent;
   "peers.event": PeerEvent;
   "logs.event": LogEvent;
+  // TBD-RPC (RESEARCH §5b)
+  "gateway.event": GatewayEvent;
 }
 
 export type RpcMethodName = keyof RpcMethodMap;

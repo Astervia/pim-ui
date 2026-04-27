@@ -20,10 +20,11 @@ import type {
 } from "./rpc-types";
 import { RpcErrorCode } from "./rpc-types";
 
-// All 20 method names from docs/RPC.md §8 v1 "minimum viable" must be
-// valid keys of RpcMethodMap. Adding an entry here that isn't on the map,
-// or omitting one that is, breaks the compile — this catches drift in
-// both directions.
+// All 23 method names from docs/RPC.md §8 v1 "minimum viable" PLUS the
+// Phase 5 Plan 05-01 TBD-RPC additions (gateway.status / gateway.subscribe
+// / gateway.unsubscribe per RESEARCH §5c) must be valid keys of
+// RpcMethodMap. Adding an entry here that isn't on the map, or omitting
+// one that is, breaks the compile — this catches drift in both directions.
 const _methods: RpcMethodName[] = [
   "rpc.hello",
   "status",
@@ -41,6 +42,10 @@ const _methods: RpcMethodName[] = [
   "gateway.preflight",
   "gateway.enable",
   "gateway.disable",
+  // TBD-RPC (RESEARCH §5c) — Phase 5 Plan 05-01 speculative additions.
+  "gateway.status",
+  "gateway.subscribe",
+  "gateway.unsubscribe",
   "config.get",
   "config.save",
   "logs.subscribe",
@@ -69,6 +74,10 @@ const _methodLookup: Record<RpcMethodName, true> = {
   "gateway.preflight": true,
   "gateway.enable": true,
   "gateway.disable": true,
+  // TBD-RPC (RESEARCH §5c) — Phase 5 Plan 05-01 speculative additions.
+  "gateway.status": true,
+  "gateway.subscribe": true,
+  "gateway.unsubscribe": true,
   "config.get": true,
   "config.save": true,
   "logs.subscribe": true,
