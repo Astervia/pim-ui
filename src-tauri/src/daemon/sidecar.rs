@@ -191,6 +191,22 @@ impl Sidecar {
         let pid_file = std::path::PathBuf::from("/tmp/pim.pid");
         let log_file = std::path::PathBuf::from("/tmp/pim-daemon.log");
 
+        // Pre-spawn: pick a free utunN and rewrite the on-disk pim.toml's
+        // [interface] name field. macOS leaks utun interfaces when the
+        // daemon doesn't shut down cleanly (the kernel only reaps utun
+        // when its kctl fd closes), and the daemon binary's interface
+        // creation fails with `Resource busy (errno 16)` when its
+        // requested utun is taken. This scan is the dev-mode workaround
+        // until either (a) the daemon learns to retry with a fallback
+        // index, or (b) we ship a Network Extension entitlement that
+        // routes utun creation through the OS-managed path.
+        if let Err(e) = pick_and_apply_free_utun(&config_path) {
+            tracing::warn!(
+                target: "pim-daemon-osa",
+                "could not auto-pick free utun (will use existing pim.toml value): {e}"
+            );
+        }
+
         // The daemon (running as root) and the UI (running as user) must
         // resolve the same socket path. macOS gives root a different
         // $TMPDIR than the user's, so we pin TMPDIR to the user's value
@@ -273,23 +289,39 @@ impl Sidecar {
 
     /// SIGTERM the child and wait briefly for graceful exit.
     ///
-    /// On macOS osascript path, the stored child is the osascript wrapper
-    /// which has already exited; killing it is a no-op. The daemon itself
-    /// (running as root) cannot be killed from a user process — operator
-    /// must `sudo killall pim-daemon` manually until a privileged-helper
-    /// kill flow ships.
+    /// On macOS osascript path, the stored child handle is the osascript
+    /// wrapper (already exited); the actual daemon runs as root and must
+    /// be killed via a SECOND privileged osascript invocation. The user
+    /// sees the auth dialog again on stop. This is verbose UX-wise but
+    /// it's the only way to release the utun interface cleanly so the
+    /// next start doesn't hit `Resource busy (errno 16)`.
     pub async fn kill(&self) -> Result<()> {
+        // Drop the stored child handle first — on macOS this is the
+        // osascript wrapper (already exited; child.kill() returns Err
+        // which we just log). On Linux/Windows it's the real daemon
+        // and the kill propagates as a clean SIGTERM.
         if let Some(child) = self.child.lock().await.take() {
-            // best-effort; on macOS osascript path, this kill targets a
-            // process that has already exited and returns Err — log and
-            // continue rather than fail the user's stop action.
             if let Err(e) = child.kill() {
                 tracing::warn!(
                     target: "pim-daemon",
-                    "kill child failed (likely already exited): {e}"
+                    "kill child handle failed (osascript wrapper already exited on macOS — expected): {e}"
                 );
             }
         }
+
+        // macOS: route the actual daemon kill through a privileged
+        // osascript so root-owned `pim-daemon` exits cleanly + releases
+        // its utun interface.
+        #[cfg(target_os = "macos")]
+        {
+            if let Err(e) = kill_macos_privileged().await {
+                tracing::warn!(
+                    target: "pim-daemon",
+                    "privileged daemon kill failed: {e}; daemon may still be running — operator may need to sudo kill -9 {{PID in /tmp/pim.pid}}"
+                );
+            }
+        }
+
         Ok(())
     }
 }
@@ -366,4 +398,165 @@ fn shell_quote(s: &str) -> String {
 #[cfg(target_os = "macos")]
 fn osascript_quote(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Detect a free `utunN` (N ≥ 7) and rewrite the on-disk pim.toml's
+/// `[interface] name` field to point at it.
+///
+/// Why N ≥ 7: macOS reserves utun0..utun3 for system services
+/// (typically iCloud Relay, VPN exit, AirDrop, etc.); utun4..utun6 may
+/// also be in use by user-mode VPN clients. Starting at 7 avoids
+/// stomping on those. We scan up to utun31; if every index 7..32 is
+/// taken, return Err and let the spawn fail with a useful message.
+///
+/// Why rewrite the file: the daemon binary takes the interface name
+/// from the config, not from a CLI flag — so the only way to feed it a
+/// different utun is to update pim.toml in place. We touch ONLY the
+/// `name = "..."` line inside the `[interface]` section, leaving every
+/// other field (including the platform-aware comment) untouched.
+#[cfg(target_os = "macos")]
+fn pick_and_apply_free_utun(config_path: &std::path::Path) -> Result<()> {
+    use std::process::Command;
+
+    // Snapshot active interfaces from `ifconfig -l` (space-separated names).
+    let output = Command::new("ifconfig")
+        .arg("-l")
+        .output()
+        .map_err(|e| anyhow!("ifconfig -l: {e}"))?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "ifconfig -l exited non-zero: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let active: std::collections::HashSet<&str> = stdout.split_whitespace().collect();
+
+    // Find first utun N in [7, 31] not in the active set.
+    let mut chosen: Option<String> = None;
+    for n in 7..32u32 {
+        let candidate = format!("utun{n}");
+        if !active.contains(candidate.as_str()) {
+            chosen = Some(candidate);
+            break;
+        }
+    }
+    let chosen = chosen.ok_or_else(|| {
+        anyhow!("no free utun in range 7..32 — reboot may be needed to clear leaked utuns")
+    })?;
+
+    // Read pim.toml, replace the [interface] name line, write atomically.
+    let cfg_text = std::fs::read_to_string(config_path)
+        .map_err(|e| anyhow!("read {}: {e}", config_path.display()))?;
+
+    // Locate the [interface] section + its `name = "..."` line. Match on
+    // section boundary so we don't accidentally rewrite `[node] name`.
+    let mut new_lines: Vec<String> = Vec::with_capacity(cfg_text.lines().count() + 1);
+    let mut in_interface_section = false;
+    let mut rewrote = false;
+    for line in cfg_text.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            in_interface_section = trimmed.starts_with("[interface]");
+        }
+        if in_interface_section && !rewrote && trimmed.starts_with("name = \"") {
+            // Preserve the indent + comment tail on the original line so
+            // the file diff is minimal. Find first `"` after `name = `,
+            // matching `"..."`, replace value verbatim.
+            let leading_ws = &line[..line.len() - trimmed.len()];
+            // Comment tail: everything after the closing `"`.
+            let after_first_quote = &trimmed[8..]; // skip `name = "`
+            let close_quote = after_first_quote
+                .find('"')
+                .ok_or_else(|| anyhow!("malformed [interface] name line: missing closing quote"))?;
+            let tail = &after_first_quote[close_quote + 1..];
+            new_lines.push(format!(
+                "{leading_ws}name = \"{chosen}\"{tail}",
+                leading_ws = leading_ws,
+                chosen = chosen,
+                tail = tail
+            ));
+            rewrote = true;
+            continue;
+        }
+        new_lines.push(line.to_string());
+    }
+    if !rewrote {
+        return Err(anyhow!(
+            "did not find a `[interface]` section with a `name = \"...\"` line in {}",
+            config_path.display()
+        ));
+    }
+
+    // Atomic write: temp file in same dir, fsync, rename.
+    let parent = config_path
+        .parent()
+        .ok_or_else(|| anyhow!("config has no parent dir"))?;
+    let tmp = parent.join(".pim.toml.utun-rewrite");
+    std::fs::write(&tmp, new_lines.join("\n") + "\n")
+        .map_err(|e| anyhow!("write tmp {}: {e}", tmp.display()))?;
+    std::fs::rename(&tmp, config_path)
+        .map_err(|e| anyhow!("rename {} -> {}: {e}", tmp.display(), config_path.display()))?;
+
+    tracing::info!(
+        target: "pim-daemon-osa",
+        "auto-picked free interface: {chosen} (rewrote [interface] name in pim.toml)"
+    );
+    Ok(())
+}
+
+/// Privileged daemon kill via `osascript do shell script with
+/// administrator privileges`. Reads `/tmp/pim.pid` for the daemon PID,
+/// then `kill -TERM <pid>; sleep 1; kill -KILL <pid>` so the daemon
+/// gets a chance to clean up but is force-killed if it ignores SIGTERM.
+/// User sees the auth dialog again on stop.
+#[cfg(target_os = "macos")]
+async fn kill_macos_privileged() -> Result<()> {
+    let pid_file = "/tmp/pim.pid";
+    let pid_text = match std::fs::read_to_string(pid_file) {
+        Ok(s) => s.trim().to_string(),
+        Err(_) => {
+            tracing::info!(
+                target: "pim-daemon",
+                "no /tmp/pim.pid — assuming daemon already stopped"
+            );
+            return Ok(());
+        }
+    };
+    if pid_text.is_empty() || pid_text.parse::<u32>().is_err() {
+        return Err(anyhow!("/tmp/pim.pid is empty or non-numeric"));
+    }
+
+    // Wrap the kill in a small shell so we get TERM-then-KILL semantics
+    // in a single privileged invocation (one auth prompt, not two).
+    let shell_cmd = format!(
+        "kill -TERM {pid} 2>/dev/null; for i in 1 2 3 4 5; do kill -0 {pid} 2>/dev/null || break; sleep 0.2; done; kill -KILL {pid} 2>/dev/null; rm -f {pid_file}; true",
+        pid = pid_text,
+        pid_file = pid_file
+    );
+
+    let osa_script = format!(
+        r#"do shell script "{cmd}" with administrator privileges with prompt "pim is shutting down the mesh daemon.""#,
+        cmd = osascript_quote(&shell_cmd),
+    );
+
+    // Spawn osascript directly via std::process (we're in async fn but
+    // this is a sync wait — the auth dialog blocks anyway). Using the
+    // tauri shell plugin here would require an AppHandle which we don't
+    // pass into kill(). std::process::Command is fine for a one-shot.
+    let status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("osascript")
+            .args(["-e", &osa_script])
+            .status()
+    })
+    .await
+    .map_err(|e| anyhow!("spawn_blocking osascript kill: {e}"))?
+    .map_err(|e| anyhow!("osascript kill exec: {e}"))?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "osascript kill exited non-zero (user canceled auth?): {status}"
+        ));
+    }
+    Ok(())
 }
