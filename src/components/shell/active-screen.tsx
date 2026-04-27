@@ -40,6 +40,14 @@ import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
 import { PairApprovalModal } from "@/components/peers/pair-approval-modal";
+// Plan 03-04 §Part H.3 (checker Blocker 1) — D-13 nav-away interception.
+// `getDirtySections` is read by `requestActive` (use-gated-navigation.ts)
+// before any setActive; this file mounts the matching dialog so the
+// dirty-section list and the dialog live at the same shell scope.
+import { DiscardUnsavedChangesAlertDialog } from "@/components/settings/discard-unsaved-changes-alert-dialog";
+import { getDirtySections } from "@/hooks/use-dirty-sections";
+import { usePendingNav } from "@/hooks/use-gated-navigation";
+import { SECTION_SCHEMAS, type SectionId } from "@/lib/config/section-schemas";
 import type { PeerDiscovered, PeerSummary } from "@/lib/rpc-types";
 
 /**
@@ -55,9 +63,28 @@ export function ActiveScreen() {
   const { active } = useActiveScreen();
   const { select } = usePeerDetail();
   const { requestOutbound } = usePairApproval();
+  // D-13 nav-away interception (checker Blocker 1). The pending-nav atom
+  // is written by Sidebar / AppShell-keyboard via `requestActive(...)`
+  // when getDirtySections() is non-empty; this hook reads it to decide
+  // whether to mount the discard dialog.
+  const { pending, discardAndProceed, stay } = usePendingNav();
 
   const onPeerSelect = (p: PeerSummary) => select(p);
   const onNearbyPair = (d: PeerDiscovered) => requestOutbound(d);
+
+  // Resolve the section name + total dirty-field count when a discard
+  // gate is open. If exactly one section is dirty we name it (e.g.
+  // "Transport"); otherwise we use "this app session" so the verbatim
+  // D-13 copy still reads naturally.
+  const dirty = getDirtySections();
+  const totalDirtyFields = dirty.reduce(
+    (sum, d) => sum + d.dirtyFieldCount,
+    0,
+  );
+  const sectionName: string =
+    dirty.length === 1
+      ? SECTION_SCHEMAS[dirty[0]?.id as SectionId].title
+      : "this app session";
 
   return (
     <>
@@ -69,6 +96,19 @@ export function ActiveScreen() {
           tab switches. */}
       <PeerDetailSheet />
       <PairApprovalModal />
+      {/* D-13 discard-unsaved-changes dialog — opens whenever a gated
+          navigation request lands while sections are dirty. Verbatim
+          copy lives in the dialog component itself. */}
+      <DiscardUnsavedChangesAlertDialog
+        open={pending !== null}
+        onOpenChange={(v) => {
+          if (v === false) stay();
+        }}
+        sectionName={sectionName}
+        dirtyFieldCount={totalDirtyFields}
+        onDiscard={discardAndProceed}
+        onStay={stay}
+      />
     </>
   );
 }

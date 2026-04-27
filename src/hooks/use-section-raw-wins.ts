@@ -13,11 +13,11 @@
  * (D-15) so the flag survives reloads — the daemon is the source of
  * truth for the actual TOML, but the diff is a UI-side observation.
  *
- * Checker Blocker 3 resolution: the API was previously
- *   useSectionRawWins(id).setAll(map)
- * which conflated a per-section read with a whole-map write. The hook
- * is now strictly read-only; writers import `setAllSectionRawWins`
- * directly (a non-hook module function).
+ * Checker Blocker 3 resolution: the API was previously a per-section
+ * return whose .setAll method took a whole-map write — that conflated
+ * a per-section read with a whole-map write. The hook is now strictly
+ * read-only; writers import `setAllSectionRawWins` directly (a
+ * non-hook module function).
  *
  * Bang-free per project policy. No new Tauri listeners (W1 preserved).
  */

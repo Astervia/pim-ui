@@ -61,6 +61,10 @@ import { Toaster } from "sonner";
 import { Sidebar } from "./sidebar";
 import { ActiveScreen } from "./active-screen";
 import { useActiveScreen } from "@/hooks/use-active-screen";
+// Plan 03-04 §Part H.3 (checker Blocker 1) — D-13: keyboard nav routes
+// through requestActive so dirty Settings sections open the discard
+// dialog before ⌘1/2/3/5/6 actually change tab.
+import { requestActive } from "@/hooks/use-gated-navigation";
 import { ReconnectToast } from "@/components/brand/reconnect-toast";
 import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
@@ -80,34 +84,34 @@ export function AppShell() {
       switch (e.key) {
         case "1":
           e.preventDefault();
-          setActive("dashboard");
+          requestActive("dashboard", setActive);
           break;
         case "2":
           // Plan 03-01 D-02: peers is now a dedicated route (no longer
           // aliased to Dashboard).
           e.preventDefault();
-          setActive("peers");
+          requestActive("peers", setActive);
           break;
         case "3":
           // Plan 04-03 D-16: ⌘3 routes to the Routing tab.
           e.preventDefault();
-          setActive("routing");
+          requestActive("routing", setActive);
           break;
         case "5":
           e.preventDefault();
-          setActive("logs");
+          requestActive("logs", setActive);
           break;
         case "6":
           // Plan 03-01 D-01: ⌘6 routes to Settings.
           e.preventDefault();
-          setActive("settings");
+          requestActive("settings", setActive);
           break;
         case ",":
           // ⌘, alias for ⌘6 (macOS Preferences idiom per 03-UI-SPEC
           // §Shell chrome note). Swallow so it does NOT trigger Tauri's
           // native Preferences menu.
           e.preventDefault();
-          setActive("settings");
+          requestActive("settings", setActive);
           break;
         case "ArrowUp":
           // D-06: ⌘↑ collapses all settings sections — no-op on other

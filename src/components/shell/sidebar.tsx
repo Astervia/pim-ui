@@ -33,6 +33,10 @@
 
 import type { KeyboardEvent } from "react";
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
+// Plan 03-04 §Part H.3 (checker Blocker 1) — D-13 nav-away interception:
+// Sidebar clicks route through `requestActive` so dirty Settings sections
+// open the discard dialog before the tab change lands.
+import { requestActive } from "@/hooks/use-gated-navigation";
 import { cn } from "@/lib/utils";
 
 interface ActiveRow {
@@ -87,7 +91,9 @@ export function Sidebar() {
       const delta = event.key === "ArrowDown" ? 1 : -1;
       const index = NAV.findIndex((r) => r.id === id);
       const next = NAV[(index + delta + NAV.length) % NAV.length];
-      if (next) setActive(next.id);
+      // D-13: gate keyboard nav through requestActive so dirty Settings
+      // sections open the discard dialog before the tab change.
+      if (next) requestActive(next.id, setActive);
     }
   }
 
@@ -118,7 +124,7 @@ export function Sidebar() {
             <li key={row.id}>
               <button
                 type="button"
-                onClick={() => setActive(row.id)}
+                onClick={() => requestActive(row.id, setActive)}
                 onKeyDown={(e) => onRowKeyDown(e, row.id)}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
