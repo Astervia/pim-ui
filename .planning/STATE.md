@@ -11,7 +11,7 @@ progress:
   completed_phases: 4
   total_plans: 34
   completed_plans: 24
-  percent: 53
+  percent: 71
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** One app that is honest about what the mesh is actually doing — never abstracts packets into a happy green dot — yet stays reachable enough that a first-time user can succeed in ≤ 3 interactions.
-**Current focus:** Phase 04 — routing-onboarding-polish
+**Current focus:** Phase 04 complete — ready for Phase 03 form sections (03-04..03-07) or Phase 05 Gateway Mode & System Surfaces
 
 ## Current Position
 
-Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 7 of 7
+Phase: 04 (routing-onboarding-polish) — COMPLETE
+Plan: 6 of 6
 Status: Phase complete — ready for verification
 Last activity: 2026-04-27
 
-Progress: [█████░░░░░] 53%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
