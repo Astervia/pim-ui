@@ -30,9 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: RPC Bridge & Daemon Lifecycle** - Live JSON-RPC 2.0 over Unix socket, daemon sidecar start/stop, honest connection state (completed 2026-04-24)
 - [x] **Phase 2: Honest Dashboard & Peer Surface** - Reactive status stream, peer list with true transport info, nearby/incoming pair approval, live logs (completed 2026-04-27)
-- [ ] **Phase 3: Configuration & Peer Management** - Settings sections with raw-TOML-as-authority, static peer add/remove, log filters + debug snapshot
+- [x] **Phase 3: Configuration & Peer Management** - Settings sections with raw-TOML-as-authority, static peer add/remove, log filters + debug snapshot (completed 2026-04-27)
 - [x] **Phase 4: Routing & Onboarding Polish** - Route-internet-via-mesh toggle with pre-flight, routing table, three-step onboarding, solo mode, honest error copy (completed 2026-04-27)
-- [ ] **Phase 5: Gateway Mode & System Surfaces** - Gateway pre-flight + enable (Linux), conntrack gauge, menu-bar popover, tray/AppIndicator, command palette, toast + system notifications
+- [x] **Phase 5: Gateway Mode & System Surfaces** - Gateway pre-flight + enable (Linux), conntrack gauge, menu-bar popover, tray/AppIndicator, command palette, toast + system notifications (completed 2026-04-27)
 
 ## Phase Details
 
@@ -115,7 +115,7 @@ Plans:
 - [x] 03-04-PLAN.md — Settings scaffold + hooks + D-13 discard flow + shared utils: CollapsibleCliPanel + SectionSaveFooter + WireNameTooltip + RawWinsBanner + DiscardUnsavedChangesAlertDialog + four hooks (section-save, section-raw-wins with module-level setAllSectionRawWins writer, pending-restart, dirty-sections) + map-errors + daemon-restart shared util + nav-away interception + Stop-path gate (CONF-01, CONF-07)
 - [x] 03-05-PLAN.md — Form sections (split out from original 03-04 per checker Warning 1): IDENTITY + TRANSPORT + DISCOVERY + TRUST sections consuming 03-04 hooks (CONF-02, CONF-03, CONF-04, CONF-05)
 - [x] 03-06-PLAN.md — Remaining sections + Raw TOML editor: ROUTING + GATEWAY placeholder + NOTIFICATIONS + ADVANCED — RAW CONFIG (plain textarea + gutter, dry_run-first save, [Restart] toast uses shared restartDaemon util) + ABOUT + VITE_APP_VERSION/COMMIT vite.config wiring (CONF-01, CONF-06, CONF-07)
-- [ ] 03-07-PLAN.md — Audit sweep (includes no-zod negative assertion per D-08) + human-verify checkpoint walking all six ROADMAP Phase 3 success criteria live against real pim-daemon (all 11 requirement IDs)
+- [x] 03-07-PLAN.md — Audit sweep (includes no-zod negative assertion per D-08) + human-verify checkpoint walking all six ROADMAP Phase 3 success criteria live against real pim-daemon (all 11 requirement IDs)
 **UI hint**: yes
 
 ### Phase 4: Routing & Onboarding Polish
@@ -163,6 +163,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. RPC Bridge & Daemon Lifecycle | 4/4 | Complete   | 2026-04-27 |
 | 01.1. First-run config bootstrap | 4/4 | Complete    | 2026-04-27 |
 | 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
-| 3. Configuration & Peer Management | 6/7 | In progress | - |
+| 3. Configuration & Peer Management | 7/7 | Complete   | 2026-04-27 |
 | 4. Routing & Onboarding Polish | 6/6 | Complete    | 2026-04-27 |
-| 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
+| 5. Gateway Mode & System Surfaces | 7/7 | Complete   | 2026-04-27 |
