@@ -1,12 +1,17 @@
 /**
- * <Sidebar /> — Phase-2 shell navigation (D-01, D-02).
+ * <Sidebar /> — shell navigation (Phase 2 D-01/D-02 + Phase 3 03-01 D-01).
  *
- * 240px fixed-width <nav> with the pim wordmark at the top, three active
- * nav rows (dashboard / peers / logs), a box-drawing separator, and three
- * grayed-out reserved rows (routing / gateway / settings) that will light
- * up in phases 4 / 5 / 3 respectively.
+ * 240px fixed-width <nav> with the pim wordmark at the top, four active
+ * nav rows (dashboard / peers / logs / settings), a box-drawing separator,
+ * and two grayed-out reserved rows (routing / gateway) that will light
+ * up in phases 4 / 5.
  *
- * Copy is VERBATIM from 02-UI-SPEC.md §Copywriting Contract §Shell chrome:
+ * Phase 3 (Plan 03-01) flips settings from grayed-reserved to active per
+ * 03-CONTEXT D-01 — the row gains the ⌘6 hint and routes to "settings".
+ * Routing + gateway remain grayed-reserved (Phase 4 / Phase 5).
+ *
+ * Copy is VERBATIM from 02-UI-SPEC.md §Copywriting Contract §Shell chrome
+ * + 03-UI-SPEC.md §Shell chrome (Sidebar row Phase 3 flips live):
  *   app wordmark: "█ pim"  (U+2588 block, ASCII space, lowercase "pim")
  *   active row:   "▶ {label}" + "⌘N" hint right-aligned
  *   inactive row: "> {label}"
@@ -38,28 +43,29 @@ interface ActiveRow {
 
 interface ReservedRow {
   // Reserved rows live OUTSIDE the ActiveScreenId union — they are not
-  // navigable in Phase 2. Typed as string literals so the reserved-list
-  // copy is checked at compile time.
-  readonly id: "routing" | "gateway" | "settings";
+  // navigable in the current phase. Typed as string literals so the
+  // reserved-list copy is checked at compile time.
+  readonly id: "routing" | "gateway";
   readonly label: string;
   readonly reservedFor: string;
 }
 
+// Phase 3 Plan 03-01 (D-01): "settings" appended to NAV with ⌘6 hint —
+// the row stops being reserved and becomes a navigable target.
 const NAV: readonly ActiveRow[] = [
   { id: "dashboard", label: "dashboard", shortcut: "⌘1" },
   { id: "peers", label: "peers", shortcut: "⌘2" },
   { id: "logs", label: "logs", shortcut: "⌘5" },
+  { id: "settings", label: "settings", shortcut: "⌘6" },
 ];
 
 // Phase-hint copy per 02-UI-SPEC §Shell chrome §Sidebar reserved rows:
 //   routing  → (phase 4)  — ROUTE-* lives in Phase 4
 //   gateway  → (phase 5)  — GATE-* lives in Phase 5
-//   settings → (phase 3)  — CONF-* lives in Phase 3
-// The ORDER below matches the UI-SPEC §S1 ASCII (routing, gateway, settings).
+// settings was reserved in Phase 2 and went live in Phase 3 (Plan 03-01).
 const RESERVED: readonly ReservedRow[] = [
   { id: "routing", label: "routing", reservedFor: "(phase 4)" },
   { id: "gateway", label: "gateway", reservedFor: "(phase 5)" },
-  { id: "settings", label: "settings", reservedFor: "(phase 3)" },
 ];
 
 export function Sidebar() {

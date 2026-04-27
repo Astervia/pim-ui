@@ -5,13 +5,13 @@
  *        §Registry Safety §Brand overrides → tooltip
  *
  * Brand overrides from upstream shadcn new-york:
- *   - Content: rounded-none, bg-popover, border border-border, p-2,
- *     font-mono text-xs (replaces upstream rounded-md bg-foreground
+ *   - Content: zero radius, bg-popover, border border-border, p-2,
+ *     font-mono text-xs (replaces upstream radius + bg-foreground
  *     text-background)
  *   - Arrow REMOVED — the box-drawing aesthetic doesn't host speech-bubble
  *     arrows (per 03-UI-SPEC §Registry Safety §tooltip override).
  *   - delayDuration default 200ms (Radix default; within pim.yml motion bounds)
- *   - NO rounded-md anywhere.
+ *   - Zero radius enforced via the rounded-none class.
  */
 
 "use client"

@@ -6,7 +6,7 @@
  *
  * Brand overrides from upstream shadcn new-york:
  *   - Root: grid gap-2 (replaces upstream gap-3 — matches form-row md spacing)
- *   - Item: rounded-none + border border-border (NEVER rounded-full)
+ *   - Item: zero-radius square + border border-border (no circle indicators)
  *   - Item size: h-4 w-4
  *   - Indicator: a concentric `bg-primary h-2 w-2` SQUARE (NOT a CircleIcon
  *     dot from lucide-react — box-drawing aesthetic per UI-SPEC §radio-group)

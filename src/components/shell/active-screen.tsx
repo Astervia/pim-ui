@@ -1,13 +1,14 @@
 /**
- * <ActiveScreen /> — Phase-2 shell tab router switch.
+ * <ActiveScreen /> — shell tab router switch (Phase 2 + Phase 3 03-01).
  *
  * Pure navigation glue: reads the active screen id from useActiveScreen()
  * and renders the matching screen component. Owns ZERO daemon logic —
  * subscribing to RPC is the screen's job, not the router's.
  *
- * D-02: "peers" aliases to the Dashboard component in Phase 2 (Peers
- *       tab shows the Dashboard peer list). The id stays distinct so
- *       Phase 3 can swap in a dedicated Peers screen.
+ * Phase 2 D-02: "peers" aliased to Dashboard as a compromise.
+ * Phase 3 Plan 03-01 D-02: "peers" gets a dedicated stub branch (the
+ *       real PeersScreen lands in Plan 03-02). "settings" likewise gets
+ *       a stub branch (real SettingsScreen lands in Plan 03-04).
  * D-03: AppShell owns the outer <main> landmark — ActiveScreen renders
  *       a <section aria-label={active}> to avoid a second <main> inside
  *       <main> (axe landmark-unique violation).
@@ -73,16 +74,32 @@ function renderScreen(
   onNearbyPair: (d: PeerDiscovered) => void,
 ) {
   switch (active) {
-    // D-02: Peers tab aliases to the Dashboard peer list in Phase 2.
     case "dashboard":
-    case "peers":
       return (
         <Dashboard onPeerSelect={onPeerSelect} onNearbyPair={onNearbyPair} />
+      );
+    case "peers":
+      // Plan 03-01 D-02: peers stops aliasing Dashboard; this is the
+      // dedicated route. Plan 03-02 replaces this stub with the real
+      // PeersScreen (connected list + Nearby + Add static peer + Remove).
+      return (
+        <div className="p-8 font-mono text-muted-foreground">
+          peers — plan 03-02 renders here
+        </div>
       );
     case "logs":
       // Real Logs screen: useLogsStream + LogFilterBar + virtualized
       // LogList + D-28 auto-scroll pill.
       return <LogsScreen />;
+    case "settings":
+      // Plan 03-01 D-01: settings route is now active (⌘6). Plan 03-04
+      // replaces this stub with the real SettingsScreen (nine
+      // collapsible sections in fixed order).
+      return (
+        <div className="p-8 font-mono text-muted-foreground">
+          settings — plan 03-04 renders here
+        </div>
+      );
     default:
       return assertNever(active);
   }

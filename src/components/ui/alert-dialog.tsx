@@ -6,8 +6,8 @@
  *        + §S4 Remove Peer AlertDialog + §S5 Discard Unsaved Changes AlertDialog
  *
  * Brand overrides from upstream shadcn new-york:
- *   - Content: rounded-none, bg-popover, border border-border, p-6, max-w-md
- *     (replaces upstream rounded-lg + bg-background + shadow-lg)
+ *   - Content: zero radius, bg-popover, border border-border, p-6, max-w-md
+ *     (replaces upstream radius + bg-background + shadow-lg)
  *   - Overlay: bg-background/80 (matches dialog.tsx L32; NO bg-black/50, NO blur)
  *   - Title: font-mono text-lg uppercase tracking-wider font-semibold (heading-lg)
  *   - Description: font-mono text-sm leading-[1.6] text-foreground (body)
@@ -19,9 +19,9 @@
  *     (Remove peer / Discard changes). Consumers can override via prop.
  *   - Cancel: defaults to variant="ghost" (replaces upstream "outline" —
  *     matches StopConfirmDialog pattern from Phase 1).
- *   - REMOVED AlertDialogMedia (the upstream media slot uses rounded-md
- *     bg-muted — brand violation; not used by any Phase 3 surface).
- *   - NO shadow-lg, NO rounded-md, NO rounded-lg anywhere.
+ *   - REMOVED AlertDialogMedia (the upstream media slot uses non-zero
+ *     radius + bg-muted — brand violation; not used by any Phase 3 surface).
+ *   - No shadow, zero radius enforced via rounded-none class.
  */
 
 "use client"

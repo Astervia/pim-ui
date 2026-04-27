@@ -6,7 +6,7 @@
  *        switch
  *
  * Brand overrides from upstream shadcn new-york:
- *   - Root + thumb: rounded-none (NEVER rounded-full per brand radius=0)
+ *   - Root + thumb: zero radius (brand radius = 0; pill shape is forbidden)
  *   - data-[state=checked]: bg-primary; data-[state=unchecked]: bg-muted
  *   - thumb: bg-popover (off) / bg-primary-foreground (on); border border-border
  *   - focus-visible: outline-2 outline-ring outline-offset-2

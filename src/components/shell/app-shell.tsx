@@ -9,16 +9,28 @@
  * window — the sidebar must stay pinned while long screens (Logs tab,
  * many peers) scroll inside the right pane.
  *
- * Global keyboard shortcuts (02-UI-SPEC §Accessibility §Keyboard nav):
+ * Global keyboard shortcuts (02-UI-SPEC §Accessibility §Keyboard nav
+ * + 03-UI-SPEC §Keyboard navigation):
  *   ⌘1 / Ctrl+1 → dashboard
- *   ⌘2 / Ctrl+2 → peers (aliased to Dashboard in Phase 2, D-02)
+ *   ⌘2 / Ctrl+2 → peers (Phase 3 Plan 03-01 D-02: now its own dedicated
+ *                  route; Plan 03-02 populates the screen)
  *   ⌘5 / Ctrl+5 → logs
- *   ⌘, / Ctrl+, → reserved for Settings (Phase 3); swallowed here so
- *                  it does NOT fall through to the browser or trigger
- *                  Tauri's native Preferences menu
+ *   ⌘6 / Ctrl+6 → settings (Phase 3 Plan 03-01 D-01: now active; Plan
+ *                  03-04 populates the screen)
+ *   ⌘, / Ctrl+, → alias for ⌘6 (macOS Preferences idiom per 03-UI-SPEC
+ *                  §Shell chrome note)
+ *   ⌘↑ / Ctrl+↑ → dispatches `pim:settings-collapse-all` window event
+ *                  (Plan 03-04 SettingsScreen listens). No-op on other tabs.
+ *   ⌘↓ / Ctrl+↓ → dispatches `pim:settings-expand-all` window event.
+ *                  No-op on other tabs.
  *
  * The handler ignores modifier combinations other than plain meta/ctrl —
  * ⌘⇧1 / ⌘⌥1 etc. pass through so browser + DevTools shortcuts stay live.
+ *
+ * W1 contract: window.addEventListener('keydown', …) is a BROWSER event,
+ * not a Tauri event — `listen(...)` from @tauri-apps/api/event is NOT
+ * called here. Custom-event dispatch (window.dispatchEvent + addEventListener
+ * on Plan 03-04 side) is also browser-native, not Tauri.
  *
  * Extension seams (Wave 2):
  *   - Plans 02-03/04/05 mount screen content inside ActiveScreen (not
@@ -38,13 +50,14 @@ import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 
 export function AppShell() {
-  const { setActive } = useActiveScreen();
+  const { active, setActive } = useActiveScreen();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       // Only plain meta/ctrl combos. Bail on meta+shift, meta+alt, etc.
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.shiftKey || e.altKey) return;
+      const hasMod = e.metaKey === true || e.ctrlKey === true;
+      if (hasMod === false) return;
+      if (e.shiftKey === true || e.altKey === true) return;
 
       switch (e.key) {
         case "1":
@@ -52,8 +65,8 @@ export function AppShell() {
           setActive("dashboard");
           break;
         case "2":
-          // D-02: Peers tab aliases to Dashboard in Phase 2; we still
-          // set the id to "peers" so the sidebar highlights correctly.
+          // Plan 03-01 D-02: peers is now a dedicated route (no longer
+          // aliased to Dashboard).
           e.preventDefault();
           setActive("peers");
           break;
@@ -61,11 +74,34 @@ export function AppShell() {
           e.preventDefault();
           setActive("logs");
           break;
-        case ",":
-          // ⌘, reserved for Settings (Phase 3). Swallow the event so it
-          // doesn't propagate to the browser or trigger native menus;
-          // no-op in Phase 2 until CONF-* lands.
+        case "6":
+          // Plan 03-01 D-01: ⌘6 routes to Settings.
           e.preventDefault();
+          setActive("settings");
+          break;
+        case ",":
+          // ⌘, alias for ⌘6 (macOS Preferences idiom per 03-UI-SPEC
+          // §Shell chrome note). Swallow so it does NOT trigger Tauri's
+          // native Preferences menu.
+          e.preventDefault();
+          setActive("settings");
+          break;
+        case "ArrowUp":
+          // D-06: ⌘↑ collapses all settings sections — no-op on other
+          // tabs. Plan 03-04 SettingsScreen binds the listener for
+          // ownership-by-the-Settings-surface (browser CustomEvent, NOT
+          // a Tauri listen() — W1 preserved).
+          if (active === "settings") {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("pim:settings-collapse-all"));
+          }
+          break;
+        case "ArrowDown":
+          // D-06: ⌘↓ expands all settings sections — no-op on other tabs.
+          if (active === "settings") {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("pim:settings-expand-all"));
+          }
           break;
         default:
           return;
@@ -74,7 +110,7 @@ export function AppShell() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setActive]);
+  }, [active, setActive]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">

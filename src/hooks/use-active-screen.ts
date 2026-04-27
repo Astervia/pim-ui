@@ -17,11 +17,11 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-// Union of screen ids the Phase-2 shell can render.
-// Phase 3/4/5 will extend this union when routing/gateway/settings ship —
-// the grayed sidebar rows for those ids do NOT live in this union, because
-// they are not navigable targets in the current phase.
-export type ActiveScreenId = "dashboard" | "peers" | "logs";
+// Union of screen ids the shell can render.
+// Phase 3 added "settings" (D-01: ⌘6 flips Settings live).
+// Phase 4/5 will extend with "routing" / "gateway" — those rows remain
+// grayed-reserved in the sidebar until then.
+export type ActiveScreenId = "dashboard" | "peers" | "logs" | "settings";
 
 // ─── Module-level atom ─────────────────────────────────────────────
 
