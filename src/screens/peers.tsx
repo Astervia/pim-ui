@@ -45,6 +45,7 @@ import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeersPanel } from "@/components/peers/peers-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { AddPeerSheet } from "@/components/peers/add-peer-sheet";
+import { RemovePeerAlertDialog } from "@/components/peers/remove-peer-alert-dialog";
 import type { PeerDiscovered, PeerSummary } from "@/lib/rpc-types";
 
 export function PeersScreen() {
@@ -71,8 +72,11 @@ export function PeersScreen() {
         onPair={onNearbyPair}
         limitedMode={limitedMode}
       />
-      {/* Overlays — Task 2 adds <RemovePeerAlertDialog /> here. */}
+      {/* Overlays — siblings of the panels so they overlay any peer
+          row interaction. AddPeerSheet (PEER-02) + RemovePeerAlertDialog
+          (PEER-03). */}
       <AddPeerSheet />
+      <RemovePeerAlertDialog />
     </div>
   );
 }

@@ -35,6 +35,7 @@ import type { PeerSummary } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { PeerRow } from "./peer-row";
 import { AddPeerActionRow } from "./add-peer-action-row";
+import { PeerRemoveButton } from "./peer-remove-button";
 import { cn } from "@/lib/utils";
 
 export interface PeersPanelProps {
@@ -98,9 +99,16 @@ export function PeersPanel({
                 <PeerRow peer={peer} onSelect={onPeerSelect} />
               </div>
               {/*
-                Task 2 (PEER-03) injects <PeerRemoveButton peer={peer} />
-                here, gated on `peer.static === true` per D-20.
+                D-20: ONLY peers with peer.static === true get the
+                inline [ Remove ] affordance. Discovered/paired peers
+                (peer.static === false) have no remove flow in Phase 3
+                — peers.unpair doesn't exist on the v1 wire yet.
               */}
+              {peer.static === true ? (
+                <div className="pr-4 shrink-0">
+                  <PeerRemoveButton peer={peer} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
