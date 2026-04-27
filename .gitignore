@@ -34,3 +34,10 @@ src-tauri/binaries/*
 
 # Generated RPC types (from tauri-specta)
 src/lib/bindings.ts
+
+# TypeScript incremental build cache (regenerated on every typecheck)
+*.tsbuildinfo
+
+# Vite config compiled artifacts (vite.config.ts is the source)
+vite.config.js
+vite.config.d.ts

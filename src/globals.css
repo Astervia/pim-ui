@@ -1,0 +1,242 @@
+/*
+ * pim brand — design tokens
+ *
+ * Source of truth: .design/branding/pim/patterns/pim.yml in the
+ * proximity-internet-mesh repo. These values are a synced copy;
+ * update there first, then run `pnpm sync-brand` here.
+ *
+ * See also:
+ *   .design/branding/pim/patterns/STYLE.md              — agent contract
+ *   .design/branding/pim/identity/color-system.md       — palette rationale
+ *   .design/branding/pim/identity/typography.md         — type system
+ *   .design/branding/pim/identity/logo-directions.md    — logo + animation spec
+ *   .design/branding/pim/patterns/guidelines.html       — visual reference
+ */
+
+@import "tailwindcss";
+
+/* Fonts — self-hosted variable weights via @fontsource.
+ * Geist Mono: structural (headings, nav, labels, wordmark)
+ * Geist:      prose (body text only)
+ * JetBrains Mono: code + CLI output
+ * See .design/branding/pim/identity/typography.md for the full spec. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* ───────────────────────────────────────────────────────────────────
+ * Design tokens — exposed to Tailwind v4 via @theme
+ * ─────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Fonts — mono is primary (structural), sans is prose only, code is CLI */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "JetBrains Mono",
+    monospace;
+  --font-code: "JetBrains Mono", "Fira Code", "Geist Mono", monospace;
+
+  /* Color — neutral ground with a breath of green, phosphor signal accent.
+   * All text-on-surface pairs are WCAG AAA except muted-foreground,
+   * which is intentionally AA-large only (metadata only, never body text).
+   */
+  --color-background: #0a0c0a;
+  --color-foreground: #d4d8d4;
+
+  --color-card: #121513;
+  --color-card-foreground: #d4d8d4;
+
+  --color-popover: #1a1e1b;
+  --color-popover-foreground: #d4d8d4;
+
+  --color-primary: #22c55e;
+  --color-primary-foreground: #0a0c0a;
+
+  --color-secondary: #1a1e1b;
+  --color-secondary-foreground: #d4d8d4;
+
+  --color-accent: #e8a84a;
+  --color-accent-foreground: #0a0c0a;
+
+  --color-muted: #2a2e2c;
+  --color-muted-foreground: #7a807c;
+
+  --color-destructive: #ff5555;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: #2a2e2c;
+  --color-border-active: #3a5a3e;
+  --color-input: #2a2e2c;
+  --color-ring: #22c55e;
+
+  /* Brand-specific — named tokens used by custom components */
+  --color-brand-hover: #4ade80;
+  --color-warning: #e8a84a;
+  --color-success: #22c55e;
+  --color-text-muted: #3e4540;
+
+  /* Shape — sharp corners always. Terminal preset constraint. */
+  --radius: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+
+  /* Spacing base — 8px grid, matches brand spec */
+  --spacing: 0.25rem;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Base
+ * ─────────────────────────────────────────────────────────────────── */
+html {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* CRT scanline overlay — the brand's signature atmospheric effect.
+ * 4-8% opacity, mix-blend-mode: overlay. Pointer-events none. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Structural type: mono. Prose: sans (applied per-element). */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+nav,
+label,
+button,
+kbd {
+  font-family: var(--font-mono);
+}
+
+code,
+pre,
+samp,
+.font-code {
+  font-family: var(--font-code);
+}
+
+/* Tight tracking for heading mono — see typography.md */
+h1 {
+  letter-spacing: -0.02em;
+}
+h2 {
+  letter-spacing: -0.015em;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Brand primitives
+ * ─────────────────────────────────────────────────────────────────── */
+
+/* Phosphor glow — applied to signal-green text only (logo, headlines,
+ * active status indicators). Never on body text (degrades legibility). */
+.phosphor {
+  text-shadow:
+    0 0 4px rgba(34, 197, 94, 0.4),
+    0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+/* Animated hero logo — see identity/logo-directions.md
+ *   t=0s    : █ appears, blink starts (1.1s step-end infinite)
+ *   t=0.5s  : "pim" begins typing (steps(3, end) over 0.9s)
+ *   t=1.4s+ : cursor continues blinking perpetually
+ */
+.logo-hero {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5ch;
+}
+.logo-hero .logo-block {
+  animation: blink 1.1s step-end infinite;
+}
+.logo-hero .logo-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 0;
+  animation: type-pim 0.9s steps(3, end) 0.5s forwards;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes type-pim {
+  to {
+    width: 3ch;
+  }
+}
+
+/* Respect user preference — static render, no animation */
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    display: none;
+  }
+  .logo-hero .logo-block,
+  .logo-hero .logo-typed {
+    animation: none;
+  }
+  .logo-hero .logo-typed {
+    width: 3ch;
+  }
+}
+
+/* Cursor blink utility — for prompt inputs, inline cursors */
+.cursor-blink {
+  animation: blink 1.1s step-end infinite;
+}
+
+/* Scrollbar — keep it out of the way, in palette */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-active);
+}
+
+/* Selection — signal green ground, background text */
+::selection {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* Focus outline — ring color on keyboard nav, never on mouse */
+:focus-visible {
+  outline: 1px solid var(--color-ring);
+  outline-offset: 2px;
+}
