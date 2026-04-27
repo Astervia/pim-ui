@@ -34,8 +34,8 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 ### PEER — peer discovery + management
 
 - [x] **PEER-01**: Dashboard lists connected peers with honest transport info (tcp / bluetooth / wifi_direct / relay) and state (active / relayed / connecting / failed)
-- [ ] **PEER-02**: User can add a static peer via form (address + mechanism + label) without touching TOML
-- [ ] **PEER-03**: User can remove a peer with confirmation
+- [x] **PEER-02**: User can add a static peer via form (address + mechanism + label) without touching TOML
+- [x] **PEER-03**: User can remove a peer with confirmation
 - [x] **PEER-04**: User can view peer detail: node_id (short + full on hover), mesh_ip, route hops, last_seen, latency, trust state, troubleshoot log
 - [x] **PEER-05**: UI shows "Nearby — not yet paired" section listing `peers.discovered()` results
 - [x] **PEER-06**: User can approve incoming pair request via modal ("relay-b wants to join your mesh")
@@ -53,19 +53,19 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 
 ### CONF — configuration (form + raw)
 
-- [ ] **CONF-01**: Settings page is organized by function — Identity, Transport, Discovery, Trust, Routing, Gateway, Notifications, Advanced (raw), About — each collapsible with a one-line summary visible collapsed
+- [x] **CONF-01**: Settings page is organized by function — Identity, Transport, Discovery, Trust, Routing, Gateway, Notifications, Advanced (raw), About — each collapsible with a one-line summary visible collapsed
 - [ ] **CONF-02**: User can edit identity section (node name)
 - [ ] **CONF-03**: User can edit transport section (interface name, MTU, mesh_ip static/auto, listen port)
 - [ ] **CONF-04**: User can edit discovery section (broadcast on/off, bluetooth on/off, wifi_direct on/off, auto-connect)
 - [ ] **CONF-05**: User can edit trust section (authorization policy radio: allow_all / allow_list / TOFU, plus trusted-peers list)
-- [ ] **CONF-06**: Raw TOML editor with validation — server-side via `config.save({dry_run: true})`; inline errors with line/column when available
-- [ ] **CONF-07**: When raw save contains content unrepresentable in the form view, banner shows "Raw is source of truth — form view shows a subset" on form reopen (1Password pattern)
+- [x] **CONF-06**: Raw TOML editor with validation — server-side via `config.save({dry_run: true})`; inline errors with line/column when available
+- [x] **CONF-07**: When raw save contains content unrepresentable in the form view, banner shows "Raw is source of truth — form view shows a subset" on form reopen (1Password pattern)
 
 ### OBS — observability + logs
 
 - [x] **OBS-01**: Logs tab streams `logs.event` notifications with level filter (trace/debug/info/warn/error) and peer filter
-- [ ] **OBS-02**: Log viewer supports text search and time-range filter
-- [ ] **OBS-03**: User can export a debug snapshot (one click) — JSON dump of current status + recent logs
+- [x] **OBS-02**: Log viewer supports text search and time-range filter
+- [x] **OBS-03**: User can export a debug snapshot (one click) — JSON dump of current status + recent logs
 
 ### SETUP — first-run config bootstrap (added Phase 01.1)
 
@@ -151,17 +151,17 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | PEER-05 | Phase 2 | Complete |
 | PEER-06 | Phase 2 | Complete |
 | OBS-01 | Phase 2 | Complete |
-| PEER-02 | Phase 3 | Pending |
-| PEER-03 | Phase 3 | Pending |
-| CONF-01 | Phase 3 | Pending |
+| PEER-02 | Phase 3 | Complete |
+| PEER-03 | Phase 3 | Complete |
+| CONF-01 | Phase 3 | Complete |
 | CONF-02 | Phase 3 | Pending |
 | CONF-03 | Phase 3 | Pending |
 | CONF-04 | Phase 3 | Pending |
 | CONF-05 | Phase 3 | Pending |
-| CONF-06 | Phase 3 | Pending |
-| CONF-07 | Phase 3 | Pending |
-| OBS-02 | Phase 3 | Pending |
-| OBS-03 | Phase 3 | Pending |
+| CONF-06 | Phase 3 | Complete |
+| CONF-07 | Phase 3 | Complete |
+| OBS-02 | Phase 3 | Complete |
+| OBS-03 | Phase 3 | Complete |
 | ROUTE-01 | Phase 4 | Pending |
 | ROUTE-02 | Phase 4 | Pending |
 | ROUTE-03 | Phase 4 | Pending |

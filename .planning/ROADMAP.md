@@ -109,7 +109,7 @@ Plans:
   6. Logs tab supports text search and a time-range filter, and a single Export debug snapshot button downloads a JSON file containing current status + recent logs suitable for attaching to a bug report.
 **Plans**: 7 plans
 Plans:
-- [ ] 03-01-PLAN.md — Foundation: Phase-2 pre-flight gate + ROADMAP typo fix + shadcn primitives (switch/radio-group/collapsible/alert-dialog/form/tooltip) + react-hook-form + @iarna/toml + TOML orchestration library (section-schemas, parse, assemble, diff) + useSettingsConfig hook (+ refetchSettingsConfig for D-30) + sidebar ⌘6 Settings route + dedicated Peers route (PEER-02/03 infra, CONF-01/06/07 infra, OBS-02/03 infra)
+- [x] 03-01-PLAN.md — Foundation: Phase-2 pre-flight gate + ROADMAP typo fix + shadcn primitives (switch/radio-group/collapsible/alert-dialog/form/tooltip) + react-hook-form + @iarna/toml + TOML orchestration library (section-schemas, parse, assemble, diff) + useSettingsConfig hook (+ refetchSettingsConfig for D-30) + sidebar ⌘6 Settings route + dedicated Peers route (PEER-02/03 infra, CONF-01/06/07 infra, OBS-02/03 infra)
 - [ ] 03-02-PLAN.md — Dedicated Peers screen: PeersScreen + AddPeerSheet (right-edge form, peers.add_static, calls refetchSettingsConfig on success per D-30) + RemovePeerAlertDialog + PeerRemoveButton (static-only per D-20) (PEER-02, PEER-03)
 - [ ] 03-03-PLAN.md — Logs extension: text search (300ms debounced) + time-range select (5 presets + Custom… Dialog with Cancel-revert) + Export debug snapshot button (D-23 schema) + applyLogsFilter module function for cross-plan [Show in Logs →] routing (OBS-02, OBS-03)
 - [ ] 03-04-PLAN.md — Settings scaffold + hooks + D-13 discard flow + shared utils: CollapsibleCliPanel + SectionSaveFooter + WireNameTooltip + RawWinsBanner + DiscardUnsavedChangesAlertDialog + four hooks (section-save, section-raw-wins with module-level setAllSectionRawWins writer, pending-restart, dirty-sections) + map-errors + daemon-restart shared util + nav-away interception + Stop-path gate (CONF-01, CONF-07)
@@ -156,6 +156,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. RPC Bridge & Daemon Lifecycle | 1/4 | Complete    | 2026-04-24 |
 | 01.1. First-run config bootstrap | 4/4 | Complete    | 2026-04-27 |
 | 2. Honest Dashboard & Peer Surface | 6/6 | Complete    | 2026-04-27 |
-| 3. Configuration & Peer Management | 0/6 | Not started | - |
+| 3. Configuration & Peer Management | 1/7 | In progress | - |
 | 4. Routing & Onboarding Polish | 0/TBD | Not started | - |
 | 5. Gateway Mode & System Surfaces | 0/TBD | Not started | - |
