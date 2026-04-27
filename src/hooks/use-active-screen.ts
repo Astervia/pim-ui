@@ -19,13 +19,16 @@ import { useCallback, useSyncExternalStore } from "react";
 
 // Union of screen ids the shell can render.
 // Phase 3 added "settings" (D-01: ⌘6 flips Settings live).
-// Phase 4 added "routing" (⌘3). Phase 5 will extend with "gateway".
+// Phase 4 added "routing" (⌘3).
+// Phase 5 Plan 05-01 D-02 added "gateway" (⌘4) — exhaustive assertNever
+// in active-screen.tsx forces a matching case branch for the new id.
 export type ActiveScreenId =
   | "dashboard"
   | "peers"
   | "logs"
   | "settings"
-  | "routing";
+  | "routing"
+  | "gateway";
 
 // ─── Module-level atom ─────────────────────────────────────────────
 

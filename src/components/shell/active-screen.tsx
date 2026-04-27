@@ -36,6 +36,7 @@ import { LogsScreen } from "@/screens/logs";
 import { PeersScreen } from "@/screens/peers";
 import { SettingsScreen } from "@/screens/settings";
 import { RouteScreen } from "@/screens/routing";
+import { GatewayScreen } from "@/screens/gateway";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
@@ -135,6 +136,11 @@ function renderScreen(
       // — RouteTogglePanel (D-15 same instance as Dashboard) +
       // RouteTablePanel + KnownGatewaysPanel.
       return <RouteScreen />;
+    case "gateway":
+      // Plan 05-01 D-02: gateway route now resolves to a real screen.
+      // Plan 05-02 ships pre-flight + Linux-only copy; Plan 05-03 ships
+      // the active-state gauge + throughput + peer-through-me list.
+      return <GatewayScreen />;
     case "logs":
       // Real Logs screen: useLogsStream + LogFilterBar + virtualized
       // LogList + D-28 auto-scroll pill.
