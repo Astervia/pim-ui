@@ -150,11 +150,6 @@ function renderScreen(
       // ships the SettingsScreen scaffold (nine CollapsibleCliPanel
       // section stubs in fixed order; bodies populated by 03-05/06).
       return <SettingsScreen />;
-    case "gateway":
-      // Phase 5 Plan 05-01 D-02: ⌘4 Gateway tab placeholder. Plan 05-02
-      // populates the pre-flight UI; Plan 05-03 ships the active-state
-      // gauge + throughput + peer-through-me list.
-      return <GatewayScreen />;
     default:
       return assertNever(active);
   }
