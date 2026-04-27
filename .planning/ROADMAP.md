@@ -131,7 +131,7 @@ Plans:
   6. Every user-facing string matches `docs/COPY.md`: no exclamation marks, crypto primitives named explicitly on first use, declarative not hedging — verified by a copy audit pass against the Aria-copy column.
 **Plans**: 6 plans
 Plans:
-- [ ] 04-01-PLAN.md — Foundation: docs/COPY.md + docs/SECURITY.md + src/lib/copy.ts + src/lib/routing.ts + scripts/audit-copy.mjs (UX-08)
+- [x] 04-01-PLAN.md — Foundation: docs/COPY.md + docs/SECURITY.md + src/lib/copy.ts + src/lib/routing.ts + scripts/audit-copy.mjs (UX-08)
 - [ ] 04-02-PLAN.md — RouteTogglePanel + useRouting selectors + useRouteTable + Dashboard insertion (ROUTE-01, ROUTE-02)
 - [ ] 04-03-PLAN.md — RouteScreen + sidebar/active-screen wiring (⌘3) + RouteTablePanel + KnownGatewaysPanel (ROUTE-03, ROUTE-04)
 - [ ] 04-04-PLAN.md — WelcomeScreen + AppRoot welcome branch (UX-01)

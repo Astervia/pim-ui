@@ -82,7 +82,7 @@ Mobile is v2 per Core Value & Constraints in PROJECT.md.
 - [ ] **UX-05**: macOS menu-bar popover provides status dot + "Route internet via mesh" toggle + Open pim → main window at any time (window-first default, menu-bar secondary)
 - [ ] **UX-06**: Windows tray + Linux AppIndicator parity with macOS menu-bar popover
 - [ ] **UX-07**: Command palette (⌘K) exposes every major action — `route on/off`, `peers.list`, `gateway.preflight`, `logs.subscribe`, plus navigation between tabs
-- [ ] **UX-08**: All microcopy matches the brand voice contract in `docs/COPY.md` (Aria-copy + Mira-annotation) — no exclamation marks, name crypto primitives explicitly, declarative not hedging
+- [x] **UX-08**: All microcopy matches the brand voice contract in `docs/COPY.md` (Aria-copy + Mira-annotation) — no exclamation marks, name crypto primitives explicitly, declarative not hedging
 
 ## v2 Requirements
 
@@ -169,7 +169,7 @@ Every v1 requirement is mapped to exactly one phase. See `.planning/ROADMAP.md` 
 | UX-01 | Phase 4 | Pending |
 | UX-02 | Phase 4 | Pending |
 | UX-03 | Phase 4 | Pending |
-| UX-08 | Phase 4 | Pending |
+| UX-08 | Phase 4 | Complete |
 | GATE-01 | Phase 5 | Pending |
 | GATE-02 | Phase 5 | Pending |
 | GATE-03 | Phase 5 | Pending |

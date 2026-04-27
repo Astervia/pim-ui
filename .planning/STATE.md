@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-04-27T01:15:00.000Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-27T01:20:13.813Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 6
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 03 (configuration-peer-management) — IN PROGRESS
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-04-27
 
@@ -63,6 +63,7 @@ Progress: [█████░░░░░] 53%
 | Phase 03-configuration-peer-management P01 | 30 min | 1 tasks | 19 files |
 | Phase 03-configuration-peer-management P02 | 12 min | 2 tasks | 9 files |
 | Phase 03-configuration-peer-management P03 | 22min | 2 tasks | 12 files |
+| Phase 04-routing-onboarding-polish P01 | 15 min | 4 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,10 @@ Recent decisions affecting current work:
 - [Phase 03-configuration-peer-management]: Plan 03-03: DebugSnapshot schema = D-23 verbatim (8 top-level snake_case fields + 4 filters_applied sub-fields) — load-bearing per D-24 so the JSON diffs cleanly against `pim status --json` + `pim logs --json` for kernel-repo bug reports
 - [Phase 03-configuration-peer-management]: Plan 03-03: snapshotFilename strips colons via `.replace(/:/g, "-")` — Windows-safe per D-24; downloadSnapshot uses Blob + <a download> + microtask URL revoke (no Tauri FS API; works in both webview and future mobile)
 - [Phase 03-configuration-peer-management]: Plan 03-03: vite-env.d.ts created — baseline tsconfig had no /// <reference types="vite/client" />, so `import.meta.env.VITE_APP_VERSION` failed typecheck. Added typed augmentation for VITE_APP_VERSION + VITE_APP_COMMIT (the latter is consumed by Plan 03-06 About section, D-27)
+- [Phase 04-routing-onboarding-polish]: Plan 04-01: docs/COPY.md is the canonical source for the audit's banned + soft lists; scripts/audit-copy.mjs reads them dynamically with a hardcoded fallback so future doc edits change behaviour without touching the script (D-26, D-27)
+- [Phase 04-routing-onboarding-polish]: Plan 04-01: formatRouteLine returns a single string (not a structured object) — D-15 left the choice open; downstream call sites in 04-02/03/04 render the line directly into a CliPanel body, simpler return type wins
+- [Phase 04-routing-onboarding-polish]: Plan 04-01: copy.test.ts + routing.test.ts use the Phase-1/2 if(false)-guarded compile-only pattern (matches format.test.ts and rpc-types.test.ts); routing.test.ts assertions verified via one-shot tsx run before commit (18/18 pass), then guarded for production
+- [Phase 04-routing-onboarding-polish]: Plan 04-01: src/components/ui/form.tsx:53 'should be used within FormField' soft warning is a runtime-error message thrown for misuse, not user-visible copy — deferred to 04-06's voice pass for triage rather than touching shadcn-generated code in the foundation plan
 
 ### Roadmap Evolution
 
@@ -134,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T01:15:00.000Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-04-27T01:20:01.239Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
