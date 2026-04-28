@@ -45,7 +45,8 @@
  * gate fails the build if a paraphrase appears here.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { Button } from "@/components/ui/button";
@@ -114,40 +115,76 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
   };
 
   const onConfirm = async (): Promise<void> => {
-    setPendingDirection("on");
-    setErrorRow(null);
-    // Hide the pre-flight checklist immediately. The pending body
-    // takes over and shows the "TURNING ON…" status until the
-    // server-confirmed route_on event flips routeOn to true (at
-    // which point the routeOn branch wins).
-    setExpanded(false);
+    // flushSync commits the pending render to the DOM BEFORE the
+    // await suspends. Without it, React 18's automatic batching can
+    // hold the state update across the await — the user sees the
+    // pre-flight body during the entire RPC roundtrip and the
+    // "turning on…" loading state never visibly appears. flushSync
+    // is the documented escape hatch for "make this visible right
+    // now before I do something async".
+    flushSync(() => {
+      setPendingDirection("on");
+      setErrorRow(null);
+      setExpanded(false);
+    });
     try {
       await callDaemon("route.set_split_default", { on: true });
-      // The daemon's route_on status.event will land via the
-      // useDaemonState subscription and flip routeOn → true; the
-      // routeOn branch then takes over. We just clear pending.
+      // Do NOT clear pendingDirection here. The daemon's status.event
+      // { kind: "route_on" } arrives separately via useDaemonState's
+      // subscription and flips `routeOn` → true. The useEffect below
+      // clears pending once the server-confirmed state matches what
+      // we asked for, so the body never falls through to the OFF
+      // branch between the RPC return and the event arrival.
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't enable routing: ${msg}`);
-      // Re-open pre-flight so the user can retry / see the error row.
-      setExpanded(true);
-      setErrorRow(`✗ ${msg}`);
-    } finally {
-      setPendingDirection(null);
+      // Error path: clear pending and re-open the pre-flight body so
+      // the user can read the error row and retry.
+      flushSync(() => {
+        setExpanded(true);
+        setErrorRow(`✗ ${msg}`);
+        setPendingDirection(null);
+      });
     }
   };
 
   const onTurnOff = async (): Promise<void> => {
-    setPendingDirection("off");
+    flushSync(() => {
+      setPendingDirection("off");
+    });
     try {
       await callDaemon("route.set_split_default", { on: false });
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't turn off routing: ${msg}`);
-    } finally {
       setPendingDirection(null);
     }
   };
+
+  // Auto-clear pendingDirection when daemon-confirmed routeOn matches
+  // the optimistic direction. Without this, the body falls through to
+  // OFF/PRE-FLIGHT between the RPC response and the status.event
+  // arrival — perceived as a flicker / "stuck" feeling.
+  useEffect(() => {
+    if (pendingDirection === null) return;
+    if (pendingDirection === "on" && routeOn === true) {
+      setPendingDirection(null);
+    } else if (pendingDirection === "off" && routeOn === false) {
+      setPendingDirection(null);
+    }
+  }, [pendingDirection, routeOn]);
+
+  // Watchdog: if the daemon-confirmed flip never lands (e.g. the
+  // status.event broadcast didn't reach us), give up after 5s and
+  // fall back to whatever routeOn says. Prevents the panel from
+  // sitting in pending forever.
+  useEffect(() => {
+    if (pendingDirection === null) return;
+    const t = setTimeout(() => {
+      setPendingDirection(null);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [pendingDirection]);
 
   // ─── Badge derivation ──────────────────────────────────────────
   // D-30 wins over routeOn so a stopped daemon never claims [ON].
@@ -177,18 +214,30 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
   // ─── Body branching ────────────────────────────────────────────
   let body: React.ReactNode;
   if (pendingDirection !== null) {
-    // Optimistic feedback: keep the panel responsive while the RPC
-    // round-trips. The dot animates so the user sees "something is
-    // happening" — replaces the perceived freeze of waiting on a
-    // disabled button inside the pre-flight checklist.
+    // Optimistic loading body — visible while the RPC round-trips
+    // AND while waiting for the daemon-confirmed status.event to
+    // flip `routeOn`. Made deliberately prominent (uppercase, primary
+    // color, blink) because user reports the previous compact line
+    // didn't read as "loading" clearly enough.
     const label =
-      pendingDirection === "on" ? "turning routing on" : "turning routing off";
+      pendingDirection === "on"
+        ? "turning routing on"
+        : "turning routing off";
     body = (
-      <div className="flex items-center gap-2 font-code text-sm text-foreground">
-        <span aria-hidden="true" className="cursor-blink">
-          ◆
-        </span>
-        <span>{label}…</span>
+      <div className="flex flex-col gap-2 py-2">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 font-code text-sm text-primary"
+        >
+          <span aria-hidden="true" className="cursor-blink text-base">
+            ◆
+          </span>
+          <span className="uppercase tracking-wider">{label}…</span>
+        </div>
+        <p className="font-mono text-xs text-muted-foreground pl-7">
+          waiting for daemon to confirm
+        </p>
       </div>
     );
   } else if (routeOn === true) {
