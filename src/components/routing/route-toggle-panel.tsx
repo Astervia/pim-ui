@@ -114,32 +114,61 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
     setErrorRow(null);
   };
 
+  // `paintAndYield` — flushSync alone commits the React tree but does
+  // NOT force WebKit to actually paint a frame. WKWebView aggressively
+  // coalesces paints while the JS thread is busy: setState → flushSync
+  // → await invoke() runs as a single microtask chain, the IPC
+  // round-trip can complete before the compositor renders, and the
+  // user sees the panel jump straight from pre-flight → ON without a
+  // visible loading state. Awaiting two animation frames in a row
+  // guarantees the compositor produced at least one painted frame
+  // before we hand control back to the bridge.
+  const paintAndYield = (): Promise<void> =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+  // Minimum loading display: even if the RPC + status.event arrive in
+  // <100ms, the loading body has to be visible long enough for the
+  // user to register it. 400ms is the documented "user notices" floor
+  // for foreground UI transitions; below that the change reads as
+  // instantaneous (or worse, jittery).
+  const MIN_LOADING_MS = 400;
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   const onConfirm = async (): Promise<void> => {
-    // flushSync commits the pending render to the DOM BEFORE the
-    // await suspends. Without it, React 18's automatic batching can
-    // hold the state update across the await — the user sees the
-    // pre-flight body during the entire RPC roundtrip and the
-    // "turning on…" loading state never visibly appears. flushSync
-    // is the documented escape hatch for "make this visible right
-    // now before I do something async".
+    const startedAt = performance.now();
+    performance.mark?.("pim:routing:confirm-clicked");
+
     flushSync(() => {
       setPendingDirection("on");
       setErrorRow(null);
       setExpanded(false);
     });
+    // Force at least one painted frame before the await so WebKit
+    // commits the loading body to the screen.
+    await paintAndYield();
+    performance.mark?.("pim:routing:loading-painted");
+
     try {
       await callDaemon("route.set_split_default", { on: true });
-      // Do NOT clear pendingDirection here. The daemon's status.event
-      // { kind: "route_on" } arrives separately via useDaemonState's
-      // subscription and flips `routeOn` → true. The useEffect below
-      // clears pending once the server-confirmed state matches what
-      // we asked for, so the body never falls through to the OFF
-      // branch between the RPC return and the event arrival.
+      performance.mark?.("pim:routing:rpc-resolved");
+
+      // Hold the loading state for at least MIN_LOADING_MS so a fast
+      // round-trip doesn't blip the loading body for a single frame.
+      // The useEffect below still clears pendingDirection on the
+      // daemon-confirmed routeOn flip, but that race never hides the
+      // loading prematurely now.
+      const elapsed = performance.now() - startedAt;
+      if (elapsed < MIN_LOADING_MS) {
+        await sleep(MIN_LOADING_MS - elapsed);
+      }
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't enable routing: ${msg}`);
-      // Error path: clear pending and re-open the pre-flight body so
-      // the user can read the error row and retry.
       flushSync(() => {
         setExpanded(true);
         setErrorRow(`✗ ${msg}`);
@@ -149,11 +178,17 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
   };
 
   const onTurnOff = async (): Promise<void> => {
+    const startedAt = performance.now();
     flushSync(() => {
       setPendingDirection("off");
     });
+    await paintAndYield();
     try {
       await callDaemon("route.set_split_default", { on: false });
+      const elapsed = performance.now() - startedAt;
+      if (elapsed < MIN_LOADING_MS) {
+        await sleep(MIN_LOADING_MS - elapsed);
+      }
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't turn off routing: ${msg}`);

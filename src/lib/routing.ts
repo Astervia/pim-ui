@@ -167,23 +167,66 @@ export function derivePreflight(status: Status | null): PreflightResult {
       );
 
   // Row 2: gateway reachable.
+  //
+  // Two acceptance paths — both must end with an active/relayed peer
+  // that has been advertised as a gateway:
+  //
+  //   (a) `routes.selected_gateway` is set AND points to an active peer.
+  //       This is the daemon's authoritative pick — present once route
+  //       updates have propagated and the split-default selector has
+  //       run.
+  //
+  //   (b) Fallback: at least one connected peer has `is_gateway === true`
+  //       and an active/relayed state. The daemon may not yet have
+  //       picked a `selected_gateway` (first connect, brief gap between
+  //       handshake and the first RouteUpdate, etc.) but the user can
+  //       legitimately see a gateway-capable peer in the peer list and
+  //       expect the pre-flight to acknowledge it.
+  //
+  // Without (b), the pre-flight contradicts the visible peer state —
+  // the user sees "1 CONNECTED" with `is_gateway: yes` but the
+  // checklist still says "no gateway is advertising itself".
   const sel = status.routes.selected_gateway;
-  const gwPeer: PeerSummary | null =
+  const selPeer: PeerSummary | null =
     sel === null
       ? null
       : (status.peers.find((p) => p.node_id === sel) ?? null);
-  const gatewayOk =
+  const selOk =
     sel !== null
-    && gwPeer !== null
-    && (gwPeer.state === "active" || gwPeer.state === "relayed");
+    && selPeer !== null
+    && (selPeer.state === "active" || selPeer.state === "relayed");
+
+  const fallbackPeer: PeerSummary | null =
+    selOk === true
+      ? null
+      : (status.peers.find(
+          (p) =>
+            p.is_gateway === true
+            && (p.state === "active" || p.state === "relayed"),
+        ) ?? null);
+
+  const gatewayOk = selOk === true || fallbackPeer !== null;
+  const displayPeer: PeerSummary | null =
+    selOk === true ? selPeer : fallbackPeer;
+  const displayId: string | null =
+    sel !== null && selOk === true
+      ? sel
+      : displayPeer === null
+        ? null
+        : displayPeer.node_id;
+
   const gatewayMsg =
-    gatewayOk === true && gwPeer !== null && sel !== null
+    gatewayOk === true && displayPeer !== null && displayId !== null
       ? PREFLIGHT_GATEWAY_REACHABLE_TEMPLATE.replace(
           "{label}",
-          gwPeer.label === null ? `gateway-${sel.slice(0, 8)}` : gwPeer.label,
+          displayPeer.label === null
+            ? `gateway-${displayId.slice(0, 8)}`
+            : displayPeer.label,
         ).replace(
           "{latency}",
-          gwPeer.latency_ms === null ? "?" : String(gwPeer.latency_ms),
+          displayPeer.latency_ms === null
+            ? "?"
+            : String(displayPeer.latency_ms),
         )
       : PREFLIGHT_NO_GATEWAY;
 
