@@ -40,11 +40,12 @@ use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 const RPC_VERSION: u64 = 1;
 
@@ -68,6 +69,19 @@ struct StubState {
     /// Path to the pim.toml the UI is operating against — used by
     /// `config.get` / `config.save`.
     config_path: PathBuf,
+
+    /// Whether split-default routing is currently engaged. Mutated by
+    /// `route.set_split_default`; surfaced in `stub_status`. Toggling
+    /// this also broadcasts a `status.event` so subscribed UIs react
+    /// without having to re-poll `status`.
+    route_on: AtomicBool,
+
+    /// Broadcast channel for JSON-RPC notifications (status.event,
+    /// peers.event, gateway.event, logs.event). Each connection
+    /// subscribes; senders write a complete JSON-RPC notification
+    /// object (`jsonrpc: "2.0"` + `method` + `params`) and the
+    /// per-connection pump task forwards it to that socket.
+    events_tx: broadcast::Sender<Value>,
 }
 
 impl StubState {
@@ -128,6 +142,7 @@ async fn main() -> Result<()> {
         .with_context(|| format!("bind {}", socket_path.display()))?;
     log::info!("listening for connections");
 
+    let (events_tx, _) = broadcast::channel::<Value>(64);
     let state = Arc::new(StubState {
         started_at: Instant::now(),
         started_at_iso: chrono::Utc::now().to_rfc3339(),
@@ -136,6 +151,8 @@ async fn main() -> Result<()> {
         tcp_listen_port: parsed.tcp_listen_port,
         sub_counter: Mutex::new(0),
         config_path: config_path.clone(),
+        route_on: AtomicBool::new(false),
+        events_tx,
     });
 
     // Wire SIGTERM / SIGINT to a clean exit so kill_privileged can
@@ -246,55 +263,96 @@ struct RpcError {
 }
 
 async fn handle_connection(stream: UnixStream, state: Arc<StubState>) -> Result<()> {
-    let (rd, mut wr) = stream.into_split();
-    let mut lines = BufReader::new(rd).lines();
+    let (rd, wr) = stream.into_split();
+    // Two writers contend for the same socket: the request loop and the
+    // notification pump. Wrap in a tokio Mutex so they take turns
+    // emitting whole frames (newline-delimited JSON; the protocol
+    // requires no interleaving inside a single frame).
+    let wr = Arc::new(Mutex::new(wr));
 
-    while let Some(line) = lines.next_line().await? {
-        if line.trim().is_empty() {
-            continue;
+    // Notification pump: forward every broadcast event to this socket
+    // until the channel closes or the socket dies. Lagged subscribers
+    // skip the missed frames and resume; UIs can refetch `status` to
+    // reconcile if they care.
+    let pump_wr = wr.clone();
+    let mut events_rx = state.events_tx.subscribe();
+    let pump = tokio::spawn(async move {
+        loop {
+            match events_rx.recv().await {
+                Ok(payload) => {
+                    let mut bytes = match serde_json::to_vec(&payload) {
+                        Ok(b) => b,
+                        Err(_) => continue,
+                    };
+                    bytes.push(b'\n');
+                    let mut g = pump_wr.lock().await;
+                    if g.write_all(&bytes).await.is_err() {
+                        break;
+                    }
+                    let _ = g.flush().await;
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => break,
+            }
         }
-        let req: RpcRequest = match serde_json::from_str(&line) {
-            Ok(r) => r,
-            Err(e) => {
-                log::warn!("malformed JSON from client: {e} (line={line:?})");
+    });
+
+    let mut lines = BufReader::new(rd).lines();
+    let result: Result<()> = async {
+        while let Some(line) = lines.next_line().await? {
+            if line.trim().is_empty() {
                 continue;
             }
-        };
-        if req.jsonrpc.as_deref() != Some("2.0") {
-            log::warn!("non-2.0 jsonrpc request: {req:?}");
+            let req: RpcRequest = match serde_json::from_str(&line) {
+                Ok(r) => r,
+                Err(e) => {
+                    log::warn!("malformed JSON from client: {e} (line={line:?})");
+                    continue;
+                }
+            };
+            if req.jsonrpc.as_deref() != Some("2.0") {
+                log::warn!("non-2.0 jsonrpc request: {req:?}");
+            }
+            let id = req.id.clone().unwrap_or(Value::Null);
+            log::debug!("→ {} (id={})", req.method, id);
+
+            let outcome = dispatch(&state, &req.method, req.params.unwrap_or(Value::Null)).await;
+            let response = match outcome {
+                Ok(result) => RpcResponse {
+                    jsonrpc: "2.0",
+                    id,
+                    result: Some(result),
+                    error: None,
+                },
+                Err(err) => RpcResponse {
+                    jsonrpc: "2.0",
+                    id,
+                    result: None,
+                    error: Some(err),
+                },
+            };
+
+            let mut bytes = serde_json::to_vec(&response).context("serialize response")?;
+            bytes.push(b'\n');
+            {
+                let mut g = wr.lock().await;
+                g.write_all(&bytes).await.context("write response")?;
+                let _ = g.flush().await;
+            }
         }
-        let id = req.id.clone().unwrap_or(Value::Null);
-        log::debug!("→ {} (id={})", req.method, id);
-
-        let outcome = dispatch(&state, &req.method, req.params.unwrap_or(Value::Null)).await;
-        let response = match outcome {
-            Ok(result) => RpcResponse {
-                jsonrpc: "2.0",
-                id,
-                result: Some(result),
-                error: None,
-            },
-            Err(err) => RpcResponse {
-                jsonrpc: "2.0",
-                id,
-                result: None,
-                error: Some(err),
-            },
-        };
-
-        let mut bytes = serde_json::to_vec(&response).context("serialize response")?;
-        bytes.push(b'\n');
-        wr.write_all(&bytes).await.context("write response")?;
-        wr.flush().await.ok();
+        Ok(())
     }
-    Ok(())
+    .await;
+
+    pump.abort();
+    result
 }
 
 // ─────────────────────────────────────────────────────────────────────────
 // Method dispatch.
 // ─────────────────────────────────────────────────────────────────────────
 
-async fn dispatch(state: &Arc<StubState>, method: &str, _params: Value) -> Result<Value, RpcError> {
+async fn dispatch(state: &Arc<StubState>, method: &str, params: Value) -> Result<Value, RpcError> {
     match method {
         // §2.1
         "rpc.hello" => Ok(json!({
@@ -325,10 +383,37 @@ async fn dispatch(state: &Arc<StubState>, method: &str, _params: Value) -> Resul
         "peers.unsubscribe" => Ok(Value::Null),
 
         // §5.3 routing
-        "route.set_split_default" => Ok(json!({
-            "on": false,
-            "via_gateway_id": null,
-        })),
+        "route.set_split_default" => {
+            // Read `on` defensively: callers may send `{}` (legacy probe)
+            // or omit the field entirely. Anything that is not the literal
+            // boolean `true` flips routing off.
+            let on = matches!(params.get("on"), Some(Value::Bool(true)));
+            state.route_on.store(on, Ordering::SeqCst);
+            // Broadcast a status.event so subscribed UIs flip without
+            // having to re-poll `status`. Errors here mean no listeners,
+            // which is fine — the next status.subscribe will see the
+            // updated atomic via the seed.
+            let _ = state.events_tx.send(json!({
+                "jsonrpc": "2.0",
+                "method": "status.event",
+                "params": {
+                    "kind": if on { "route_on" } else { "route_off" },
+                },
+            }));
+            // Yield so the per-connection pump task gets a chance to
+            // forward the notification to the socket before this dispatch
+            // returns and handle_connection writes the response. The UI's
+            // RouteTogglePanel calls setExpanded(false) immediately after
+            // its `await callDaemon(...)` resolves; if the response lands
+            // first, the body briefly renders the OFF screen until the
+            // notification arrives. A single yield is enough — pump just
+            // needs the runtime opportunity to take the wr lock.
+            tokio::task::yield_now().await;
+            Ok(json!({
+                "on": on,
+                "via_gateway_id": null,
+            }))
+        }
         "route.table" => Ok(json!({
             "routes": [],
             "gateways": [],
@@ -430,7 +515,7 @@ fn stub_status(state: &Arc<StubState>) -> Value {
             "conntrack_size": 0,
         },
         "uptime_s": uptime_s,
-        "route_on": false,
+        "route_on": state.route_on.load(Ordering::SeqCst),
         "started_at": state.started_at_iso,
     })
 }
