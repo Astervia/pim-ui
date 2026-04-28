@@ -118,11 +118,7 @@ impl DaemonConnection {
     /// event name so the caller (daemon_unsubscribe) can fire the matching
     /// daemon-side unsubscribe RPC.
     pub async fn take_subscription(&self, subscription_id: &str) -> Option<String> {
-        let event_name = self
-            .subscription_ids
-            .lock()
-            .await
-            .remove(subscription_id)?;
+        let event_name = self.subscription_ids.lock().await.remove(subscription_id)?;
         // Only remove from active_subscriptions if no OTHER subscription_id points
         // at the same event name (multiple UI subscribers to one stream = one
         // daemon-side subscription, torn down only when the last UI subscriber leaves).
@@ -253,10 +249,7 @@ impl DaemonConnection {
         });
         let err = RpcError {
             code: -32000,
-            message: format!(
-                "pim-daemon exited in {} ms during startup",
-                info.elapsed_ms,
-            ),
+            message: format!("pim-daemon exited in {} ms during startup", info.elapsed_ms,),
             data: Some(data),
         };
         // Cancel the handshake watchdog if still armed — the sidecar already

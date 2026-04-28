@@ -238,10 +238,8 @@ impl Sidecar {
                             elapsed_ms,
                         );
                         if elapsed_ms < CRASH_ON_BOOT_THRESHOLD_MS {
-                            let stderr_tail =
-                                String::from_utf8_lossy(&stderr_buf).to_string();
-                            let config_path =
-                                resolve_config_path().to_string_lossy().to_string();
+                            let stderr_tail = String::from_utf8_lossy(&stderr_buf).to_string();
+                            let config_path = resolve_config_path().to_string_lossy().to_string();
                             (on_crash_on_boot.clone())(CrashOnBootInfo {
                                 exit_code: payload.code,
                                 signal: payload.signal,
@@ -1084,8 +1082,10 @@ listen_port = 0
         pick_and_apply_free_utun(&cfg).expect("rewrite");
         let after = std::fs::read_to_string(&cfg).expect("read");
         // [node] name untouched.
-        assert!(after.contains(r#"[node]
-name = "ignore-me""#));
+        assert!(after.contains(
+            r#"[node]
+name = "ignore-me""#
+        ));
         // [interface] name rewritten to a utunN with N >= 7.
         assert!(after.contains("[interface]\nname = \"utun"));
         // Tail comment + neighbour fields preserved.

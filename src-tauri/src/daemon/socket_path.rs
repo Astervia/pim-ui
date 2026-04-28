@@ -58,6 +58,9 @@ mod tests {
     fn macos_uses_tmpdir() {
         std::env::remove_var("PIM_RPC_SOCKET");
         std::env::set_var("TMPDIR", "/var/folders/xx");
-        assert_eq!(resolve_socket_path(), PathBuf::from("/var/folders/xx/pim.sock"));
+        assert_eq!(
+            resolve_socket_path(),
+            PathBuf::from("/var/folders/xx/pim.sock")
+        );
     }
 }

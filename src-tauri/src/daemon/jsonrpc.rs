@@ -28,6 +28,12 @@ pub struct Notification {
     pub params: Value,
 }
 
+/// In-flight request map: response id → oneshot reply channel. The reader
+/// task owns this; senders insert before writing the request and remove
+/// when the response (or error) arrives. Aliased to keep `JsonRpcClient`
+/// readable.
+type PendingMap = HashMap<u64, oneshot::Sender<std::result::Result<Value, RpcError>>>;
+
 #[derive(Serialize)]
 struct Request<'a> {
     jsonrpc: &'static str,
@@ -59,7 +65,7 @@ struct RawMessage {
 /// lagging / closing or by watching `disconnected()`.
 pub struct JsonRpcClient {
     next_id: Mutex<u64>,
-    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<std::result::Result<Value, RpcError>>>>>,
+    pending: Arc<Mutex<PendingMap>>,
     writer: Mutex<tokio::net::unix::OwnedWriteHalf>,
     notifications_tx: broadcast::Sender<Notification>,
     /// Signalled when the reader task exits (socket closed / EOF).
@@ -75,8 +81,7 @@ impl JsonRpcClient {
         let (read_half, write_half) = stream.into_split();
         let (notifications_tx, _) = broadcast::channel::<Notification>(128);
         let (disconnected_tx, disconnected_rx) = tokio::sync::watch::channel(false);
-        let pending: Arc<Mutex<HashMap<u64, oneshot::Sender<_>>>> =
-            Arc::new(Mutex::new(HashMap::new()));
+        let pending: Arc<Mutex<PendingMap>> = Arc::new(Mutex::new(HashMap::new()));
 
         let client = Arc::new(Self {
             next_id: Mutex::new(1),

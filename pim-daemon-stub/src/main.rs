@@ -71,12 +71,10 @@ struct StubState {
 }
 
 impl StubState {
-    fn next_sub_id(&self) -> impl std::future::Future<Output = String> + '_ {
-        async move {
-            let mut g = self.sub_counter.lock().await;
-            *g += 1;
-            format!("stub-sub-{}", *g)
-        }
+    async fn next_sub_id(&self) -> String {
+        let mut g = self.sub_counter.lock().await;
+        *g += 1;
+        format!("stub-sub-{}", *g)
     }
 }
 
@@ -146,12 +144,10 @@ async fn main() -> Result<()> {
     let cleanup_socket = socket_path.clone();
     let cleanup_pid = pid_file_path.clone();
     tokio::spawn(async move {
-        let mut sigterm =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("install SIGTERM handler");
-        let mut sigint =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .expect("install SIGINT handler");
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("install SIGTERM handler");
+        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .expect("install SIGINT handler");
         tokio::select! {
             _ = sigterm.recv() => log::info!("SIGTERM received, shutting down"),
             _ = sigint.recv() => log::info!("SIGINT received, shutting down"),
@@ -192,8 +188,7 @@ struct ParsedConfig {
 }
 
 fn parse_config(path: &Path) -> Result<ParsedConfig> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("read {}", path.display()))?;
+    let text = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     let v: toml::Value = toml::from_str(&text).context("parse pim.toml")?;
     let node_name = v
         .get("node")

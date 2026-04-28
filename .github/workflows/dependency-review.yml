@@ -1,0 +1,28 @@
+name: dependency-review
+
+# PR-only — github/dependency-review-action diffs the PR's lockfiles
+# against base and fails if any new dependency has a known
+# vulnerability or a license outside the allow-list. Provides inline
+# annotations on the PR's "Files changed" tab.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          # Allow the OSS-permissive set the project already depends on.
+          # Anything else needs explicit review before merge.
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, Zlib, CC0-1.0, Unlicense, 0BSD
+          fail-on-severity: moderate
+          comment-summary-in-pr: on-failure

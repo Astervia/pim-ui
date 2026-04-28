@@ -143,10 +143,7 @@ pub struct ConfigExistsResult {
 ///     (D-13: `Couldn't write config to {path}: {reason}` is assembled
 ///     client-side from `{ path, error }`).
 #[tauri::command]
-pub async fn bootstrap_config(
-    node_name: String,
-    role: Role,
-) -> Result<BootstrapResult, String> {
+pub async fn bootstrap_config(node_name: String, role: Role) -> Result<BootstrapResult, String> {
     let path = resolve_config_path();
     let path_str = path.to_string_lossy().to_string();
     let data_dir = resolve_data_dir();
@@ -174,8 +171,8 @@ pub async fn bootstrap_config(
     let tmp = path.with_extension("toml.tmp");
     {
         use std::io::Write;
-        let mut f = std::fs::File::create(&tmp)
-            .map_err(|e| format!("open {}: {e}", tmp.display()))?;
+        let mut f =
+            std::fs::File::create(&tmp).map_err(|e| format!("open {}: {e}", tmp.display()))?;
         f.write_all(toml.as_bytes())
             .map_err(|e| format!("write {}: {e}", tmp.display()))?;
         f.sync_all()
@@ -205,6 +202,12 @@ pub async fn config_exists() -> Result<ConfigExistsResult, String> {
 }
 
 #[cfg(test)]
+// Tests below intentionally hold a `std::sync::Mutex` guard across
+// `.await` points to serialize access to `PIM_CONFIG_PATH` across the
+// async test functions. With `tokio::test(flavor = "current_thread")`
+// there's only one task on this thread, so no deadlock risk — clippy
+// can't statically prove that, hence the module-level allow.
+#[allow(clippy::await_holding_lock)]
 mod tests {
     use super::*;
 

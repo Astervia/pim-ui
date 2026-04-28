@@ -1,0 +1,45 @@
+name: sbom
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sbom-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-sbom:
+    name: cyclonedx sbom (rust + npm)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      # Syft auto-detects Cargo.lock + package-lock/pnpm-lock so a single
+      # invocation covers the whole workspace (frontend + src-tauri +
+      # pim-daemon-stub).
+      - name: generate sbom (cyclonedx-json)
+        run: syft dir:. -o cyclonedx-json=sbom.json
+
+      - name: generate sbom (cyclonedx-xml)
+        run: syft dir:. -o cyclonedx-xml=sbom.xml
+
+      - name: upload sbom artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom.json
+            sbom.xml

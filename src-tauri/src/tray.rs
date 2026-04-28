@@ -155,9 +155,7 @@ pub fn on_menu_event_handler<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) 
         "route_toggle" => {
             // TBD-PHASE-4-A: route.set_split_default RPC call lands here
             // when ROUTE-01 ships. For now log + no-op.
-            log::info!(
-                "tray: route_toggle clicked (TBD-PHASE-4-A — Phase 4 wires the RPC)"
-            );
+            log::info!("tray: route_toggle clicked (TBD-PHASE-4-A — Phase 4 wires the RPC)");
         }
         "quit" => {
             app.exit(0);
