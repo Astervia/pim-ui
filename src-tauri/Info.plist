@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Bluetooth permission prompt copy.
+
+        macOS shows this string verbatim in the Privacy → Bluetooth
+        consent dialog when the bundled `pim-daemon` first invokes
+        `blueutil --inquiry` to discover nearby PIM peers. Without this
+        key the prompt is suppressed and Bluetooth scan returns an
+        empty result silently.
+
+        The string must explain WHY the app needs Bluetooth — Apple
+        rejects bundles whose copy is generic or evasive.
+    -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>pim uses Bluetooth to discover nearby mesh peers and establish PAN links to them. Without this permission you can still connect over Wi-Fi LAN.</string>
+
+    <!-- Legacy key for older macOS releases (pre-13). Apple's docs
+         recommend keeping both for compatibility. -->
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>pim uses Bluetooth to discover nearby mesh peers and establish PAN links to them. Without this permission you can still connect over Wi-Fi LAN.</string>
+
+    <!--
+        Local network access prompt copy.
+
+        Required on macOS 15+ (Sequoia) for any process that sends or
+        receives multicast/broadcast on the LAN — which the daemon does
+        constantly via `[discovery]` UDP broadcasts on :9101.
+    -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>pim broadcasts its presence on the local network so other mesh peers can find it without manual configuration.</string>
+</dict>
+</plist>

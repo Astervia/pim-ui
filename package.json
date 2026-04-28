@@ -10,6 +10,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:stub": "PIM_NO_PRIVILEGED_SPAWN=1 tauri dev",
+    "build:stub": "cargo build --release --manifest-path pim-daemon-stub/Cargo.toml && cp pim-daemon-stub/target/release/pim-daemon-stub src-tauri/binaries/pim-daemon-aarch64-apple-darwin",
     "typecheck": "tsc --noEmit",
     "audit:copy": "node scripts/audit-copy.mjs",
     "sync-brand": "bash scripts/sync-brand.sh",

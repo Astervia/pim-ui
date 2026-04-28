@@ -44,6 +44,9 @@
     "category": "DeveloperTool",
     "copyright": "Copyright © 2026 Astervia",
     "shortDescription": "Proximity mesh UI",
-    "longDescription": "Desktop + mobile UI for the pim proximity mesh daemon. Configure peers, view routing status, and inspect the mesh without leaving the terminal aesthetic."
+    "longDescription": "Desktop + mobile UI for the pim proximity mesh daemon. Configure peers, view routing status, and inspect the mesh without leaving the terminal aesthetic.",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
   }
 }

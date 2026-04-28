@@ -1,40 +1,131 @@
 /**
- * <GatewaySection /> — GATEWAY settings panel placeholder. Phase 3 Plan 03-06.
+ * <GatewaySection /> — GATEWAY (NAT egress) settings panel.
  *
- * Spec:
- *   - 03-UI-SPEC §S1 (collapsed summary `linux-only · disabled` for non-Linux
- *     hosts; `linux · disabled` / `linux · enabled via {iface}` placeholders
- *     reserved for Phase 5 GATE-* work)
- *   - 03-CONTEXT D-19 / deferred — Phase 5 owns full gateway controls
- *     (GATE-01..04). Phase 3 only renders the section header + a one-line
- *     Linux-only message body so the IA is stable and the [ Open Advanced ]
- *     scroll target order matches every other section.
+ * Owns the `[gateway]` block of the daemon config. Gateway nodes
+ * provide internet egress via NAT to mesh peers. A gateway is
+ * implicitly also a relay and a client (capability bits 0x07).
  *
- * No form fields, no save footer — read-only placeholder. Body copy is the
- * Plan 03-06 wording (Claude's discretion per the plan): the locked
- * "linux-only" verbatim string is in the summary; the body explains the
- * deferral honestly per UX-PLAN §1 P1 (no fake green dot).
+ * Fields (verbatim daemon wire names):
+ *   - gateway.enabled         (Switch)
+ *   - gateway.nat_interface   (text)
+ *   - gateway.max_connections (number)
  *
- * Bang-free per project policy. No new Tauri listeners (W1 preserved).
+ * Deeper controls (NAT preflight, kill-switch, route advertisement)
+ * land in Phase 5 GATE-*; this section covers the static config that
+ * the daemon reads at startup.
  */
 
+import { useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { CollapsibleCliPanel } from "@/components/settings/collapsible-cli-panel";
+import { RawWinsBanner } from "@/components/settings/raw-wins-banner";
+import { SectionSaveFooter } from "@/components/settings/section-save-footer";
+import { WireNameTooltip } from "@/components/settings/wire-name-tooltip";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { getPath } from "@/lib/config/assemble-toml";
+import { useSectionRawWins } from "@/hooks/use-section-raw-wins";
+import { useSectionSave } from "@/hooks/use-section-save";
+import { useSettingsConfig } from "@/hooks/use-settings-config";
+
+interface GatewayValues {
+  enabled: boolean;
+  nat_interface: string;
+  max_connections: string;
+}
 
 export interface GatewaySectionProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+function asBool(v: unknown, fallback = false): boolean {
+  if (typeof v === "boolean") return v;
+  return fallback;
+}
+
+function asString(v: unknown, fallback = ""): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  return fallback;
+}
+
+const FIELD_KEY_MAP = {
+  enabled: "gateway.enabled",
+  nat_interface: "gateway.nat_interface",
+  max_connections: "gateway.max_connections",
+} as const;
+
+type LocalKey = keyof typeof FIELD_KEY_MAP;
+
 export function GatewaySection({ open, onOpenChange }: GatewaySectionProps) {
-  // Phase 3 placeholder — Phase 5 will detect platform via Tauri's
-  // @tauri-apps/plugin-os and flip between `linux-only · disabled`,
-  // `linux · disabled`, and `linux · enabled via {iface}`. v1 always
-  // shows the disabled state.
+  const { base } = useSettingsConfig();
+  const { rawWins } = useSectionRawWins("gateway");
+
+  const defaults = useMemo<GatewayValues>(() => {
+    const b = base ?? {};
+    return {
+      enabled: asBool(getPath(b, "gateway.enabled")),
+      nat_interface: asString(getPath(b, "gateway.nat_interface")),
+      max_connections: asString(getPath(b, "gateway.max_connections")),
+    };
+  }, [base]);
+
+  const form = useForm<GatewayValues>({
+    defaultValues: defaults,
+    values: defaults,
+  });
+  const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
+    "gateway",
+    form,
+  );
+
+  useEffect(() => {
+    (Object.keys(FIELD_KEY_MAP) as LocalKey[]).forEach((local) => {
+      const wire = FIELD_KEY_MAP[local];
+      const msg = fieldErrors[wire];
+      if (msg !== undefined) {
+        form.setError(local, { type: "daemon", message: msg });
+      } else {
+        form.clearErrors(local);
+      }
+    });
+  }, [fieldErrors, form]);
+
+  const watched = form.watch();
   const summary = (
     <span className="font-mono text-xs text-muted-foreground">
-      linux-only · disabled
+      {watched.enabled ? "enabled" : "disabled"}
+      {watched.enabled && watched.nat_interface !== ""
+        ? ` · via ${watched.nat_interface}`
+        : ""}
     </span>
   );
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const onSave = (): void => {
+    void form.handleSubmit((values) => {
+      return save({
+        "gateway.enabled": values.enabled,
+        "gateway.nat_interface": values.nat_interface,
+        "gateway.max_connections": numOrString(values.max_connections),
+      });
+    })();
+  };
+
+  const off = watched.enabled === false;
 
   return (
     <CollapsibleCliPanel
@@ -44,15 +135,103 @@ export function GatewaySection({ open, onOpenChange }: GatewaySectionProps) {
       open={open}
       onOpenChange={onOpenChange}
     >
-      <div className="flex flex-col gap-2">
-        <p className="font-mono text-sm text-foreground">
-          Gateway mode is Linux-only today. Your device can still join a mesh
-          as a client or relay.
+      {rawWins === true && <RawWinsBanner />}
+      {sectionBannerError !== null && (
+        <p className="mb-4 font-mono text-sm text-destructive">
+          {sectionBannerError}
         </p>
-        <p className="font-mono text-sm text-muted-foreground">
-          Full gateway controls ship in Phase 5.
-        </p>
-      </div>
+      )}
+      <Form {...form}>
+        <div className="flex flex-col gap-4">
+          <FormField
+            control={form.control}
+            name="enabled"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span>Provide internet egress</span>
+                  <WireNameTooltip wireName="gateway.enabled" />
+                </FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    aria-label="Gateway enabled"
+                  />
+                </FormControl>
+                <p className="font-mono text-xs text-muted-foreground">
+                  When on, this node performs NAT to the internet for
+                  mesh peers. Capability bitfield jumps to 0x07
+                  (gateway + relay + client).
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <fieldset disabled={off} className="flex flex-col gap-4">
+            <FormField
+              control={form.control}
+              name="nat_interface"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <span>NAT interface</span>
+                    <WireNameTooltip wireName="gateway.nat_interface" />
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      spellCheck={false}
+                      autoComplete="off"
+                      placeholder="eth0 (Linux) · en0 (macOS)"
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Internet-facing interface used for masquerading.
+                    Replace the placeholder with the real one before
+                    enabling.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="max_connections"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <span>Max concurrent connections</span>
+                    <WireNameTooltip wireName="gateway.max_connections" />
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Maximum tracked gateway connection-tracking entries.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </fieldset>
+        </div>
+
+        <SectionSaveFooter
+          dirty={form.formState.isDirty}
+          state={state}
+          onSave={onSave}
+        />
+      </Form>
     </CollapsibleCliPanel>
   );
 }

@@ -1,48 +1,34 @@
 /**
- * <SettingsScreen /> — orchestrator screen for ⌘6. Phase 3 Plan 03-04 §Part J,
- * completed by Plan 03-06.
+ * <SettingsScreen /> — orchestrator screen for ⌘6.
  *
- * Spec: 03-UI-SPEC §S1 Settings page + 03-CONTEXT D-03/D-04/D-05/D-06 +
- *        ROADMAP §Phase 3 success criterion 1.
+ * After the Phase 01.1 wire-contract correction (April 2026), the
+ * Settings page now mirrors the daemon's `pim-core/src/config/model.rs`
+ * schema 1:1 — every top-level config table has its own section.
  *
- * Composition: a single scrollable column hosting nine `CollapsibleCliPanel`
- * sections in a fixed order (per UX-PLAN §6f / SECTION_IDS):
+ * Section order (UX grouping):
  *
- *   1. IDENTITY              (CONF-02 — Plan 03-05)
- *   2. TRANSPORT             (CONF-03 — Plan 03-05)
- *   3. DISCOVERY             (CONF-04 — Plan 03-05)
- *   4. TRUST                 (CONF-05 — Plan 03-05)
- *   5. ROUTING               (CONF-01 — Plan 03-06)
- *   6. GATEWAY (placeholder) (CONF-01 — Plan 03-06; full GATE-* in Phase 5)
- *   7. NOTIFICATIONS         (CONF-01 — Plan 03-06; firing in Phase 5)
- *   8. ADVANCED — RAW CONFIG (CONF-06 — Plan 03-06)
- *   9. ABOUT                 (CONF-01 — Plan 03-06)
+ *   1.  IDENTITY        ([node])
+ *   2.  INTERFACE       ([interface])
+ *   3.  DISCOVERY       ([discovery] — UDP broadcast)
+ *   4.  BLUETOOTH       ([bluetooth] — PAN discovery)
+ *   5.  WI-FI DIRECT    ([wifi_direct] — IEEE 802.11 P2P)
+ *   6.  TRANSPORT       ([transport] — TCP)
+ *   7.  ROUTING         ([routing])
+ *   8.  RELAY           ([relay])
+ *   9.  GATEWAY         ([gateway])
+ *  10.  TRUST           ([security])
+ *  11.  NOTIFICATIONS   (UI-side preferences — Phase 5 will wire daemon side)
+ *  12.  ADVANCED        (raw TOML editor)
+ *  13.  ABOUT
  *
- * Every section is a real component as of Plan 03-06; there are no stubs.
- *
- * Keyboard shortcuts (consumed via window CustomEvent dispatched by
- * src/components/shell/app-shell.tsx — see 03-01 D-06):
+ * Keyboard shortcuts (CustomEvent dispatched by app-shell.tsx):
  *   - `pim:settings-collapse-all` → collapse every section
  *   - `pim:settings-expand-all`   → expand every section
  *
- * D-13 discard flow: this screen does NOT mount the discard dialog
- * itself — that lives at shell level (active-screen.tsx) so it can
- * intercept BOTH tab-away navigation (Sidebar click / ⌘1/2/5/6) AND the
- * Stop daemon path (stop-confirm-dialog.tsx). Each section's
- * useSectionSave hook listens for `pim:settings-discard-reset` and
- * resets its react-hook-form on demand.
+ * Discard flow lives at shell level (active-screen.tsx) so it can
+ * intercept tab-away navigation AND the Stop daemon path.
  *
- * Data: useSettingsConfig() (from Plan 03-01) — a single config.get on
- * mount; subsequent saves call refetchSettingsConfig() module-side.
- *
- * Brand rules:
- *   - Zero radius. font-mono / font-code typography only.
- *   - max-w-3xl column with gap-6 between panels — matches the Dashboard
- *     column width grammar (Phase 2 locked).
- *
- * W1 contract: NO listen(...) calls — only window.addEventListener which
- * is browser-native, not Tauri. The `pim:settings-*` channel is a
- * CustomEvent on `window`, not a daemon RPC stream.
+ * W1 contract: NO listen(...) calls — only window.addEventListener.
  */
 
 import { useEffect, useState } from "react";
@@ -50,11 +36,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
-import { TransportSection } from "@/components/settings/sections/transport-section";
+import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
-import { TrustSection } from "@/components/settings/sections/trust-section";
+import { BluetoothSection } from "@/components/settings/sections/bluetooth-section";
+import { WifiDirectSection } from "@/components/settings/sections/wifi-direct-section";
+import { TransportSection } from "@/components/settings/sections/transport-section";
 import { RoutingSection } from "@/components/settings/sections/routing-section";
+import { RelaySection } from "@/components/settings/sections/relay-section";
 import { GatewaySection } from "@/components/settings/sections/gateway-section";
+import { TrustSection } from "@/components/settings/sections/trust-section";
 import { NotificationsSection } from "@/components/settings/sections/notifications-section";
 import { AdvancedSection } from "@/components/settings/sections/advanced-section";
 import { AboutSection } from "@/components/settings/sections/about-section";
@@ -73,8 +63,6 @@ export function SettingsScreen() {
   const { base, loading, loadError } = useSettingsConfig();
   const [open, setOpen] = useState<OpenMap>(() => buildClosedMap());
 
-  // ⌘↑ / ⌘↓ window CustomEvent listeners — dispatched by app-shell.tsx
-  // when active === "settings". Plan 03-01 D-06.
   useEffect(() => {
     const collapseAll = () => setOpen(buildClosedMap());
     const expandAll = () => setOpen(buildOpenMap());
@@ -89,8 +77,6 @@ export function SettingsScreen() {
   const setOpenFor = (id: SectionId) => (v: boolean) =>
     setOpen((prev) => ({ ...prev, [id]: v }));
 
-  // Loading + error states — render minimal copy; Plans 03-05 / 03-06
-  // populate the section bodies which depend on `base !== null`.
   if (loadError !== null) {
     return (
       <main aria-label="settings" className="flex flex-col px-2 py-2">
@@ -117,9 +103,9 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("identity")}
           />
 
-          <TransportSection
-            open={open.transport}
-            onOpenChange={setOpenFor("transport")}
+          <InterfaceSection
+            open={open.interface}
+            onOpenChange={setOpenFor("interface")}
           />
 
           <DiscoverySection
@@ -127,9 +113,19 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("discovery")}
           />
 
-          <TrustSection
-            open={open.trust}
-            onOpenChange={setOpenFor("trust")}
+          <BluetoothSection
+            open={open.bluetooth}
+            onOpenChange={setOpenFor("bluetooth")}
+          />
+
+          <WifiDirectSection
+            open={open.wifi_direct}
+            onOpenChange={setOpenFor("wifi_direct")}
+          />
+
+          <TransportSection
+            open={open.transport}
+            onOpenChange={setOpenFor("transport")}
           />
 
           <RoutingSection
@@ -137,9 +133,19 @@ export function SettingsScreen() {
             onOpenChange={setOpenFor("routing")}
           />
 
+          <RelaySection
+            open={open.relay}
+            onOpenChange={setOpenFor("relay")}
+          />
+
           <GatewaySection
             open={open.gateway}
             onOpenChange={setOpenFor("gateway")}
+          />
+
+          <TrustSection
+            open={open.trust}
+            onOpenChange={setOpenFor("trust")}
           />
 
           <NotificationsSection

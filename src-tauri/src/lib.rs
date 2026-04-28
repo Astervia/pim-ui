@@ -31,7 +31,7 @@ pub fn run() {
             rpc::commands::config_exists,
         ])
         .setup(|app| {
-            tracing::info!(
+            log::info!(
                 "pim-ui starting — daemon not yet spawned (awaiting daemon_start from UI)"
             );
 
@@ -66,7 +66,7 @@ pub fn run() {
                 {
                     Some(img) => img,
                     None => {
-                        tracing::warn!(
+                        log::warn!(
                             "tray: icons/tray.png not found in resource_dir; falling back to default_window_icon (D-22 brand asset missing — Image::from_path on icons/tray.png returned None)"
                         );
                         match app.default_window_icon() {
@@ -109,21 +109,33 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| match event {
-            // Success criterion 2 / DAEMON-05: kill sidecar on window destroy
-            // so there's no orphan daemon hanging around after the UI closes.
+            // Closing the main window translates to "quit the app" — this
+            // is a single-window utility, not a full tray-only background
+            // app, so X / Cmd+W should terminate the cargo run process
+            // cleanly. We only react to the MAIN window's destroy; the
+            // tray popover destroying itself (e.g. during teardown) must
+            // NOT trigger app exit.
+            //
+            // We dispatch through `app.exit(0)` rather than running
+            // `conn.stop()` here directly so all shutdown logic lives in
+            // ONE place — `RunEvent::ExitRequested` below.
             RunEvent::WindowEvent {
+                label,
                 event: WindowEvent::Destroyed,
                 ..
-            } => {
-                let conn = app
-                    .state::<Arc<daemon::DaemonConnection>>()
-                    .inner()
-                    .clone();
-                let app_handle = app.clone();
-                tauri::async_runtime::block_on(async move {
-                    let _ = conn.stop(app_handle).await;
-                });
+            } if label == "main" => {
+                app.exit(0);
             }
+            // Single source of truth for shutdown. Reaches here from
+            // (a) `app.exit(0)` above, (b) Cmd+Q via the OS menu, and
+            // (c) the tray popover's "Quit pim" button (`pim://quit`).
+            //
+            // `conn.stop()` returns in milliseconds on macOS now because
+            // `kill_privileged` is fire-and-forget — the auth dialog for
+            // killing the daemon shows up independently of our process
+            // exiting (the osascript child reparents to launchd). On
+            // Linux/Windows the kill is a real SIGTERM on the sidecar
+            // child handle; both finish before the run loop tears down.
             RunEvent::ExitRequested { .. } => {
                 let conn = app
                     .state::<Arc<daemon::DaemonConnection>>()

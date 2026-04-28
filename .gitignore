@@ -24,6 +24,9 @@ dist-ssr/
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# Dev daemon stub build artifacts
+pim-daemon-stub/target/
+
 # Bundled daemon binaries — downloaded in CI, never commit
 src-tauri/binaries/*
 !src-tauri/binaries/.gitkeep

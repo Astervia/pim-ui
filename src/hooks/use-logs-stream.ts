@@ -59,17 +59,40 @@ import type { LogEvent, LogLevel } from "@/lib/rpc-types";
 export type StreamStatus = "streaming" | "paused" | "reconnecting" | "idle";
 
 export interface UseLogsStreamResult {
-  /** Visible slice after applying peer + source filters (level is server-side). */
+  /** Visible slice after applying levels + crates + peer + source filters. */
   events: LogEvent[];
   /** Full ring buffer (capped at MAX_ENTRIES, newest-first). */
   allEvents: LogEvent[];
+  /** Multi-select level filter. Empty Set = show NOTHING; populate to
+   *  whitelist specific levels. Default is all five levels selected. */
+  levels: ReadonlySet<LogLevel>;
+  /** Replace the levels Set wholesale. */
+  setLevels: (next: ReadonlySet<LogLevel>) => void;
+  /** Toggle a single level on/off in the levels Set. */
+  toggleLevel: (l: LogLevel) => void;
+  /** Multi-select crate (source-prefix) filter. Empty Set = show ALL
+   *  crates; populate to whitelist specific ones. Crates are
+   *  auto-discovered from events as they arrive. */
+  crates: ReadonlySet<string>;
+  /** Replace the crates Set wholesale. */
+  setCrates: (next: ReadonlySet<string>) => void;
+  /** Toggle a single crate on/off in the crates Set. */
+  toggleCrate: (c: string) => void;
+  /** Every crate name observed in the event stream so far, sorted.
+   *  Drives the dropdown options for the crate multi-select. */
+  discoveredCrates: readonly string[];
+  /** Back-compat shim — reads the highest-rank level still selected.
+   *  Kept so `applyLogsFilter` and existing screens don't break. */
   level: LogLevel;
-  /** Triggers server-side re-subscribe with the new min_level. */
+  /** Back-compat shim — clears `levels` to the single chosen level
+   *  plus everything above it (mimics old `min_level` semantics). */
   setLevel: (l: LogLevel) => void;
   /** node_id to filter by, or null for "(all)". */
   peerFilter: string | null;
   setPeerFilter: (p: string | null) => void;
-  /** Phase 3: source module name (e.g. "config") or null for "(all)". */
+  /** Single source-name filter used by the `[Show in Logs →]` toast
+   *  routing (Phase 3 03-03 D-22). Distinct from `crates` which is the
+   *  user-driven multi-select; this is a one-shot programmatic narrow. */
   sourceFilter: string | null;
   setSourceFilter: (s: string | null) => void;
   status: StreamStatus;
@@ -78,6 +101,10 @@ export interface UseLogsStreamResult {
   /** D-31 stream label, surfaced for the toast that Plan 02-06 renders. */
   errorStream: "logs" | null;
 }
+
+/** Order matters: index = rank used by `level >= min_level` comparisons
+ *  in the back-compat `setLevel` shim. */
+const LEVEL_ORDER: readonly LogLevel[] = ["trace", "debug", "info", "warn", "error"];
 
 const MAX_ENTRIES = 2000;
 
@@ -94,7 +121,20 @@ const MAX_ENTRIES = 2000;
 // default From/To) share one daemon subscription without spawning
 // duplicates. The mount/unmount lifecycle is reference-counted.
 
-let levelAtom: LogLevel = "info";
+/** Multi-select level filter. Default = all five levels selected so
+ *  the user sees everything until they explicitly narrow. */
+let levelsAtom: ReadonlySet<LogLevel> = new Set<LogLevel>([
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "error",
+]);
+/** Multi-select crate filter. Empty = show all crates. */
+let cratesAtom: ReadonlySet<string> = new Set<string>();
+/** Auto-collected from observed events. Sorted on read for stable
+ *  dropdown ordering. */
+const discoveredCratesAtom = new Set<string>();
 let peerAtom: string | null = null;
 let sourceAtom: string | null = null;
 const filterListeners = new Set<() => void>();
@@ -120,14 +160,33 @@ function subscribeBuffer(cb: () => void): () => void {
     bufferListeners.delete(cb);
   };
 }
-function getLevelAtom(): LogLevel {
-  return levelAtom;
+function getLevelsAtom(): ReadonlySet<LogLevel> {
+  return levelsAtom;
+}
+function getCratesAtom(): ReadonlySet<string> {
+  return cratesAtom;
+}
+/** Snapshot of discovered crates as a sorted array. Identity-stable
+ *  per filterListeners notification — we re-allocate the array only
+ *  when the underlying Set changed. */
+let discoveredCratesSnapshot: readonly string[] = [];
+function getDiscoveredCratesSnapshot(): readonly string[] {
+  return discoveredCratesSnapshot;
 }
 function getPeerAtom(): string | null {
   return peerAtom;
 }
 function getSourceAtom(): string | null {
   return sourceAtom;
+}
+/** Back-compat shim — return the highest-rank level still in `levelsAtom`,
+ *  or `"trace"` if the set is empty (so callers always see a valid level). */
+function getLevelAtom(): LogLevel {
+  for (let i = LEVEL_ORDER.length - 1; i >= 0; i -= 1) {
+    const lvl = LEVEL_ORDER[i];
+    if (lvl !== undefined && levelsAtom.has(lvl)) return lvl;
+  }
+  return "trace";
 }
 
 /**
@@ -153,10 +212,25 @@ export function getLogsBuffer(): readonly LogEvent[] {
  * instance currently mounted observes the change via useSyncExternalStore
  * and re-runs the effect that resubscribes (see useEffect below).
  */
-export function setLevelAtom(next: LogLevel): void {
-  if (next === levelAtom) return;
-  levelAtom = next;
+/** Multi-select setter — replace the entire `levels` set. Notifies
+ *  on identity change OR contents change (we always notify, callers
+ *  filter via useSyncExternalStore identity). */
+export function setLevelsAtom(next: ReadonlySet<LogLevel>): void {
+  levelsAtom = new Set(next);
   notifyFilters();
+}
+
+/** Multi-select setter — replace the entire `crates` set. */
+export function setCratesAtom(next: ReadonlySet<string>): void {
+  cratesAtom = new Set(next);
+  notifyFilters();
+}
+
+/** Back-compat shim — set `levels` to {chosen, ...everything-above}. */
+export function setLevelAtom(next: LogLevel): void {
+  const idx = LEVEL_ORDER.indexOf(next);
+  if (idx === -1) return;
+  setLevelsAtom(new Set(LEVEL_ORDER.slice(idx)));
 }
 
 /** Module-level setter for the peer atom (client-side filter). */
@@ -221,32 +295,40 @@ function setError(message: string | null, stream: "logs" | null): void {
 function pushEvent(evt: LogEvent): void {
   buffer.unshift(evt);
   if (buffer.length > MAX_ENTRIES) buffer.length = MAX_ENTRIES;
+  // Discover new crates as events arrive — drives the multi-select
+  // dropdown options without requiring a hard-coded list.
+  const src = evt.source;
+  if (typeof src === "string" && src.length > 0 && !discoveredCratesAtom.has(src)) {
+    discoveredCratesAtom.add(src);
+    discoveredCratesSnapshot = Array.from(discoveredCratesAtom).sort();
+    notifyFilters();
+  }
   notifyBuffer();
 }
 
 /**
- * D-25 subscribe helper with D-31 retry-once. Unsubscribes any existing
- * daemon subscription first (level-change path), then attempts a fresh
- * logs.subscribe. On first failure waits 500 ms and retries. On second
- * failure stores errorMessage + status="idle" on the module atoms; the
- * caller's error surface (Plan 02-06 toast) reads them via the hook.
+ * D-25 subscribe helper with D-31 retry-once. Subscribes daemon-side
+ * with the broadest possible filter (`min_level: "trace"`, `sources: []`)
+ * so the client sees EVERY event the daemon emits. All user-facing
+ * filtering — multi-select levels, multi-select crates, peer, search,
+ * time range — is then applied client-side on the buffer. This trades
+ * a small amount of bandwidth for two big wins:
+ *
+ *   1. Filter changes are instant — no daemon round-trip, no
+ *      subscription churn, no momentary blank list.
+ *   2. The history-replay buffer (daemon's last 2048 events) is read
+ *      ONCE, on first mount. Subsequent re-mounts share the same
+ *      subscription via the mountCount ref-count.
+ *
+ * On first failure waits 500 ms and retries. On second failure stores
+ * errorMessage + status="idle" on the module atoms.
  */
-async function resubscribeLogs(lvl: LogLevel): Promise<void> {
+async function subscribeOnce(): Promise<void> {
   setStatus("reconnecting");
-
-  const prior = subscriptionId;
-  if (prior !== null) {
-    subscriptionId = null;
-    try {
-      await callDaemon("logs.unsubscribe", { subscription_id: prior });
-    } catch (e) {
-      console.warn("logs.unsubscribe (prior) failed:", e);
-    }
-  }
 
   const attempt = async (): Promise<void> => {
     const res = await callDaemon("logs.subscribe", {
-      min_level: lvl,
+      min_level: "trace",
       sources: [],
     });
     subscriptionId = res.subscription_id;
@@ -255,7 +337,6 @@ async function resubscribeLogs(lvl: LogLevel): Promise<void> {
   try {
     await attempt();
     if (mountCount === 0) {
-      // Last consumer unmounted while we were subscribing; clean up.
       const id = subscriptionId;
       subscriptionId = null;
       if (id !== null) {
@@ -291,28 +372,25 @@ async function resubscribeLogs(lvl: LogLevel): Promise<void> {
   }
 }
 
-// React when level atom changes — resubscribe daemon-side. This watcher
-// runs at module scope so mid-life level changes (from setLevelAtom
-// called by applyLogsFilter, or from the hook's setLevel) both end up
-// here. The watcher is registered exactly once via the first mount.
-let levelWatcherUnsub: (() => void) | null = null;
-let lastSubscribedLevel: LogLevel | null = null;
-
-function ensureLevelWatcher(): void {
-  if (levelWatcherUnsub !== null) return;
-  lastSubscribedLevel = levelAtom;
-  levelWatcherUnsub = subscribeFilters(() => {
-    if (mountCount === 0) return;
-    if (levelAtom === lastSubscribedLevel) return;
-    lastSubscribedLevel = levelAtom;
-    void resubscribeLogs(levelAtom);
-  });
-}
-
 // ─── Hook ──────────────────────────────────────────────────────────────
 
 export function useLogsStream(): UseLogsStreamResult {
   const { actions } = useDaemonState();
+  const levels = useSyncExternalStore(
+    subscribeFilters,
+    getLevelsAtom,
+    getLevelsAtom,
+  );
+  const crates = useSyncExternalStore(
+    subscribeFilters,
+    getCratesAtom,
+    getCratesAtom,
+  );
+  const discoveredCrates = useSyncExternalStore(
+    subscribeFilters,
+    getDiscoveredCratesSnapshot,
+    getDiscoveredCratesSnapshot,
+  );
   const level = useSyncExternalStore(
     subscribeFilters,
     getLevelAtom,
@@ -361,8 +439,7 @@ export function useLogsStream(): UseLogsStreamResult {
     let didMount = true;
 
     if (mountCount === 1) {
-      ensureLevelWatcher();
-      void resubscribeLogs(levelAtom);
+      void subscribeOnce();
       (async () => {
         try {
           fanOutSub = await actions.subscribe("logs.event", pushEvent);
@@ -405,22 +482,41 @@ export function useLogsStream(): UseLogsStreamResult {
             console.warn("logs.unsubscribe (unmount) failed:", e),
           );
         }
-        if (levelWatcherUnsub !== null) {
-          levelWatcherUnsub();
-          levelWatcherUnsub = null;
-        }
-        lastSubscribedLevel = null;
         setStatus("idle");
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * D-26 level-change path: re-subscribe daemon-side so `min_level`
-   * reflects the new choice. Peer + source filters are client-side and
-   * do NOT touch the subscription.
-   */
+  // All filters are client-side now — the daemon receives ALL events
+  // (subscribed with min_level=trace + sources=[]) and the UI narrows
+  // on render. This makes filter changes instant and avoids re-subscribe
+  // churn that would otherwise replay the daemon history buffer on
+  // every level toggle.
+  const setLevels = useCallback((next: ReadonlySet<LogLevel>) => {
+    setLevelsAtom(next);
+  }, []);
+  const toggleLevel = useCallback((l: LogLevel) => {
+    const cur = new Set(levelsAtom);
+    if (cur.has(l)) {
+      cur.delete(l);
+    } else {
+      cur.add(l);
+    }
+    setLevelsAtom(cur);
+  }, []);
+  const setCrates = useCallback((next: ReadonlySet<string>) => {
+    setCratesAtom(next);
+  }, []);
+  const toggleCrate = useCallback((c: string) => {
+    const cur = new Set(cratesAtom);
+    if (cur.has(c)) {
+      cur.delete(c);
+    } else {
+      cur.add(c);
+    }
+    setCratesAtom(cur);
+  }, []);
   const setLevel = useCallback((lvl: LogLevel) => {
     setLevelAtom(lvl);
   }, []);
@@ -431,12 +527,17 @@ export function useLogsStream(): UseLogsStreamResult {
     setSourceAtom(s);
   }, []);
 
-  // D-26 + Phase 3: peer + source filters applied client-side on each
-  // consumer render. Search + time range filters live in
-  // useFilteredLogs (use-log-filters.ts) — those consume `events` and
-  // apply their own filter chain so this hook stays focused on the
-  // server-side level + peer/source client filter.
+  // Filter chain: levels (multi) → crates (multi) → peer → source (single,
+  // for [Show in Logs →] toast routing). Search + time range live in
+  // useFilteredLogs and consume `events` from here.
   const filteredEvents: LogEvent[] = buffer.filter((e) => {
+    if (!levels.has(e.level)) return false;
+    if (crates.size > 0) {
+      const matches = Array.from(crates).some((prefix) =>
+        e.source.startsWith(prefix),
+      );
+      if (!matches) return false;
+    }
     if (peerFilter !== null && e.peer_id !== peerFilter) return false;
     if (sourceFilter !== null && e.source !== sourceFilter) return false;
     return true;
@@ -445,6 +546,13 @@ export function useLogsStream(): UseLogsStreamResult {
   return {
     events: filteredEvents,
     allEvents: buffer,
+    levels,
+    setLevels,
+    toggleLevel,
+    crates,
+    setCrates,
+    toggleCrate,
+    discoveredCrates,
     level,
     setLevel,
     peerFilter,

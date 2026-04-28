@@ -54,9 +54,9 @@ export function LogRow({ event }: LogRowProps) {
       role="listitem"
       tabIndex={0}
       className={cn(
-        "grid grid-cols-[100px_60px_1fr_120px_1fr]",
-        "items-center gap-x-2 px-4 py-0.5",
-        "font-code text-sm leading-[1.5]",
+        "grid grid-cols-[100px_60px_minmax(0,1fr)_120px_minmax(0,2fr)]",
+        "items-start gap-x-2 px-4",
+        "font-code text-sm leading-[22px]",
         "hover:bg-popover/60",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
       )}
@@ -65,9 +65,11 @@ export function LogRow({ event }: LogRowProps) {
       <span className={cn(levelColor[event.level], "uppercase")}>
         {event.level.padEnd(5)}
       </span>
-      <span className="text-muted-foreground">{event.source}</span>
+      <span className="truncate text-muted-foreground" title={event.source}>
+        {event.source}
+      </span>
       <span className="text-muted-foreground">{peerShort}</span>
-      <span className="text-foreground">{event.message}</span>
+      <span className="break-words text-foreground">{event.message}</span>
     </div>
   );
 }

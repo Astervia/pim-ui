@@ -1,136 +1,711 @@
-//! Hard-coded sane-default `pim.toml` template (Phase 01.1 D-15 + D-16).
+//! Sane-default `pim.toml` template (Phase 01.1 D-15 + D-16).
 //!
 //! D-15 anchors the template to Rust — the UI must not ship with
-//! protocol-specific knowledge. The string here is the wire contract with
-//! `pim-daemon`. Two interpolation points only: `{node_name}` and the
-//! `[roles].gateway` boolean derived from `Role`.
+//! protocol-specific knowledge. The string here is the wire contract
+//! with `pim-daemon` (Astervia/proximity-internet-mesh). Schema is
+//! mirrored from that repo's `crates/pim-core/src/config/model.rs`
+//! and the generator style follows `crates/pim-cli/src/commands/config.rs`:
 //!
-//! Intentionally NO file I/O, NO validation: the caller (commands::bootstrap_config)
-//! is responsible for the atomic-rename write (D-14) and the client UI is
-//! responsible for `node_name` validation (D-11). The only defensive step we
-//! take here is escaping a `"` character in `node_name` so the produced TOML
-//! is always parseable — the regex-validated UI input wouldn't include one,
-//! but malformed TOML on disk would brick the daemon, so the cost of cheap
-//! defense is worth it.
+//!   - Every field carries a comment explaining what it does.
+//!   - Active values are written verbatim.
+//!   - Optional / opt-in fields are emitted commented out (`# key =
+//!     value`) with an explanation of how to enable them.
+//!
+//! Defaults shipped here:
+//!   - LAN UDP-broadcast discovery: ON
+//!   - Bluetooth PAN + radio discovery: ON
+//!   - Wi-Fi Direct P2P: OFF (requires platform plumbing — `wpa_supplicant`
+//!     CONFIG_P2P on Linux — that desktop users can't be assumed to have)
+//!   - Default capability: relay + client (bitfield 0x03). The `Role`
+//!     enum toggles `[gateway].enabled` on top.
+//!
+//! Caller (`commands::bootstrap_config`) is responsible for the
+//! atomic-rename write (D-14). Defensive escaping for `"` and `\` in
+//! node_name and paths so the produced TOML always parses.
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// Role identifiers — wire-format `snake_case` per Phase 01.1 D-08.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
+    /// Default — runs as relay + client. Forwards traffic for nearby
+    /// peers in addition to originating its own.
     JoinTheMesh,
+    /// Gateway role — also acts as relay + client implicitly.
     ShareMyInternet,
 }
 
-/// Render the sane-default `pim.toml`. Three interpolation points:
-///   - `[node].name = "{node_name}"`
-///   - `[roles].gateway = true` if `Role::ShareMyInternet`, else `false`.
-///   - `[interface].name` is platform-aware: `pim0` on Linux (kernel
-///     daemon creates it), `utun8` on macOS (daemon binary's interface
-///     validation rejects non-`utun*` names — the kernel will rename
-///     to the next available `utunN` if 8 is taken).
+/// Render a complete, well-documented `pim.toml`.
 ///
-/// All other fields come from D-16 verbatim.
-pub fn render_default_config(node_name: &str, role: Role) -> String {
-    let escaped = node_name.replace('\\', "\\\\").replace('"', "\\\"");
-    let gateway = matches!(role, Role::ShareMyInternet);
+/// `data_dir` is the user-scope directory the daemon will use for
+/// persistent state (Ed25519 node key, trust store). On desktop the
+/// caller passes `daemon::data_dir::resolve_data_dir()`.
+pub fn render_default_config(node_name: &str, role: Role, data_dir: &Path) -> String {
+    let name_escaped = escape_toml_basic_string(node_name);
+    let data_dir_str = data_dir.to_string_lossy();
+    let key_file_str = data_dir.join("node.key").to_string_lossy().to_string();
+    let trust_store_str = data_dir
+        .join("trusted-peers.toml")
+        .to_string_lossy()
+        .to_string();
+    let gateway_enabled = matches!(role, Role::ShareMyInternet);
 
-    // The shipped pim-daemon binary in src-tauri/binaries/ rejects `pim0` on
-    // macOS at TUN-creation time (`unsupported interface name for this
-    // platform: pim0`). macOS requires `utun*`. We pre-fill a high index
-    // (`utun8`) to dodge collisions with system utuns (utun0..3 are used by
-    // various OS services); the kernel falls back to the next free index if
-    // 8 is occupied. Linux keeps `pim0` because the kernel daemon creates a
-    // named TUN device verbatim there.
+    // Platform-aware defaults — see the field-level docs in
+    // `pim-core/src/config/defaults.rs`.
     #[cfg(target_os = "macos")]
-    let interface_name = "utun8";
+    let iface_name = "utun8";
     #[cfg(not(target_os = "macos"))]
-    let interface_name = "pim0";
-
-    let interface_comment = if cfg!(target_os = "macos") {
-        "# macOS — utun* is the only allowed prefix; kernel resolves to next free utunN"
+    let iface_name = "pim0";
+    let iface_comment = if cfg!(target_os = "macos") {
+        "macOS — utun* is the only allowed prefix; kernel maps to next free utunN"
     } else {
-        "# Linux daemon creates this; macOS daemon re-maps to utunN automatically"
+        "Linux — daemon creates this TUN device verbatim"
     };
 
-    format!(
-        r#"[node]
-name = "{name}"
+    #[cfg(target_os = "macos")]
+    let bt_iface = "bridge0";
+    #[cfg(not(target_os = "macos"))]
+    let bt_iface = "auto";
+    let bt_iface_comment = if cfg!(target_os = "macos") {
+        "macOS — host Bluetooth stack PAN bridge"
+    } else {
+        "Linux — \"auto\" prefers a configured iface, falls back to live bnep* / enx*"
+    };
 
-[interface]
-name = "{iface}"         {iface_comment}
-mtu = 1400
-mesh_ip = "auto"      # daemon picks a CIDR it hasn't seen
+    #[cfg(target_os = "macos")]
+    let nat_iface = "en0";
+    #[cfg(not(target_os = "macos"))]
+    let nat_iface = "eth0";
 
-[transport]
-listen_port = 0       # 0 = OS-assigned, avoids port conflicts on dev machines
-tcp = true
-bluetooth = false     # off — BLE drains battery, surface opt-in in Phase 3 Discovery
-wifi_direct = false   # off — same
+    #[cfg(target_os = "macos")]
+    let wfd_iface = "en0";
+    #[cfg(not(target_os = "macos"))]
+    let wfd_iface = "wlan0";
 
-[discovery]
-broadcast = true      # on — Aria expects nearby discovery to just work
-bluetooth = false
-wifi_direct = false
-auto_connect = false  # OFF — trust must be deliberate (TOFU), never silent
+    let role_label = match role {
+        Role::JoinTheMesh => "client + relay (default)",
+        Role::ShareMyInternet => "client + relay + gateway",
+    };
 
-[security]
-authorization_policy = "trust_on_first_use"
-require_encryption = true
+    let mut out = String::with_capacity(8 * 1024);
 
-[roles]
-gateway = {gateway}   # true if role == "share_my_internet", false otherwise
-"#,
-        name = escaped,
-        iface = interface_name,
-        iface_comment = interface_comment,
-        gateway = gateway,
-    )
+    // ── Header ──────────────────────────────────────────────────────
+    push_line(&mut out, "# pim.toml — generated by pim-ui first-run bootstrap.");
+    push_line(
+        &mut out,
+        "# Schema: github.com/Astervia/proximity-internet-mesh — crates/pim-core/src/config/model.rs",
+    );
+    push_line(&mut out, &format!("# Roles enabled: {role_label}"));
+    push_line(
+        &mut out,
+        "# Edit values from Settings (⌘6) — the daemon validates each save before applying.",
+    );
+    push_blank(&mut out);
+
+    // ── [node] ──────────────────────────────────────────────────────
+    push_line(&mut out, "[node]");
+    push_line(
+        &mut out,
+        "# Human-readable node name shown in logs, status output, and to other peers.",
+    );
+    push_line(&mut out, &format!("name = \"{name_escaped}\""));
+    push_line(
+        &mut out,
+        "# Writable directory for the Ed25519 node key, the trust store, and runtime state.",
+    );
+    push_line(&mut out, &format!("data_dir = \"{data_dir_str}\""));
+    push_blank(&mut out);
+
+    // ── [interface] ────────────────────────────────────────────────
+    push_line(&mut out, "[interface]");
+    push_line(&mut out, &format!("# {iface_comment}."));
+    push_line(&mut out, &format!("name = \"{iface_name}\""));
+    push_line(
+        &mut out,
+        "# IPv4 mesh address. Use a CIDR like \"10.77.0.100/24\" for static labs, or",
+    );
+    push_line(
+        &mut out,
+        "# \"auto\" to request an address from a reachable gateway.",
+    );
+    push_line(&mut out, "mesh_ip = \"auto\"");
+    push_line(
+        &mut out,
+        "# Optional static IPv6 ULA on the mesh TUN. Uncomment for dual-stack labs.",
+    );
+    push_line(&mut out, "# mesh_ipv6 = \"fd77::10/64\"");
+    push_line(
+        &mut out,
+        "# MTU in bytes. Keep aligned with the value other peers use.",
+    );
+    push_line(&mut out, "mtu = 1400");
+    push_blank(&mut out);
+
+    // ── [discovery] ────────────────────────────────────────────────
+    push_line(&mut out, "[discovery]");
+    push_line(
+        &mut out,
+        "# UDP broadcast peer discovery (PIMD on :9101). Limited to a single",
+    );
+    push_line(
+        &mut out,
+        "# broadcast domain — cross-subnet topologies need static [[peers]].",
+    );
+    push_line(&mut out, "enabled = true");
+    push_line(&mut out, "# UDP port for sending and receiving discovery broadcasts.");
+    push_line(&mut out, "port = 9101");
+    push_line(
+        &mut out,
+        "# How often this node broadcasts its own presence (milliseconds).",
+    );
+    push_line(&mut out, "broadcast_interval_ms = 5000");
+    push_line(
+        &mut out,
+        "# How long an unseen peer remains in the table before expiry (milliseconds).",
+    );
+    push_line(&mut out, "peer_timeout_ms = 30000");
+    push_line(
+        &mut out,
+        "# Auto-connect to discovered peers advertising relay capability.",
+    );
+    push_line(&mut out, "connect_relays = true");
+    push_line(
+        &mut out,
+        "# Auto-connect to discovered peers advertising gateway capability.",
+    );
+    push_line(&mut out, "connect_gateways = true");
+    push_line(
+        &mut out,
+        "# Optional 64-hex-character group key. When set, only nodes with the same",
+    );
+    push_line(
+        &mut out,
+        "# key can decode discovery broadcasts (gates discovery, NOT transport security).",
+    );
+    push_line(
+        &mut out,
+        "# shared_key = \"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff\"",
+    );
+    push_blank(&mut out);
+
+    // ── [transport] ────────────────────────────────────────────────
+    push_line(&mut out, "[transport]");
+    push_line(
+        &mut out,
+        "# Wire transport backend. Currently \"tcp\" is the only supported value.",
+    );
+    push_line(&mut out, "type = \"tcp\"");
+    push_line(&mut out, "# TCP port this node listens on for direct peer sessions.");
+    push_line(&mut out, "listen_port = 9100");
+    push_line(
+        &mut out,
+        "# Maximum reconnect attempts per peer before giving up.",
+    );
+    push_line(&mut out, "max_reconnect_attempts = 20");
+    push_line(
+        &mut out,
+        "# Timeout for outbound TCP connect attempts (milliseconds).",
+    );
+    push_line(&mut out, "connect_timeout_ms = 3000");
+    push_blank(&mut out);
+
+    // ── [routing] ──────────────────────────────────────────────────
+    push_line(&mut out, "[routing]");
+    push_line(
+        &mut out,
+        "# Distance-vector settings used for route propagation and expiry.",
+    );
+    push_line(
+        &mut out,
+        "# max_hops bounds how far a route advertisement can travel.",
+    );
+    push_line(&mut out, "max_hops = 10");
+    push_line(&mut out, "algorithm = \"distance-vector\"");
+    push_line(
+        &mut out,
+        "# How long learned routes survive before being re-advertised (seconds).",
+    );
+    push_line(&mut out, "route_expiry_s = 300");
+    push_blank(&mut out);
+
+    // ── [gateway] ──────────────────────────────────────────────────
+    push_line(&mut out, "[gateway]");
+    push_line(
+        &mut out,
+        "# Gateway nodes provide internet egress via NAT to mesh peers.",
+    );
+    push_line(
+        &mut out,
+        "# A gateway is implicitly also a relay and a client (capability bits 0x07).",
+    );
+    push_line(&mut out, &format!("enabled = {gateway_enabled}"));
+    push_line(
+        &mut out,
+        "# Internet-facing interface used for masquerading. Replace with the real one",
+    );
+    push_line(
+        &mut out,
+        "# on the host before flipping `enabled = true`.",
+    );
+    push_line(&mut out, &format!("nat_interface = \"{nat_iface}\""));
+    push_line(
+        &mut out,
+        "# Maximum concurrent gateway connection-tracking entries.",
+    );
+    push_line(&mut out, "max_connections = 200");
+    push_blank(&mut out);
+
+    // ── [relay] ────────────────────────────────────────────────────
+    push_line(&mut out, "[relay]");
+    push_line(
+        &mut out,
+        "# Relay nodes forward mesh frames for other peers in addition to originating",
+    );
+    push_line(
+        &mut out,
+        "# their own (capability bits 0x03 = relay + client). Set false to run as",
+    );
+    push_line(
+        &mut out,
+        "# client-only (0x01) — other nodes won't connect to a client-only peer.",
+    );
+    push_line(&mut out, "enabled = true");
+    push_blank(&mut out);
+
+    // ── [security] ─────────────────────────────────────────────────
+    push_line(&mut out, "[security]");
+    push_line(
+        &mut out,
+        "# The daemon creates this Ed25519 private key on first startup if missing.",
+    );
+    push_line(&mut out, &format!("key_file = \"{key_file_str}\""));
+    push_line(
+        &mut out,
+        "# Reject unauthenticated peer sessions. Should always be true on real networks.",
+    );
+    push_line(&mut out, "require_encryption = true");
+    push_line(
+        &mut out,
+        "# Authorization policy applied AFTER peer identity is authenticated:",
+    );
+    push_line(
+        &mut out,
+        "#   allow_all          — admit any authenticated peer",
+    );
+    push_line(
+        &mut out,
+        "#   allow_list         — admit only NodeIds listed in `authorized_peers`",
+    );
+    push_line(
+        &mut out,
+        "#   trust_on_first_use — admit on first contact, persist identity to trust_store_file",
+    );
+    push_line(&mut out, "authorization_policy = \"trust_on_first_use\"");
+    push_line(
+        &mut out,
+        "# Used only when authorization_policy = \"allow_list\". 64-hex-char NodeIds.",
+    );
+    push_line(&mut out, "# authorized_peers = [\"<64-hex-char-node-id>\"]");
+    push_line(
+        &mut out,
+        "# Used by trust_on_first_use to remember peers that handshake successfully.",
+    );
+    push_line(&mut out, &format!("trust_store_file = \"{trust_store_str}\""));
+    push_blank(&mut out);
+
+    // ── [bluetooth] ────────────────────────────────────────────────
+    push_line(&mut out, "[bluetooth]");
+    push_line(
+        &mut out,
+        "# Bluetooth PAN peer link-establishment — macOS host stack and Linux BlueZ.",
+    );
+    push_line(
+        &mut out,
+        "# This mechanism finds peers and learns their PAN IPs; the existing TCP",
+    );
+    push_line(
+        &mut out,
+        "# transport then connects to that IP for the encrypted handshake.",
+    );
+    // The bundled daemon's Bluetooth PAN watcher shells out to `bluetoothctl`
+    // (BlueZ — Linux only). On macOS it loops "Failed to switch bluetooth
+    // power on in 10 seconds" and exits with error every 16s. Default off
+    // until the daemon ships a CoreBluetooth-backed implementation; users
+    // can flip to `true` to experiment.
+    #[cfg(target_os = "macos")]
+    push_line(
+        &mut out,
+        "# Off on macOS — bundled daemon's PAN watcher uses bluetoothctl (BlueZ),",
+    );
+    #[cfg(target_os = "macos")]
+    push_line(
+        &mut out,
+        "# which is Linux-only; flip to `true` once a CoreBluetooth backend ships.",
+    );
+    #[cfg(target_os = "macos")]
+    push_line(&mut out, "enabled = false");
+    #[cfg(not(target_os = "macos"))]
+    push_line(&mut out, "enabled = true");
+    push_line(&mut out, &format!("# {bt_iface_comment}."));
+    push_line(&mut out, &format!("interface = \"{bt_iface}\""));
+    push_line(
+        &mut out,
+        "# Radio-level scanning for new peers via bluetoothctl/blueutil.",
+    );
+    // macOS: `blueutil` invoked from a root osascript subprocess can't
+    // attribute itself to an Info.plist bundle, so TCC silently denies
+    // BT access and never shows the user a prompt. We default off there
+    // and rely on `auto_discover_peers` reading the bridge0 ARP table
+    // after a one-time manual pair via System Settings → Bluetooth.
+    // Linux has no TCC and BlueZ's bluetoothctl works as root, so on
+    // those builds we keep radio discovery on.
+    #[cfg(target_os = "macos")]
+    push_line(
+        &mut out,
+        "# Off on macOS — blueutil-as-root fails TCC silently. Pair once via",
+    );
+    #[cfg(target_os = "macos")]
+    push_line(
+        &mut out,
+        "# System Settings → Bluetooth; auto_discover_peers below picks up the result.",
+    );
+    #[cfg(target_os = "macos")]
+    push_line(&mut out, "radio_discovery_enabled = false");
+    #[cfg(not(target_os = "macos"))]
+    push_line(&mut out, "radio_discovery_enabled = true");
+    push_line(
+        &mut out,
+        "# Filter inquiry results by Bluetooth device-name prefix. Empty string =",
+    );
+    push_line(
+        &mut out,
+        "# no filter (consider every visible BT device a potential PIM peer; the",
+    );
+    push_line(
+        &mut out,
+        "# pairing/handshake will fail silently for non-PIM devices).",
+    );
+    push_line(&mut out, "device_name_prefix = \"\"");
+    push_line(
+        &mut out,
+        "# Local Bluetooth controller alias broadcast to nearby devices.",
+    );
+    push_line(&mut out, &format!("local_alias = \"PIM-{name_escaped}\""));
+    push_line(&mut out, "# Allow outbound PAN/NAP connection attempts to discovered peers.");
+    push_line(&mut out, "connect_pan = true");
+    push_line(
+        &mut out,
+        "# Linux NAP server: serve a local NAP on `nap_bridge` and run dnsmasq DHCP.",
+    );
+    push_line(
+        &mut out,
+        "# Off by default — flip to true on a Linux gateway acting as the BT access point.",
+    );
+    push_line(&mut out, "serve_nap = false");
+    push_line(&mut out, "nap_bridge = \"br-bt\"");
+    push_line(
+        &mut out,
+        "# IPv4 CIDR assigned to nap_bridge when the daemon manages it (Linux NAP server).",
+    );
+    push_line(&mut out, "nap_bridge_addr = \"192.168.44.1/24\"");
+    push_line(
+        &mut out,
+        "# Daemon-supervised dnsmasq DHCP on the bridge (Linux NAP server only).",
+    );
+    push_line(&mut out, "dhcp_enabled = true");
+    push_line(&mut out, "# Optional explicit DHCP pool. When unset, derived from nap_bridge_addr.");
+    push_line(&mut out, "# dhcp_range = \"192.168.44.10,192.168.44.200\"");
+    push_line(&mut out, "dhcp_lease_time = \"12h\"");
+    push_line(
+        &mut out,
+        "# Optional DNS list advertised to DHCP clients; otherwise inherits /etc/resolv.conf.",
+    );
+    push_line(&mut out, "# dhcp_dns = \"1.1.1.1,8.8.8.8\"");
+    push_line(
+        &mut out,
+        "# Linux PAN client side: request DHCP on the resolved PAN interface after pairing.",
+    );
+    push_line(&mut out, "request_dhcp = true");
+    push_line(
+        &mut out,
+        "# Read peer IPs from the PAN interface neighbor table (ip neigh / arp).",
+    );
+    push_line(&mut out, "auto_discover_peers = true");
+    push_line(
+        &mut out,
+        "# Polling cadence while waiting for the PAN interface to come up (ms).",
+    );
+    push_line(&mut out, "poll_interval_ms = 2000");
+    push_line(&mut out, "# Radio-level inquiry cadence (ms).");
+    push_line(&mut out, "scan_interval_ms = 5000");
+    push_line(
+        &mut out,
+        "# Polling cadence for neighbor-table peer discovery once the interface is up (ms).",
+    );
+    push_line(&mut out, "peer_discovery_interval_ms = 2000");
+    push_line(&mut out, "# bluetoothctl operation timeout (seconds).");
+    push_line(&mut out, "bluetoothctl_timeout_s = 15");
+    push_line(
+        &mut out,
+        "# How long the controller stays discoverable after startup (seconds).",
+    );
+    push_line(&mut out, "discoverable_timeout_s = 180");
+    push_line(
+        &mut out,
+        "# Maximum time to wait for the PAN interface to appear before giving up (ms).",
+    );
+    push_line(&mut out, "startup_timeout_ms = 15000");
+    push_blank(&mut out);
+
+    // ── [wifi_direct] ──────────────────────────────────────────────
+    push_line(&mut out, "[wifi_direct]");
+    push_line(
+        &mut out,
+        "# Wi-Fi Direct (IEEE 802.11 P2P) peer discovery and group formation.",
+    );
+    push_line(
+        &mut out,
+        "# Linux backend: wpa_supplicant with CONFIG_P2P=y running on `interface`.",
+    );
+    push_line(
+        &mut out,
+        "# macOS backend: Bonjour DNS-SD on the host's peer-to-peer Wi-Fi interface.",
+    );
+    push_line(
+        &mut out,
+        "# OFF by default — Linux desktop installs frequently lack CONFIG_P2P. Flip from",
+    );
+    push_line(
+        &mut out,
+        "# Settings once you've verified `wpa_cli p2p_find` returns OK on this host.",
+    );
+    push_line(&mut out, "enabled = false");
+    push_line(&mut out, &format!("interface = \"{wfd_iface}\""));
+    push_line(
+        &mut out,
+        "# Group Owner intent (0–15). Higher values make this node more likely to",
+    );
+    push_line(&mut out, "# become Group Owner during P2P negotiation. 7 = neutral.");
+    push_line(&mut out, "go_intent = 7");
+    push_line(&mut out, "# P2P listen and operating channels.");
+    push_line(&mut out, "listen_channel = 6");
+    push_line(&mut out, "op_channel = 6");
+    push_line(
+        &mut out,
+        "# Connection method — \"pbc\" (push-button) or \"pin:<8-digit-pin>\".",
+    );
+    push_line(&mut out, "connect_method = \"pbc\"");
+    push_blank(&mut out);
+
+    // ── [[peers]] ──────────────────────────────────────────────────
+    push_line(
+        &mut out,
+        "# Static peer entries — leave commented to rely on discovery, or uncomment",
+    );
+    push_line(
+        &mut out,
+        "# to bootstrap a known peer at startup. Each entry declares its mechanism;",
+    );
+    push_line(
+        &mut out,
+        "# `tcp` and `bluetooth` are the supported values today.",
+    );
+    push_line(&mut out, "#");
+    push_line(&mut out, "# [[peers]]");
+    push_line(&mut out, "# mechanism = \"tcp\"");
+    push_line(&mut out, "# address = \"relay-or-gateway:9100\"");
+    push_line(&mut out, "# label = \"replace-with-hostname-or-purpose\"");
+    push_line(&mut out, "#");
+    push_line(&mut out, "# [[peers]]");
+    push_line(&mut out, "# mechanism = \"bluetooth\"");
+    push_line(&mut out, "# ip = \"192.168.44.2\"");
+    push_line(&mut out, "# label = \"bt-relay-a\"");
+
+    out
+}
+
+fn push_line(out: &mut String, line: &str) {
+    out.push_str(line);
+    out.push('\n');
+}
+
+fn push_blank(out: &mut String) {
+    out.push('\n');
+}
+
+/// Escape `\` and `"` for safe interpolation into a TOML basic string.
+fn escape_toml_basic_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn dd() -> PathBuf {
+        PathBuf::from("/tmp/test-pim-data")
+    }
 
     #[test]
-    fn render_join_the_mesh() {
-        let toml = render_default_config("alice-laptop", Role::JoinTheMesh);
+    fn output_is_valid_toml() {
+        for role in [Role::JoinTheMesh, Role::ShareMyInternet] {
+            let toml = render_default_config("alice", role, &dd());
+            let parsed: Result<toml::Value, _> = toml::from_str(&toml);
+            assert!(
+                parsed.is_ok(),
+                "render_default_config produced invalid TOML for {role:?}: {:?}\n---\n{toml}",
+                parsed.err()
+            );
+        }
+    }
+
+    #[test]
+    fn render_join_the_mesh_relay_plus_client() {
+        let toml = render_default_config("alice-laptop", Role::JoinTheMesh, &dd());
         assert!(
             toml.contains(r#"name = "alice-laptop""#),
-            "expected node.name to be 'alice-laptop'; got:\n{toml}"
+            "node.name should be set; got:\n{toml}"
         );
+        let gateway = toml.split("[gateway]").nth(1).expect("[gateway] present");
         assert!(
-            toml.contains("gateway = false"),
-            "expected gateway = false for JoinTheMesh; got:\n{toml}"
+            gateway.contains("enabled = false"),
+            "gateway disabled for JoinTheMesh; got:\n{toml}"
+        );
+        let relay = toml.split("[relay]").nth(1).expect("[relay] present");
+        assert!(
+            relay.contains("enabled = true"),
+            "relay enabled for JoinTheMesh (relay + client default); got:\n{toml}"
         );
     }
 
     #[test]
-    fn render_share_my_internet() {
-        let toml = render_default_config("alice-laptop", Role::ShareMyInternet);
+    fn render_share_my_internet_gateway_enabled() {
+        let toml = render_default_config("alice", Role::ShareMyInternet, &dd());
+        let gateway = toml.split("[gateway]").nth(1).expect("[gateway] present");
         assert!(
-            toml.contains("gateway = true"),
-            "expected gateway = true for ShareMyInternet; got:\n{toml}"
+            gateway.contains("enabled = true"),
+            "gateway enabled for ShareMyInternet; got:\n{toml}"
         );
+    }
+
+    #[test]
+    fn discovery_lan_and_bluetooth_on_by_default() {
+        let toml = render_default_config("n", Role::JoinTheMesh, &dd());
+        let disco = toml.split("[discovery]").nth(1).expect("[discovery]");
+        assert!(disco.contains("enabled = true"), "discovery on; got:\n{toml}");
+        assert!(disco.contains("port = 9101"));
+        assert!(disco.contains("broadcast_interval_ms = 5000"));
+        assert!(disco.contains("peer_timeout_ms = 30000"));
+        assert!(disco.contains("connect_relays = true"));
+        assert!(disco.contains("connect_gateways = true"));
+
+        let bt = toml.split("[bluetooth]").nth(1).expect("[bluetooth]");
+        // [bluetooth].enabled is platform-conditional: off on macOS
+        // (bundled daemon's bluetoothctl-based watcher is Linux-only),
+        // on elsewhere.
+        #[cfg(target_os = "macos")]
+        assert!(
+            bt.contains("enabled = false"),
+            "expected macOS to default [bluetooth].enabled = false; got:\n{toml}"
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert!(
+            bt.contains("enabled = true"),
+            "expected non-macOS to default [bluetooth].enabled = true; got:\n{toml}"
+        );
+        // radio_discovery_enabled is platform-conditional — off on
+        // macOS (TCC blocks blueutil-as-root) and on elsewhere.
+        #[cfg(target_os = "macos")]
+        assert!(
+            bt.contains("radio_discovery_enabled = false"),
+            "expected macOS to default radio_discovery_enabled = false; got:\n{toml}"
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert!(
+            bt.contains("radio_discovery_enabled = true"),
+            "expected non-macOS to default radio_discovery_enabled = true; got:\n{toml}"
+        );
+        assert!(bt.contains("auto_discover_peers = true"));
+        assert!(bt.contains("connect_pan = true"));
+
+        let wfd = toml.split("[wifi_direct]").nth(1).expect("[wifi_direct]");
+        assert!(
+            wfd.contains("enabled = false"),
+            "wifi_direct off by default; got:\n{toml}"
+        );
+    }
+
+    #[test]
+    fn data_dir_drives_security_paths() {
+        let dir = PathBuf::from("/var/lib/pim");
+        let toml = render_default_config("n", Role::JoinTheMesh, &dir);
+        assert!(toml.contains(r#"data_dir = "/var/lib/pim""#));
+        assert!(toml.contains(r#"key_file = "/var/lib/pim/node.key""#));
+        assert!(toml.contains(r#"trust_store_file = "/var/lib/pim/trusted-peers.toml""#));
+    }
+
+    #[test]
+    fn optional_fields_are_commented_out() {
+        let toml = render_default_config("n", Role::JoinTheMesh, &dd());
+        // mesh_ipv6 is opt-in
+        assert!(toml.contains("# mesh_ipv6 ="));
+        // shared_key is opt-in
+        assert!(toml.contains("# shared_key ="));
+        // dhcp_range / dhcp_dns are opt-in
+        assert!(toml.contains("# dhcp_range ="));
+        assert!(toml.contains("# dhcp_dns ="));
+        // authorized_peers only relevant for allow_list
+        assert!(toml.contains("# authorized_peers ="));
+        // [[peers]] examples
+        assert!(toml.contains("# [[peers]]"));
+        assert!(toml.contains("# mechanism = \"tcp\""));
+        assert!(toml.contains("# mechanism = \"bluetooth\""));
     }
 
     #[test]
     fn render_escapes_quotes_in_node_name() {
-        let toml = render_default_config(r#"a"b"#, Role::JoinTheMesh);
-        // The double-quote in node_name must be escaped as `\"` so the TOML
-        // parses cleanly.
+        let toml = render_default_config(r#"a"b"#, Role::JoinTheMesh, &dd());
         assert!(
             toml.contains(r#"name = "a\"b""#),
             "expected escaped quote in node.name; got:\n{toml}"
         );
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_platform_defaults() {
+        let toml = render_default_config("n", Role::JoinTheMesh, &dd());
+        assert!(toml.contains(r#"name = "utun8""#), "macOS interface; got:\n{toml}");
+        assert!(
+            toml.contains(r#"interface = "bridge0""#),
+            "macOS bluetooth interface; got:\n{toml}"
+        );
+        assert!(toml.contains(r#"nat_interface = "en0""#));
+        assert!(toml.contains(r#"interface = "en0""#));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_platform_defaults() {
+        let toml = render_default_config("n", Role::JoinTheMesh, &dd());
+        assert!(toml.contains(r#"name = "pim0""#));
+        assert!(toml.contains(r#"interface = "auto""#));
+        assert!(toml.contains(r#"nat_interface = "eth0""#));
+        assert!(toml.contains(r#"interface = "wlan0""#));
+    }
+
     #[test]
     fn serde_role_snake_case() {
-        let s = serde_json::to_string(&Role::ShareMyInternet).expect("serialize");
-        assert_eq!(s, "\"share_my_internet\"");
-        let s = serde_json::to_string(&Role::JoinTheMesh).expect("serialize");
-        assert_eq!(s, "\"join_the_mesh\"");
+        assert_eq!(
+            serde_json::to_string(&Role::ShareMyInternet).expect("ser"),
+            "\"share_my_internet\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Role::JoinTheMesh).expect("ser"),
+            "\"join_the_mesh\""
+        );
     }
 }

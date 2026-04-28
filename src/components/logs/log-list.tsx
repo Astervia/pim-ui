@@ -9,9 +9,10 @@
  *   - Input is the newest-first ring buffer from useLogsStream. This
  *     component reverses it so the DOM order is oldest-top / newest-bottom,
  *     matching the terminal convention in UI-SPEC §S5.
- *   - Wrapped in react-window FixedSizeList for bounded DOM cost at
- *     2000 rows. Row height is a fixed 22 px (font-code text-sm
- *     leading-[1.5] + py-0.5 renders at approximately this density).
+ *   - Wrapped in react-window VariableSizeList for bounded DOM cost at
+ *     2000 rows. Each row's height is computed from the message length
+ *     and the measured container width so long messages wrap onto
+ *     additional lines (LINE_HEIGHT each) instead of being truncated.
  *
  * Auto-scroll behavior (D-28):
  *   - Sticky-to-bottom while the user is within 40 px of the bottom;
@@ -31,16 +32,47 @@
  * colors, no exclamation marks anywhere in this file.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FixedSizeList, type ListChildComponentProps } from "react-window";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { VariableSizeList, type ListChildComponentProps } from "react-window";
 import type { LogEvent } from "@/lib/rpc-types";
 import { LogRow } from "./log-row";
 import { cn } from "@/lib/utils";
 
-const ROW_HEIGHT = 22;
+// Geometry of the LogRow grid (must stay in sync with log-row.tsx).
+const LINE_HEIGHT = 22;
 const LIST_HEIGHT = 400;
+// JetBrains Mono at text-sm (14px) renders ~8.4px per char.
+const CHAR_WIDTH = 8.4;
+// Fixed columns: timestamp 100 + level 60 + peer 120.
+const FIXED_COLS_PX = 100 + 60 + 120;
+// gap-x-2 (8px) × 4 gaps between 5 columns.
+const GAP_TOTAL_PX = 8 * 4;
+// px-4 left + right.
+const ROW_PADDING_X_PX = 32;
 // D-28 — Slack/terminal pattern.
 const STICKY_THRESHOLD_PX = 40;
+
+function computeRowHeight(message: string, listWidth: number): number {
+  if (listWidth <= 0) return LINE_HEIGHT;
+  const remaining =
+    listWidth - ROW_PADDING_X_PX - FIXED_COLS_PX - GAP_TOTAL_PX;
+  // grid: source minmax(0,1fr) + message minmax(0,2fr) — message gets 2/3.
+  const messageWidth = Math.max(0, (remaining * 2) / 3);
+  const charsPerLine = Math.max(1, Math.floor(messageWidth / CHAR_WIDTH));
+  // Count explicit newlines too — log messages occasionally embed them.
+  const segments = message.length === 0 ? [""] : message.split("\n");
+  let lines = 0;
+  for (const seg of segments) {
+    lines += Math.max(1, Math.ceil(seg.length / charsPerLine));
+  }
+  return Math.max(1, lines) * LINE_HEIGHT;
+}
 
 export interface LogListProps {
   /** Newest-first buffer from useLogsStream. */
@@ -50,10 +82,40 @@ export interface LogListProps {
 export function LogList({ events }: LogListProps) {
   // Reverse to oldest-top / newest-bottom for the terminal convention.
   const display = useMemo(() => [...events].reverse(), [events]);
-  const listRef = useRef<FixedSizeList>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<VariableSizeList>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const [isSticky, setIsSticky] = useState<boolean>(true);
   const [newCount, setNewCount] = useState<number>(0);
   const prevLength = useRef<number>(display.length);
+
+  // Track container width via ResizeObserver so row heights recompute on
+  // window resize, panel resize, etc.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (el === null) return;
+    setContainerWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry === undefined) return;
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Reset VariableSizeList's height cache whenever the inputs that feed
+  // computeRowHeight change. Without this the list keeps stale sizes.
+  useLayoutEffect(() => {
+    listRef.current?.resetAfterIndex(0, false);
+  }, [containerWidth, display]);
+
+  // Total height — needed to detect "at bottom" with variable sizes.
+  const totalHeight = useMemo(() => {
+    let sum = 0;
+    for (const evt of display) sum += computeRowHeight(evt.message, containerWidth);
+    return sum;
+  }, [display, containerWidth]);
 
   // When new entries arrive, either scroll to the bottom (sticky) or
   // bump newCount so the pill surfaces the number of unseen entries.
@@ -62,17 +124,14 @@ export function LogList({ events }: LogListProps) {
     prevLength.current = display.length;
     if (delta > 0) {
       const ref = listRef.current;
-      const canScroll = ref === null ? false : true;
-      if (isSticky === true && canScroll === true) {
-        (ref as FixedSizeList).scrollToItem(display.length - 1, "end");
+      if (isSticky === true && ref !== null) {
+        ref.scrollToItem(display.length - 1, "end");
       } else {
         setNewCount((n) => n + delta);
       }
     }
   }, [display.length, isSticky]);
 
-  // react-window surfaces scrollOffset in the onScroll callback; compute
-  // whether the user is within the sticky threshold of the bottom.
   const onScroll = ({
     scrollOffset,
     scrollUpdateWasRequested,
@@ -83,9 +142,8 @@ export function LogList({ events }: LogListProps) {
     // Ignore programmatic scrolls (e.g. scrollToItem) — we only react to
     // user-driven wheel / keyboard / pointer scrolling.
     if (scrollUpdateWasRequested === true) return;
-    const contentHeight = display.length * ROW_HEIGHT;
     const atBottom =
-      scrollOffset >= contentHeight - LIST_HEIGHT - STICKY_THRESHOLD_PX;
+      scrollOffset >= totalHeight - LIST_HEIGHT - STICKY_THRESHOLD_PX;
     setIsSticky(atBottom);
     if (atBottom === true) setNewCount(0);
   };
@@ -93,10 +151,13 @@ export function LogList({ events }: LogListProps) {
   const jumpToBottom = () => {
     setIsSticky(true);
     setNewCount(0);
-    const ref = listRef.current;
-    if (ref === null ? false : true) {
-      (ref as FixedSizeList).scrollToItem(display.length - 1, "end");
-    }
+    listRef.current?.scrollToItem(display.length - 1, "end");
+  };
+
+  const getItemSize = (index: number): number => {
+    const evt = display[index];
+    if (evt === undefined) return LINE_HEIGHT;
+    return computeRowHeight(evt.message, containerWidth);
   };
 
   const Row = ({ index, style }: ListChildComponentProps) => {
@@ -117,12 +178,13 @@ export function LogList({ events }: LogListProps) {
 
   // 03-03 Phase 3: empty-state line when combined filters produce zero
   // rows. Verbatim copy per 03-UI-SPEC §Empty states. Replaces the
-  // virtualized list (rendering FixedSizeList with itemCount=0 produces
-  // a blank rectangle which is both semantically wrong and visually
-  // odd — single centered line is the intended Layer-2 affordance).
+  // virtualized list (rendering with itemCount=0 produces a blank
+  // rectangle which is both semantically wrong and visually odd —
+  // single centered line is the intended Layer-2 affordance).
   if (display.length === 0) {
     return (
       <div
+        ref={containerRef}
         role="log"
         aria-live="off"
         className="flex items-center justify-center"
@@ -137,20 +199,22 @@ export function LogList({ events }: LogListProps) {
 
   return (
     <div
+      ref={containerRef}
       className="relative"
       role="log"
       aria-live={isSticky === true ? "polite" : "off"}
     >
-      <FixedSizeList
+      <VariableSizeList
         ref={listRef}
         height={LIST_HEIGHT}
         itemCount={display.length}
-        itemSize={ROW_HEIGHT}
+        itemSize={getItemSize}
+        estimatedItemSize={LINE_HEIGHT}
         width="100%"
         onScroll={onScroll}
       >
         {Row}
-      </FixedSizeList>
+      </VariableSizeList>
 
       {pillVisible === true && (
         <button

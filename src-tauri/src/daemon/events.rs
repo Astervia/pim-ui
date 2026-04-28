@@ -30,12 +30,12 @@ pub struct RpcEventPayload {
 
 pub fn emit_state(app: &AppHandle, change: DaemonStateChange) {
     if let Err(e) = app.emit(EVT_STATE_CHANGED, &change) {
-        tracing::warn!("emit state-changed: {e}");
+        log::warn!("emit state-changed: {e}");
     }
 }
 
 pub fn emit_rpc_event(app: &AppHandle, payload: RpcEventPayload) {
     if let Err(e) = app.emit(EVT_RPC_EVENT, &payload) {
-        tracing::warn!("emit rpc-event: {e}");
+        log::warn!("emit rpc-event: {e}");
     }
 }

@@ -310,7 +310,7 @@ impl DaemonConnection {
                 Ok(client) => {
                     backoff = Duration::from_millis(500);
                     if let Err(e) = self.handshake_and_pump(app.clone(), client).await {
-                        tracing::warn!("daemon pump exited: {e}");
+                        log::warn!("daemon pump exited: {e}");
                         // Disconnect detected — go into reconnecting and retry.
                         self.set_state(&app, DaemonState::Reconnecting, None, None, None)
                             .await;
@@ -319,7 +319,7 @@ impl DaemonConnection {
                     }
                 }
                 Err(e) => {
-                    tracing::debug!("socket connect failed (will retry): {e}");
+                    log::debug!("socket connect failed (will retry): {e}");
                     // Keep state as starting/reconnecting; sleep backoff.
                 }
             }

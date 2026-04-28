@@ -15,6 +15,7 @@ use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 use crate::daemon::config_path::resolve_config_path;
+use crate::daemon::data_dir::resolve_data_dir;
 use crate::daemon::default_config::{render_default_config, Role};
 use crate::daemon::jsonrpc::RpcError;
 use crate::daemon::state::{subscribe_method_for, unsubscribe_method_for, DaemonConnection};
@@ -148,7 +149,8 @@ pub async fn bootstrap_config(
 ) -> Result<BootstrapResult, String> {
     let path = resolve_config_path();
     let path_str = path.to_string_lossy().to_string();
-    let toml = render_default_config(&node_name, role);
+    let data_dir = resolve_data_dir();
+    let toml = render_default_config(&node_name, role, &data_dir);
 
     if let Some(parent) = path.parent() {
         // D-06: parent dir is 0o700 (owner-only — identity files live here).
@@ -256,9 +258,16 @@ mod tests {
             written.contains(r#"name = "test-node""#),
             "expected node.name interpolation; got:\n{written}"
         );
+        // Gateway disabled for JoinTheMesh — assert against the
+        // `[gateway]` block's first `enabled = ...` line, since
+        // `enabled = ...` also appears under [discovery] and [bluetooth].
+        let gateway_block = written
+            .split("[gateway]")
+            .nth(1)
+            .expect("[gateway] section present");
         assert!(
-            written.contains("gateway = false"),
-            "expected gateway = false for JoinTheMesh; got:\n{written}"
+            gateway_block.contains("enabled = false"),
+            "expected gateway.enabled = false for JoinTheMesh; got:\n{written}"
         );
 
         // D-14: the atomic-rename leaves no `.tmp` artifact behind.
@@ -283,9 +292,13 @@ mod tests {
             .await
             .expect("bootstrap_config");
         let written = std::fs::read_to_string(&path).expect("read");
+        let gateway_block = written
+            .split("[gateway]")
+            .nth(1)
+            .expect("[gateway] section present");
         assert!(
-            written.contains("gateway = true"),
-            "expected gateway = true; got:\n{written}"
+            gateway_block.contains("enabled = true"),
+            "expected gateway.enabled = true for ShareMyInternet; got:\n{written}"
         );
 
         std::env::remove_var("PIM_CONFIG_PATH");

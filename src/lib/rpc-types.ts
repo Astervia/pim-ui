@@ -451,9 +451,18 @@ export interface ConfigValidationError {
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 
 export interface LogsSubscribeParams {
-  /** Default "info" per §5.6. */
+  /** Threshold filter — only events at or above this level pass.
+   *  Used for back-compat / "warn and up" simplicity. If `levels` is
+   *  also set, `levels` wins (explicit beats threshold). */
   min_level?: LogLevel;
-  /** Module-name filter, e.g. ["routing", "gateway"]. */
+  /** Explicit allow-list of levels. When non-empty, ONLY events at one
+   *  of these levels are forwarded — arbitrary subset selection
+   *  (e.g. info + error without warn). Empty / missing falls back to
+   *  `min_level` semantics. */
+  levels?: LogLevel[];
+  /** Source-prefix filter. The daemon uses `event.source.starts_with`
+   *  on each entry. e.g. `["pim_daemon", "pim_transport"]` shows logs
+   *  only from those crates and ignores `tao`, `mio`, etc. */
   sources?: string[];
 }
 

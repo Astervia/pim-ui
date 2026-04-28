@@ -1,16 +1,18 @@
 /**
- * <TransportSection /> — TRANSPORT (TCP) settings panel.
+ * <InterfaceSection /> — INTERFACE (TUN device) settings panel.
  *
- * Owns the `[transport]` block of the daemon config. After Phase 01.1
- * the schema follows pim-core/src/config/model.rs verbatim:
+ * Owns the `[interface]` block of the daemon config. This is the
+ * Linux/macOS TUN device that carries mesh IP traffic.
  *
- *   - transport.type                   (string — "tcp" today; read-only)
- *   - transport.listen_port            (u16)
- *   - transport.max_reconnect_attempts (u32)
- *   - transport.connect_timeout_ms     (u64)
+ * Fields (verbatim daemon wire names):
+ *   - interface.name       (text)
+ *   - interface.mtu        (number, min 576 max 9216)
+ *   - interface.mesh_ip    (text — "auto" or IPv4 CIDR)
+ *   - interface.mesh_ipv6  (text, optional IPv6 ULA — empty disables)
  *
- * Interface fields (name, mtu, mesh_ip) live in the new INTERFACE
- * section. Bluetooth / Wi-Fi Direct have their own top-level sections.
+ * On macOS the daemon rejects non-`utun*` names; on Linux the kernel
+ * creates the device verbatim. We surface the wire path verbatim and
+ * let the daemon's dry-run validation reject invalid inputs.
  */
 
 import { useEffect, useMemo } from "react";
@@ -34,13 +36,14 @@ import { useSectionRawWins } from "@/hooks/use-section-raw-wins";
 import { useSectionSave } from "@/hooks/use-section-save";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 
-interface TransportValues {
-  listen_port: string;
-  max_reconnect_attempts: string;
-  connect_timeout_ms: string;
+interface InterfaceValues {
+  name: string;
+  mtu: string;
+  mesh_ip: string;
+  mesh_ipv6: string;
 }
 
-export interface TransportSectionProps {
+export interface InterfaceSectionProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -52,37 +55,35 @@ function asString(v: unknown, fallback = ""): string {
 }
 
 const FIELD_KEY_MAP = {
-  listen_port: "transport.listen_port",
-  max_reconnect_attempts: "transport.max_reconnect_attempts",
-  connect_timeout_ms: "transport.connect_timeout_ms",
+  name: "interface.name",
+  mtu: "interface.mtu",
+  mesh_ip: "interface.mesh_ip",
+  mesh_ipv6: "interface.mesh_ipv6",
 } as const;
 
 type LocalKey = keyof typeof FIELD_KEY_MAP;
 
-export function TransportSection({ open, onOpenChange }: TransportSectionProps) {
+export function InterfaceSection({ open, onOpenChange }: InterfaceSectionProps) {
   const { base } = useSettingsConfig();
-  const { rawWins } = useSectionRawWins("transport");
-  const { fields: pendingFields } = usePendingRestart("transport");
+  const { rawWins } = useSectionRawWins("interface");
+  const { fields: pendingFields } = usePendingRestart("interface");
 
-  const transportType = asString(getPath(base ?? {}, "transport.type"), "tcp");
-
-  const defaults = useMemo<TransportValues>(() => {
+  const defaults = useMemo<InterfaceValues>(() => {
     const b = base ?? {};
     return {
-      listen_port: asString(getPath(b, "transport.listen_port")),
-      max_reconnect_attempts: asString(
-        getPath(b, "transport.max_reconnect_attempts"),
-      ),
-      connect_timeout_ms: asString(getPath(b, "transport.connect_timeout_ms")),
+      name: asString(getPath(b, "interface.name")),
+      mtu: asString(getPath(b, "interface.mtu")),
+      mesh_ip: asString(getPath(b, "interface.mesh_ip")),
+      mesh_ipv6: asString(getPath(b, "interface.mesh_ipv6")),
     };
   }, [base]);
 
-  const form = useForm<TransportValues>({
+  const form = useForm<InterfaceValues>({
     defaultValues: defaults,
     values: defaults,
   });
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
-    "transport",
+    "interface",
     form,
   );
 
@@ -101,8 +102,9 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
   const watched = form.watch();
   const summary = (
     <span className="font-mono text-xs text-muted-foreground">
-      {transportType} · port{" "}
-      {watched.listen_port === "" ? "—" : watched.listen_port}
+      {watched.name === "" ? "—" : watched.name} · mtu{" "}
+      {watched.mtu === "" ? "—" : watched.mtu} · mesh{" "}
+      {watched.mesh_ip === "" ? "—" : watched.mesh_ip}
     </span>
   );
 
@@ -113,27 +115,27 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
       </span>
     ) : undefined;
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
     void form.handleSubmit((values) => {
-      return save({
-        "transport.listen_port": numOrString(values.listen_port),
-        "transport.max_reconnect_attempts": numOrString(
-          values.max_reconnect_attempts,
-        ),
-        "transport.connect_timeout_ms": numOrString(values.connect_timeout_ms),
-      });
+      const mtuNum = Number(values.mtu);
+      const payload: Record<string, unknown> = {
+        "interface.name": values.name,
+        "interface.mtu": Number.isFinite(mtuNum) ? mtuNum : values.mtu,
+        "interface.mesh_ip": values.mesh_ip,
+      };
+      // Only emit mesh_ipv6 when non-empty; otherwise the daemon should
+      // delete the field (handled save-side).
+      if (values.mesh_ipv6.trim() !== "") {
+        payload["interface.mesh_ipv6"] = values.mesh_ipv6;
+      }
+      return save(payload);
     })();
   };
 
   return (
     <CollapsibleCliPanel
-      id="transport"
-      title="TRANSPORT"
+      id="interface"
+      title="INTERFACE"
       summary={summary}
       open={open}
       onOpenChange={onOpenChange}
@@ -147,45 +149,28 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
       )}
       <Form {...form}>
         <div className="flex flex-col gap-4">
-          {/* Read-only: transport.type */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                Backend
-              </span>
-              <WireNameTooltip wireName="transport.type" />
-            </div>
-            <code className="font-code text-sm text-foreground">
-              {transportType}
-            </code>
-            <p className="font-mono text-xs text-muted-foreground">
-              Wire transport. Currently <code>tcp</code> is the only
-              supported value.
-            </p>
-          </div>
-
           <FormField
             control={form.control}
-            name="listen_port"
+            name="name"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <span>Listen port</span>
-                  <WireNameTooltip wireName="transport.listen_port" />
+                  <span>TUN interface name</span>
+                  <WireNameTooltip wireName="interface.name" />
                 </FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    min={1}
-                    max={65535}
-                    step={1}
-                    inputMode="numeric"
+                    type="text"
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="pim0 (Linux) · utun8 (macOS)"
                     {...field}
                   />
                 </FormControl>
                 <p className="font-mono text-xs text-muted-foreground">
-                  TCP port this node listens on for direct peer
-                  sessions. Default 9100.
+                  Linux daemon creates this device verbatim. macOS
+                  requires a `utun*` prefix; the kernel maps to the next
+                  free `utunN` if the chosen index is taken.
                 </p>
                 <FormMessage />
               </FormItem>
@@ -194,24 +179,26 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
 
           <FormField
             control={form.control}
-            name="max_reconnect_attempts"
+            name="mtu"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <span>Max reconnect attempts</span>
-                  <WireNameTooltip wireName="transport.max_reconnect_attempts" />
+                  <span>MTU</span>
+                  <WireNameTooltip wireName="interface.mtu" />
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    min={0}
+                    min={576}
+                    max={9216}
                     step={1}
                     inputMode="numeric"
                     {...field}
                   />
                 </FormControl>
                 <p className="font-mono text-xs text-muted-foreground">
-                  Per-peer cap before the daemon stops retrying.
+                  Keep aligned with the value other peers use. 1400 is
+                  the canonical mesh-MTU default.
                 </p>
                 <FormMessage />
               </FormItem>
@@ -220,24 +207,53 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
 
           <FormField
             control={form.control}
-            name="connect_timeout_ms"
+            name="mesh_ip"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <span>Connect timeout (ms)</span>
-                  <WireNameTooltip wireName="transport.connect_timeout_ms" />
+                  <span>Mesh IPv4 address</span>
+                  <WireNameTooltip wireName="interface.mesh_ip" />
                 </FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    min={100}
-                    step={100}
-                    inputMode="numeric"
+                    type="text"
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder='"auto" or 10.77.0.100/24'
                     {...field}
                   />
                 </FormControl>
                 <p className="font-mono text-xs text-muted-foreground">
-                  Timeout for outbound TCP connect attempts.
+                  Use a CIDR like <code>10.77.0.100/24</code> for
+                  predictable labs, or <code>auto</code> to request an
+                  address from a reachable gateway.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="mesh_ipv6"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span>Mesh IPv6 ULA (optional)</span>
+                  <WireNameTooltip wireName="interface.mesh_ipv6" />
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="fd77::10/64 — leave empty for IPv4-only"
+                    {...field}
+                  />
+                </FormControl>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Optional static IPv6 ULA on the mesh TUN. Empty
+                  disables IPv6 on the interface.
                 </p>
                 <FormMessage />
               </FormItem>

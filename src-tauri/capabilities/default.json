@@ -17,6 +17,23 @@
           "cmd": "osascript",
           "args": [{ "validator": "\\S+" }, { "validator": "[\\s\\S]+" }],
           "sidecar": false
+        },
+        {
+          "name": "open",
+          "cmd": "open",
+          "args": [{ "validator": "[\\s\\S]+" }],
+          "sidecar": false
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        {
+          "url": "^https://"
+        },
+        {
+          "url": "^x-apple\\.systempreferences:"
         }
       ]
     }

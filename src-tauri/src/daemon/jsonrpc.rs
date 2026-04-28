@@ -95,7 +95,7 @@ impl JsonRpcClient {
                     let msg: RawMessage = match serde_json::from_str(&line) {
                         Ok(m) => m,
                         Err(e) => {
-                            tracing::warn!("malformed JSON from daemon: {}", e);
+                            log::warn!("malformed JSON from daemon: {}", e);
                             continue;
                         }
                     };
@@ -117,7 +117,7 @@ impl JsonRpcClient {
                         (None, Some(method), _, _, Some(params)) => {
                             let _ = notifications_tx.send(Notification { method, params });
                         }
-                        _ => tracing::warn!("unexpected JSON-RPC message shape: {}", line),
+                        _ => log::warn!("unexpected JSON-RPC message shape: {}", line),
                     }
                 }
                 // Socket closed — wake every pending caller.

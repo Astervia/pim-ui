@@ -44,11 +44,20 @@ function badgeFor(status: StreamStatus): BadgeSpec {
 }
 
 export function LogsScreen() {
-  const { level, setLevel, peerFilter, setPeerFilter, status, errorMessage } =
-    useLogsStream();
-  // 03-03 Phase 3: events arrive pre-filtered by level (server-side) +
-  // peer / source (client-side) from useLogsStream; useFilteredLogs adds
-  // the search-text + time-range filters on top per D-21 / D-22.
+  const {
+    levels,
+    toggleLevel,
+    crates,
+    toggleCrate,
+    discoveredCrates,
+    peerFilter,
+    setPeerFilter,
+    status,
+    errorMessage,
+  } = useLogsStream();
+  // events arrive pre-filtered by levels + crates + peer + source
+  // (all client-side) from useLogsStream; useFilteredLogs adds the
+  // search-text + time-range filters on top per D-21 / D-22.
   const { rows } = useFilteredLogs();
 
   const badge = badgeFor(status);
@@ -59,8 +68,11 @@ export function LogsScreen() {
     <div className="max-w-5xl">
       <CliPanel title="logs" status={badge}>
         <LogFilterBar
-          level={level}
-          onLevelChange={setLevel}
+          levels={levels}
+          onToggleLevel={toggleLevel}
+          crates={crates}
+          onToggleCrate={toggleCrate}
+          discoveredCrates={discoveredCrates}
           peerFilter={peerFilter}
           onPeerFilterChange={setPeerFilter}
         />
