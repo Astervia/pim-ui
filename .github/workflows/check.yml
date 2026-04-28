@@ -42,9 +42,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            src-tauri -> target
-            pim-daemon-stub -> target
+          workspaces: src-tauri -> target
 
       - name: install system deps (webkit2gtk for tauri build)
         run: |
@@ -56,32 +54,20 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: cargo fmt --check (src-tauri)
+      - name: cargo fmt --check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
-      - name: cargo fmt --check (pim-daemon-stub)
-        run: cargo fmt --manifest-path pim-daemon-stub/Cargo.toml --all -- --check
-
-      - name: cargo clippy (src-tauri)
+      - name: cargo clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
 
-      - name: cargo clippy (pim-daemon-stub)
-        run: cargo clippy --manifest-path pim-daemon-stub/Cargo.toml --all-targets --locked -- -D warnings
-
-      - name: cargo test (src-tauri)
+      - name: cargo test
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-
-      - name: cargo test (pim-daemon-stub)
-        run: cargo test --manifest-path pim-daemon-stub/Cargo.toml --locked
 
       - name: install cargo-audit
         run: cargo install cargo-audit --locked
 
-      - name: cargo audit (src-tauri)
+      - name: cargo audit
         run: cargo audit --file src-tauri/Cargo.lock
-
-      - name: cargo audit (pim-daemon-stub)
-        run: cargo audit --file pim-daemon-stub/Cargo.lock
 
   tauri-cross-build:
     name: tauri build (${{ matrix.label }})
@@ -115,9 +101,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            src-tauri -> target
-            pim-daemon-stub -> target
+          workspaces: src-tauri -> target
           key: ${{ matrix.label }}
 
       - name: install ubuntu deps
@@ -133,32 +117,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Build the stub daemon and place it at the externalBin path so
-      # `cargo build` of src-tauri sees the file the bundle config
-      # references. This is `pnpm build:stub` for macos-aarch64; for
-      # other targets we adapt the suffix inline below.
-      - name: build pim-daemon-stub + place at externalBin path
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo build --release --manifest-path pim-daemon-stub/Cargo.toml
-
-          mkdir -p src-tauri/binaries
-
-          case "${{ matrix.runner }}" in
-            ubuntu-*)        triple="x86_64-unknown-linux-gnu"; ext="" ;;
-            macos-15)        triple="aarch64-apple-darwin";     ext="" ;;
-            macos-15-intel)  triple="x86_64-apple-darwin";      ext="" ;;
-            windows-*)       triple="x86_64-pc-windows-msvc";   ext=".exe" ;;
-          esac
-
-          src="pim-daemon-stub/target/release/pim-daemon-stub${ext}"
-          dst="src-tauri/binaries/pim-daemon-${triple}${ext}"
-          cp "$src" "$dst"
-          chmod 755 "$dst" || true
-          echo "placed stub at $dst"
-
-      # cargo build (no bundle) — validates compile + link + tauri.conf
-      # references on every platform without producing 100MB installers.
+      # `cargo build` on src-tauri validates compile + link + the
+      # tauri.conf.json declarative wiring on every supported target.
+      # The externalBin sidecar (real `pim-daemon` from the
+      # proximity-internet-mesh repo) is only needed at bundle time;
+      # for PR validation we skip the bundle stage to keep CI fast.
+      # Release builds via desktop-release.yml are responsible for
+      # fetching + bundling the real daemon binary.
       - name: cargo build src-tauri
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked

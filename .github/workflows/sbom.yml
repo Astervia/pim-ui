@@ -28,8 +28,7 @@ jobs:
         uses: anchore/sbom-action/download-syft@v0
 
       # Syft auto-detects Cargo.lock + package-lock/pnpm-lock so a single
-      # invocation covers the whole workspace (frontend + src-tauri +
-      # pim-daemon-stub).
+      # invocation covers the whole workspace (frontend + src-tauri).
       - name: generate sbom (cyclonedx-json)
         run: syft dir:. -o cyclonedx-json=sbom.json
 

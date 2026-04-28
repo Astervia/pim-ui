@@ -120,11 +120,11 @@ impl Sidecar {
         #[cfg(target_os = "macos")]
         {
             // `PIM_NO_PRIVILEGED_SPAWN=1` opts out of the osascript admin
-            // path on macOS — used when the bundled binary is the dev
-            // stub (`pim-daemon-stub`) which only binds a Unix socket
-            // and needs no root. Skipping the auth dialog makes the dev
-            // loop frictionless. The real kernel daemon needs root for
-            // `utun` creation, so leave this var unset for production runs.
+            // path on macOS. The real daemon needs root for `utun`
+            // creation, so leave this var unset for production runs;
+            // dev users with a non-utun build (e.g. a future
+            // `--dev-mode` flag in proximity-internet-mesh) can flip
+            // it on to skip the auth dialog.
             if std::env::var("PIM_NO_PRIVILEGED_SPAWN").as_deref() == Ok("1") {
                 log::info!(
                     target: "pim-daemon",

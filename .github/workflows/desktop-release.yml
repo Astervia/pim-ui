@@ -64,28 +64,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # TODO: fetch real pim-daemon binaries before `tauri build` so
-      # they're bundled. Until scripts/fetch-daemon.sh is implemented,
-      # we ship the dev stub so the bundle stage doesn't fail.
-      - name: build pim-daemon-stub + place at externalBin paths
+      # Fetch the real pim-daemon binary from the proximity-internet-mesh
+      # release matching `PIM_DAEMON_VERSION`. The release upload is
+      # produced by proximity-internet-mesh's own release.yml workflow
+      # on tag pushes — keep that repo's tag in sync with this one for
+      # reproducible bundles.
+      - name: fetch pim-daemon binary
         shell: bash
-        run: |
-          set -euo pipefail
-          cargo build --release --manifest-path pim-daemon-stub/Cargo.toml
-          mkdir -p src-tauri/binaries
-
-          case "${{ matrix.runner }}" in
-            ubuntu-*)        triples=(x86_64-unknown-linux-gnu); ext="" ;;
-            macos-15)        triples=(aarch64-apple-darwin);     ext="" ;;
-            macos-15-intel)  triples=(x86_64-apple-darwin);      ext="" ;;
-            windows-*)       triples=(x86_64-pc-windows-msvc);   ext=".exe" ;;
-          esac
-
-          for triple in "${triples[@]}"; do
-            cp "pim-daemon-stub/target/release/pim-daemon-stub${ext}" \
-               "src-tauri/binaries/pim-daemon-${triple}${ext}"
-            chmod 755 "src-tauri/binaries/pim-daemon-${triple}${ext}" || true
-          done
+        run: bash scripts/fetch-daemon.sh
 
       - uses: tauri-apps/tauri-action@v0
         env:

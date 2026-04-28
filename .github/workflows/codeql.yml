@@ -57,9 +57,7 @@ jobs:
 
       - name: autobuild rust
         if: matrix.language == 'rust'
-        run: |
-          cargo build --manifest-path src-tauri/Cargo.toml --locked
-          cargo build --manifest-path pim-daemon-stub/Cargo.toml --locked
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked
 
       # JS/TS analyses statically, no build step needed.
 
