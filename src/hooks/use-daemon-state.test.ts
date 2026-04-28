@@ -27,6 +27,7 @@ const _check: DaemonActions = {
     _e: E,
     _h: (p: RpcEventMap[E]) => void,
   ) => ({ id: "uuid-0", unsubscribe: async () => {} }),
+  reseed: async () => {},
 };
 
 // Shape of the hook return.

@@ -35,6 +35,7 @@ import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
+import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -60,7 +61,7 @@ function buildOpenMap(): OpenMap {
 }
 
 export function SettingsScreen() {
-  const { base, loading, loadError } = useSettingsConfig();
+  const { base, loading, loadError, refetch } = useSettingsConfig();
   const [open, setOpen] = useState<OpenMap>(() => buildClosedMap());
 
   useEffect(() => {
@@ -98,6 +99,10 @@ export function SettingsScreen() {
     <TooltipProvider>
       <main aria-label="settings" className="flex flex-col">
         <div className="max-w-3xl flex flex-col gap-6">
+          <ScreenRefresh
+            onRefresh={refetch}
+            ariaLabel="refresh settings (re-fetch config from daemon)"
+          />
           <IdentitySection
             open={open.identity}
             onOpenChange={setOpenFor("identity")}

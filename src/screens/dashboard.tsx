@@ -62,6 +62,7 @@ import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { LimitedModeBanner } from "@/components/brand/limited-mode-banner";
 import { DaemonToggle } from "@/components/brand/daemon-toggle";
+import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 
 export interface DashboardProps {
@@ -72,7 +73,7 @@ export interface DashboardProps {
 }
 
 export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
-  const { snapshot } = useDaemonState();
+  const { snapshot, actions } = useDaemonState();
   const status = useStatus();
   const peers = usePeers();
   const discovered = useDiscovered();
@@ -120,7 +121,12 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
     <div className="max-w-4xl flex flex-col gap-6">
       {showLimitedBanner === true ? <LimitedModeBanner /> : null}
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <ScreenRefresh
+          onRefresh={actions.reseed}
+          ariaLabel="refresh dashboard"
+          className="justify-start"
+        />
         <DaemonToggle />
       </div>
 

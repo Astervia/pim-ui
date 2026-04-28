@@ -46,10 +46,11 @@ import { PeersPanel } from "@/components/peers/peers-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { AddPeerSheet } from "@/components/peers/add-peer-sheet";
 import { RemovePeerAlertDialog } from "@/components/peers/remove-peer-alert-dialog";
+import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import type { PeerDiscovered, PeerSummary } from "@/lib/rpc-types";
 
 export function PeersScreen() {
-  const { snapshot } = useDaemonState();
+  const { snapshot, actions } = useDaemonState();
   const peers = usePeers();
   const discovered = useDiscovered();
   const { select } = usePeerDetail();
@@ -62,6 +63,7 @@ export function PeersScreen() {
 
   return (
     <div className="max-w-4xl flex flex-col gap-6">
+      <ScreenRefresh onRefresh={actions.reseed} ariaLabel="refresh peers" />
       <PeersPanel
         peers={peers}
         onPeerSelect={onPeerSelect}

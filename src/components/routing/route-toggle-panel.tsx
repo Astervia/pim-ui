@@ -94,7 +94,14 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
   void useDaemonState();
 
   const [expanded, setExpanded] = useState<boolean>(false);
-  const [pending, setPending] = useState<boolean>(false);
+  // `pendingDirection` carries both "is an RPC in flight" and "what
+  // are we trying to flip TO" so the body can render an optimistic
+  // "TURNING ON…" / "TURNING OFF…" message immediately on click —
+  // no perceived freeze while the daemon round-trips and the
+  // status.event lands.
+  const [pendingDirection, setPendingDirection] =
+    useState<"on" | "off" | null>(null);
+  const pending = pendingDirection !== null;
   const [errorRow, setErrorRow] = useState<string | null>(null);
 
   const onTurnOn = (): void => {
@@ -107,34 +114,38 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
   };
 
   const onConfirm = async (): Promise<void> => {
-    setPending(true);
+    setPendingDirection("on");
     setErrorRow(null);
+    // Hide the pre-flight checklist immediately. The pending body
+    // takes over and shows the "TURNING ON…" status until the
+    // server-confirmed route_on event flips routeOn to true (at
+    // which point the routeOn branch wins).
+    setExpanded(false);
     try {
       await callDaemon("route.set_split_default", { on: true });
-      // Success: route_on status.event fires, snapshot flips, this
-      // component re-renders into the on state. Collapse the
-      // pre-flight UI now so the expanded panel disappears as the
-      // on body lands (no optimistic transition — the body line
-      // itself is gated on routeOn === true).
-      setExpanded(false);
+      // The daemon's route_on status.event will land via the
+      // useDaemonState subscription and flip routeOn → true; the
+      // routeOn branch then takes over. We just clear pending.
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't enable routing: ${msg}`);
+      // Re-open pre-flight so the user can retry / see the error row.
+      setExpanded(true);
       setErrorRow(`✗ ${msg}`);
     } finally {
-      setPending(false);
+      setPendingDirection(null);
     }
   };
 
   const onTurnOff = async (): Promise<void> => {
-    setPending(true);
+    setPendingDirection("off");
     try {
       await callDaemon("route.set_split_default", { on: false });
     } catch (e) {
       const msg = errorMessage(e);
       toast.error(`Couldn't turn off routing: ${msg}`);
     } finally {
-      setPending(false);
+      setPendingDirection(null);
     }
   };
 
@@ -165,7 +176,22 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
 
   // ─── Body branching ────────────────────────────────────────────
   let body: React.ReactNode;
-  if (routeOn === true) {
+  if (pendingDirection !== null) {
+    // Optimistic feedback: keep the panel responsive while the RPC
+    // round-trips. The dot animates so the user sees "something is
+    // happening" — replaces the perceived freeze of waiting on a
+    // disabled button inside the pre-flight checklist.
+    const label =
+      pendingDirection === "on" ? "turning routing on" : "turning routing off";
+    body = (
+      <div className="flex items-center gap-2 font-code text-sm text-foreground">
+        <span aria-hidden="true" className="cursor-blink">
+          ◆
+        </span>
+        <span>{label}…</span>
+      </div>
+    );
+  } else if (routeOn === true) {
     const line = formatRouteLine(status, routeTable);
     body = (
       <div className="flex flex-col gap-3">

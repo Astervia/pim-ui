@@ -37,10 +37,18 @@ import { useRouteTable } from "@/hooks/use-route-table";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 import { RouteTablePanel } from "@/components/routing/route-table-panel";
 import { KnownGatewaysPanel } from "@/components/routing/known-gateways-panel";
+import { ScreenRefresh } from "@/components/brand/screen-refresh";
 
 export function RouteScreen() {
-  const { snapshot } = useDaemonState();
+  const { snapshot, actions } = useDaemonState();
   const { table, loading, refetch } = useRouteTable();
+
+  // Screen-level refresh = daemon snapshot reseed + route-table refetch.
+  // The RouteTablePanel keeps its own [refresh] for the table-only
+  // case (D-20 escape hatch) — both buttons coexist.
+  const refreshAll = async () => {
+    await Promise.all([actions.reseed(), refetch()]);
+  };
 
   // D-30 limited mode: same convention as Dashboard — anything other
   // than `running` is "limited", panels render last-known data dimmed.
@@ -54,6 +62,7 @@ export function RouteScreen() {
 
   return (
     <div className="max-w-4xl flex flex-col gap-6">
+      <ScreenRefresh onRefresh={refreshAll} ariaLabel="refresh routing" />
       <RouteTogglePanel limitedMode={limitedMode} />
       <RouteTablePanel
         routes={routes}

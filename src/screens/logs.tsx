@@ -28,6 +28,8 @@ import { LogFilterBar } from "@/components/logs/log-filter-bar";
 import { LogList } from "@/components/logs/log-list";
 import { useLogsStream, type StreamStatus } from "@/hooks/use-logs-stream";
 import { useFilteredLogs } from "@/hooks/use-log-filters";
+import { useDaemonState } from "@/hooks/use-daemon-state";
+import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import type { BadgeVariant } from "@/components/ui/badge";
 
 interface BadgeSpec {
@@ -55,6 +57,7 @@ export function LogsScreen() {
     status,
     errorMessage,
   } = useLogsStream();
+  const { actions } = useDaemonState();
   // events arrive pre-filtered by levels + crates + peer + source
   // (all client-side) from useLogsStream; useFilteredLogs adds the
   // search-text + time-range filters on top per D-21 / D-22.
@@ -65,7 +68,11 @@ export function LogsScreen() {
     errorMessage === null || errorMessage === undefined ? false : true;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl flex flex-col gap-6">
+      <ScreenRefresh
+        onRefresh={actions.reseed}
+        ariaLabel="refresh logs"
+      />
       <CliPanel title="logs" status={badge}>
         <LogFilterBar
           levels={levels}

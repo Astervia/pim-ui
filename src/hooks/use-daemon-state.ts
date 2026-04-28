@@ -454,6 +454,16 @@ export interface DaemonActions {
     event: E,
     handler: (params: RpcEventMap[E]) => void,
   ): Promise<DaemonSubscription>;
+  /**
+   * Force a fresh `status` + `peers.discovered` RPC roundtrip and
+   * replace the corresponding snapshot fields. Called by per-screen
+   * `[ refresh ]` buttons. Does NOT touch the active subscriptions —
+   * live status.event / peers.event continue flowing through.
+   *
+   * Failure paths log to the console and leave the existing snapshot
+   * intact (D-30 honest last-state — refusing to clear what we know).
+   */
+  reseed(): Promise<void>;
 }
 
 export interface DaemonStateHookResult {
@@ -498,6 +508,26 @@ export function useDaemonState(): DaemonStateHookResult {
   }, []);
   const dismissStopConfirm = useCallback(() => setStopConfirm(false), []);
 
+  const reseed = useCallback(async () => {
+    try {
+      const [status, discovered] = await Promise.all([
+        callDaemon("status", null),
+        callDaemon("peers.discovered", null),
+      ]);
+      setSnapshot({
+        ...snapshot,
+        status,
+        discovered,
+        peerCount: status.peers.filter((p) => p.state === "active").length,
+      });
+    } catch (e) {
+      // Reseed failure does not clear existing last-known state. The
+      // user will see a stale snapshot; the next live event or
+      // successful retry corrects it.
+      console.warn("reseed (status+peers.discovered) failed:", e);
+    }
+  }, []);
+
   const subscribe = useCallback(async function <E extends RpcEventName>(
     event: E,
     handler: (p: RpcEventMap[E]) => void,
@@ -513,7 +543,7 @@ export function useDaemonState(): DaemonStateHookResult {
   return {
     snapshot: snap,
     stopConfirmOpen: scoOpen,
-    actions: { start, stop, confirmStop, dismissStopConfirm, subscribe },
+    actions: { start, stop, confirmStop, dismissStopConfirm, subscribe, reseed },
   };
 }
 
