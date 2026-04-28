@@ -155,6 +155,25 @@ async fn main() -> Result<()> {
         events_tx,
     });
 
+    // Periodic heartbeat log so the Logs view doesn't sit empty when
+    // the user isn't clicking around. 30s cadence keeps the stream
+    // visibly alive without flooding.
+    let hb_state = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        interval.tick().await; // first tick fires immediately — skip
+        loop {
+            interval.tick().await;
+            let uptime = hb_state.started_at.elapsed().as_secs();
+            emit_log(
+                &hb_state,
+                "debug",
+                "pim_daemon_stub::heartbeat",
+                &format!("uptime={uptime}s"),
+            );
+        }
+    });
+
     // Wire SIGTERM / SIGINT to a clean exit so kill_privileged can
     // drop us politely (same TERM-then-KILL flow the real daemon
     // expects). On clean exit we remove the socket + PID file.
@@ -352,7 +371,37 @@ async fn handle_connection(stream: UnixStream, state: Arc<StubState>) -> Result<
 // Method dispatch.
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Broadcast a JSON-RPC `logs.event` notification matching docs/RPC.md §5.6.
+/// Delivery is best-effort: the broadcast send returns Err only when no
+/// connection has subscribed yet, which is fine — the stream is meant to
+/// surface activity DURING live UI sessions, not replay history.
+fn emit_log(state: &Arc<StubState>, level: &str, source: &str, message: &str) {
+    let _ = state.events_tx.send(json!({
+        "jsonrpc": "2.0",
+        "method": "logs.event",
+        "params": {
+            "level": level,
+            "source": source,
+            "message": message,
+            "at": chrono::Utc::now().to_rfc3339(),
+        },
+    }));
+}
+
 async fn dispatch(state: &Arc<StubState>, method: &str, params: Value) -> Result<Value, RpcError> {
+    // Emit a debug log for every dispatched method so the Logs view
+    // shows activity correlating to UI interactions. Skip
+    // `logs.subscribe` to avoid bootstrapping noise; that arm seeds
+    // its own welcome lines after returning the subscription id.
+    if method != "logs.subscribe" && method != "rpc.hello" {
+        emit_log(
+            state,
+            "debug",
+            "pim_daemon_stub::rpc",
+            &format!("→ {method}"),
+        );
+    }
+
     match method {
         // §2.1
         "rpc.hello" => Ok(json!({
@@ -459,7 +508,40 @@ async fn dispatch(state: &Arc<StubState>, method: &str, params: Value) -> Result
         })),
 
         // §5.6 logs
-        "logs.subscribe" => Ok(json!({ "subscription_id": state.next_sub_id().await })),
+        "logs.subscribe" => {
+            let id = state.next_sub_id().await;
+            // Seed the Logs view so it doesn't render empty on first
+            // open. The UI's `actions.subscribe("logs.event", h)`
+            // registers `h` synchronously before awaiting this RPC,
+            // so events broadcast here arrive while the await is
+            // still pending — `h` already sees them. After this seed,
+            // every dispatched RPC + the heartbeat task feed the
+            // stream live.
+            emit_log(
+                state,
+                "info",
+                "pim_daemon_stub",
+                &format!(
+                    "stub running — node={} interface={} uptime={}s",
+                    state.node_name,
+                    state.interface_name,
+                    state.started_at.elapsed().as_secs(),
+                ),
+            );
+            emit_log(
+                state,
+                "info",
+                "pim_daemon_stub::rpc",
+                "logs.subscribe acknowledged",
+            );
+            emit_log(
+                state,
+                "warn",
+                "pim_daemon_stub",
+                "running the dev stub — no real mesh, no real packets",
+            );
+            Ok(json!({ "subscription_id": id }))
+        }
         "logs.unsubscribe" => Ok(Value::Null),
 
         unknown => Err(RpcError {
@@ -493,7 +575,10 @@ fn stub_status(state: &Arc<StubState>) -> Value {
         "mesh_ip": "10.77.0.1/24",
         "interface": {
             "name": state.interface_name,
-            "up": false,
+            // Stub pretends the TUN is up so the UI doesn't sit on a
+            // "down · 0s · show why" line indefinitely. The real daemon
+            // would flip this only after kernel-side ifconfig succeeds.
+            "up": true,
             "mtu": 1400,
         },
         "role": ["client"],
