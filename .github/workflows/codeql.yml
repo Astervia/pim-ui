@@ -55,6 +55,13 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
+      # tauri.conf.json's bundle.externalBin requires the sidecar to
+      # exist on disk before `cargo build` resolves. Fetch the matching
+      # proximity-internet-mesh release before autobuild.
+      - name: fetch pim-daemon sidecar
+        if: matrix.language == 'rust'
+        run: bash scripts/fetch-daemon.sh
+
       - name: autobuild rust
         if: matrix.language == 'rust'
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked
