@@ -133,29 +133,29 @@ export function MobileTopBar() {
         <span className="font-mono text-text-secondary text-lg leading-none">]</span>
       </button>
 
-      {/* Centre — hero wordmark + state caption. text-3xl makes the
-          mark unmistakable on phone screens; the block glyph and "pim"
-          letters get a full character of breathing space (gap-[1ch])
-          so the wordmark reads as a confident logotype rather than a
-          collapsed glyph string. The caption sits below with a generous
-          gap-2 + 0.3em tracking so the daemon-state word reads as a
-          banner. */}
-      <div className="flex flex-col items-start gap-2 flex-1 min-w-0">
-        <div className="flex items-center gap-[1ch] font-mono text-3xl leading-none tracking-tight">
+      {/* Centre — hero wordmark with the state caption inline beside it.
+          Horizontal layout saves vertical space (the bar's vertical
+          breath comes from pt-7/pb-5, not from a stacked caption) and
+          reads as a single confident "█ pim · RUNNING" line. */}
+      <div className="flex items-baseline gap-3 flex-1 min-w-0">
+        <div className="flex items-center gap-[1ch] font-mono text-3xl leading-none tracking-tight shrink-0">
           <span className={tokens.block} aria-hidden="true">
             █
           </span>
-          <span className="text-foreground tracking-tight">pim</span>
+          <span className="text-foreground">pim</span>
         </div>
-        <div
+        <span aria-hidden className="text-text-secondary text-xl leading-none">
+          ·
+        </span>
+        <span
           key={caption}
           className={cn(
-            "font-mono text-xs uppercase tracking-[0.3em] leading-none pl-[0.1ch]",
+            "font-mono text-xs uppercase tracking-[0.3em] leading-none truncate",
             tokens.caption,
           )}
         >
           {caption}
-        </div>
+        </span>
       </div>
 
       {/* Right — single state glyph at hero size (text-3xl) so daemon
