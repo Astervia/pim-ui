@@ -73,7 +73,7 @@ export function PeerListPanel({
         role="presentation"
         className={cn(
           "grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
-          "gap-x-2 px-4 pb-1 mb-1 border-b border-border",
+          "gap-x-2 px-4 pb-2 mb-1 border-b border-border",
           "font-mono text-xs uppercase tracking-widest text-muted-foreground",
         )}
       >

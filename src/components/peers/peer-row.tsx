@@ -36,6 +36,24 @@
  * row <button> + the sub-line <button> stack vertically without
  * breaking the primary row's CSS grid.
  *
+ * Phase 6 (UI/UX P1.8 + P2.14): touch-target lift + hover progressive
+ * disclosure.
+ *   - Padding bumped from `px-4 py-1` to `px-4 py-2.5` so the primary
+ *     row clears the ≥44px tap target threshold for pointer + touch.
+ *   - On hover OR focus-visible, a secondary line slides into view
+ *     below the primary content showing transport detail
+ *     `via {transport} · {mesh_ip} · last seen {n}s ago`.
+ *   - Per brand motion rule, height transitions go through
+ *     `grid-template-rows` (collapsed `[grid-template-rows:1fr_0fr]`
+ *     → expanded `[grid-template-rows:1fr_1fr]`), 100ms linear. The
+ *     secondary cell uses `overflow-hidden` so its content is clipped
+ *     while the row is collapsed.
+ *   - The hover sub-line coexists with the existing failed-peer
+ *     handshake sub-line (D-24): they carry different content
+ *     (transport detail vs error guidance) and the failed sub-line
+ *     stays unconditionally visible while the hover line is
+ *     progressively disclosed.
+ *
  * NO border-radius, NO gradients, NO literal Tailwind palette colors.
  */
 
@@ -73,46 +91,87 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
 
   return (
     <div className="flex flex-col">
-      <button
-        type="button"
-        role="button"
-        tabIndex={0}
-        onClick={handleActivate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleActivate();
-          }
-        }}
-        aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
+      {/*
+        Phase 6 — hover/focus progressive-disclosure wrapper.
+        Two-row CSS grid where the second row collapses to 0fr by
+        default and expands to 1fr on hover/focus-within. Per brand
+        motion rule the height change is driven by grid-template-rows
+        (not max-height / height), 100ms linear. The `group` lets the
+        primary <button> and the disclosure cell share state via
+        group-hover / group-focus-within.
+      */}
+      <div
         className={cn(
-          "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
-          "items-center gap-x-2 px-4 py-1",
-          "font-code text-sm leading-[1.5] text-left",
-          "text-foreground",
-          "hover:bg-popover/60 hover:border-l-2 hover:border-border-active",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
-          "active:translate-y-[1px]",
-          "transition-colors duration-100 ease-linear",
+          "group grid grid-cols-1 [grid-template-rows:1fr_0fr]",
+          "hover:[grid-template-rows:1fr_1fr]",
+          "focus-within:[grid-template-rows:1fr_1fr]",
+          "transition-[grid-template-rows] duration-100 ease-linear",
         )}
       >
-        {/* short_id — signal-green per UI-SPEC §Interaction §Peer row */}
-        <span className="text-primary">{peer.node_id_short}</span>
+        <button
+          type="button"
+          role="button"
+          tabIndex={0}
+          onClick={handleActivate}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleActivate();
+            }
+          }}
+          aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
+          className={cn(
+            "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
+            "items-center gap-x-2 px-4 py-2.5",
+            "font-code text-sm leading-[1.5] text-left",
+            "text-foreground",
+            "hover:bg-popover/60 hover:border-l-2 hover:border-border-active",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
+            "active:translate-y-[1px]",
+            "transition-colors duration-100 ease-linear",
+          )}
+        >
+          {/* short_id — signal-green per UI-SPEC §Interaction §Peer row */}
+          <span className="text-primary">{peer.node_id_short}</span>
 
-        <span>{label}</span>
-        <span>{peer.mesh_ip}</span>
-        <span className="text-muted-foreground">via {peer.transport}</span>
+          <span>{label}</span>
+          <span>{peer.mesh_ip}</span>
+          <span className="text-muted-foreground">via {peer.transport}</span>
 
-        {/* state glyph + word — honesty contract lives here */}
-        <span className="flex items-center gap-1">
-          <StatusIndicator state={peer.state} />
-          <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
-        </span>
+          {/* state glyph + word — honesty contract lives here */}
+          <span className="flex items-center gap-1">
+            <StatusIndicator state={peer.state} />
+            <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
+          </span>
 
-        <span className="text-muted-foreground">{hopsText}</span>
-        <span className="text-muted-foreground">{latencyText}</span>
-        <span className="text-muted-foreground">{peer.last_seen_s}s</span>
-      </button>
+          <span className="text-muted-foreground">{hopsText}</span>
+          <span className="text-muted-foreground">{latencyText}</span>
+          <span className="text-muted-foreground">{peer.last_seen_s}s</span>
+        </button>
+        {/*
+          Hover-disclosure cell — collapsed at 0fr until the wrapper is
+          hovered or contains focus. overflow-hidden clips the content
+          while collapsed; the inner padding ramps in once expanded.
+          Content uses real PeerSummary fields (no invented data):
+          transport, mesh_ip, last_seen_s.
+        */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "overflow-hidden",
+            "font-code text-xs text-muted-foreground",
+            "px-4",
+            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+            "transition-opacity duration-100 ease-linear",
+          )}
+        >
+          <span>via {peer.transport}</span>
+          <span> · </span>
+          <span>{peer.mesh_ip}</span>
+          <span> · </span>
+          <span>last seen {peer.last_seen_s}s ago</span>
+        </div>
+      </div>
       {/* Phase 4 D-24: handshake-fail sub-line. Single implementation
           pattern — when state==="failed" the row gets a second nested
           <button> below it carrying HANDSHAKE_FAIL_SUBLINE and opening

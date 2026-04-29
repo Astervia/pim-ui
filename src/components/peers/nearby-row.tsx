@@ -42,7 +42,7 @@ export function NearbyRow({ discovered, onPair }: NearbyRowProps) {
   };
 
   return (
-    <div className="grid grid-cols-[1fr_10ch_14ch_1fr_auto] items-center gap-x-2 px-4 py-1 font-code text-sm">
+    <div className="grid grid-cols-[1fr_10ch_14ch_1fr_auto] items-center gap-x-2 px-4 py-2.5 font-code text-sm">
       <span>{label}</span>
       <span className="text-muted-foreground">{shortId}</span>
       <span className="text-muted-foreground">via {discovered.mechanism}</span>

@@ -139,13 +139,28 @@ export function IdentityPanel({
             <button
               type="button"
               className="text-primary underline-offset-2 hover:underline"
-              // D-09: canonical behavior routes to Logs filtered by
-              // source: "transport". Phase 2 ships navigation-only — the
-              // Logs filter bar exposes level + peer filters (Plan 02-05);
-              // the source filter UI lands in Phase 3 (OBS-02). Clicking
-              // here jumps to the Logs tab so the user can read the
-              // transport-level diagnostic inline; no pre-filter applied.
-              onClick={() => setActive("logs")}
+              // D-09 + Phase 6 (UI/UX P2.13): canonical behavior is to
+              // route to Logs AND pre-apply a transport source filter
+              // so the user lands on the relevant diagnostic stream
+              // rather than the full firehose. Implemented as a
+              // browser CustomEvent (`pim:logs-prefilter-source`) that
+              // LogsScreen drains once on mount — keeps the W1
+              // invariant intact (no new Tauri listen() outside
+              // src/lib/rpc.ts + src/hooks/use-daemon-state.ts) and
+              // matches the existing `pim:settings-*` pattern in
+              // app-shell.tsx. Limitation: the filter narrows on the
+              // crate-prefix `"transport"`. Daemon log sources may
+              // carry a `pim_` prefix (e.g. `pim_transport`) — when
+              // the daemon-side log conventions firm up, adjust the
+              // dispatched value here and the recipient in logs.tsx.
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("pim:logs-prefilter-source", {
+                    detail: { source: "transport" },
+                  }),
+                );
+                setActive("logs");
+              }}
             >
               show why →
             </button>
