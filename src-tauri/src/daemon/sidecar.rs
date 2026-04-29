@@ -62,9 +62,9 @@ use anyhow::{anyhow, Result};
 #[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Instant;
 #[cfg(target_os = "macos")]
 use std::time::Duration;
+use std::time::Instant;
 use tauri::AppHandle;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
