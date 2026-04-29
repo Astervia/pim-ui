@@ -42,6 +42,8 @@ export interface PeerListPanelProps {
   /** Phase 4 D-06/D-08: open the InvitePeerSheet. */
   onInvitePeer?: () => void;
   limitedMode?: boolean;
+  /** Phase 2/5 — staggered reveal delay forwarded to CliPanel. */
+  revealDelay?: number | null;
 }
 
 export function PeerListPanel({
@@ -49,6 +51,7 @@ export function PeerListPanel({
   onPeerSelect,
   onInvitePeer,
   limitedMode = false,
+  revealDelay = 0,
 }: PeerListPanelProps) {
   const connectedCount = peers.filter(
     (p) => p.state === "active" || p.state === "relayed",
@@ -62,6 +65,7 @@ export function PeerListPanel({
     <CliPanel
       title="peers"
       status={badge}
+      revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
       {/* Column header — muted, uppercase (UI-SPEC §Peers panel). */}

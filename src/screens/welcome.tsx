@@ -90,10 +90,14 @@ export function WelcomeScreen({
             <p className="text-muted-foreground">{WELCOME_ADD_DESC}</p>
           </div>
 
+          {/* Phase 5 hierarchy: [ RUN SOLO ] is the lower-effort,
+              lower-stakes path — secondary visual weight (transparent
+              bg, border-only) so the eye reads it as the alternative
+              rather than a parallel primary action. */}
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              variant="default"
+              variant="secondary"
               size="lg"
               onClick={() => handle(false)}
             >

@@ -32,9 +32,15 @@ export interface MetricsPanelProps {
   status: Status | null;
   /** D-30: daemon not in `running` state — dim to 60% + flip badge to STALE. */
   limitedMode?: boolean;
+  /** Phase 2/5 — staggered reveal delay forwarded to CliPanel. */
+  revealDelay?: number | null;
 }
 
-export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps) {
+export function MetricsPanel({
+  status,
+  limitedMode = false,
+  revealDelay = 0,
+}: MetricsPanelProps) {
   // Loading: honest placeholder, not zeros (D-07).
   if (status === null) {
     return (
@@ -42,6 +48,7 @@ export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps)
         title="metrics"
         status={{ label: "WAITING", variant: "muted" }}
         density="compact"
+        revealDelay={revealDelay}
         className={cn(limitedMode === true && "opacity-60")}
       >
         <ScanLoader label="loading metrics" />
@@ -78,6 +85,7 @@ export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps)
       title="metrics"
       status={badge}
       density="compact"
+      revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm">

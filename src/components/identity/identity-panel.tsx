@@ -32,6 +32,7 @@ import type { Status } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { ScanLoader } from "@/components/brand/scan-loader";
 import { StatusIndicator } from "@/components/brand/status-indicator";
+import { DaemonToggle } from "@/components/brand/daemon-toggle";
 import { formatDuration } from "@/lib/format";
 import { useActiveScreen } from "@/hooks/use-active-screen";
 import { cn } from "@/lib/utils";
@@ -43,12 +44,26 @@ export interface IdentityPanelProps {
   /** D-30: `DaemonSnapshot.baselineTimestamp` (ms since epoch) for the
    *  last-seen hint. Ignored when `limitedMode` is false. */
   lastSeenTimestamp?: number | null;
+  /**
+   * Phase 5 — when true, render <DaemonToggle /> as a bottom-right action
+   * inside the panel body so the daemon-lifecycle action ships with the
+   * identity hero rather than floating in a competing header strip.
+   * Default false so other surfaces (e.g. tray popover) can render
+   * IdentityPanel without the toggle.
+   */
+  showDaemonToggle?: boolean;
+  /**
+   * Phase 2/5 — staggered reveal delay in ms. Forwarded to CliPanel.
+   */
+  revealDelay?: number | null;
 }
 
 export function IdentityPanel({
   status,
   limitedMode = false,
   lastSeenTimestamp = null,
+  showDaemonToggle = false,
+  revealDelay = 0,
 }: IdentityPanelProps) {
   const { setActive } = useActiveScreen();
 
@@ -59,9 +74,15 @@ export function IdentityPanel({
         title="identity"
         status={{ label: "WAITING", variant: "muted" }}
         density="spacious"
+        revealDelay={revealDelay}
         className={cn(limitedMode === true && "opacity-60")}
       >
         <ScanLoader label="loading status" />
+        {showDaemonToggle === true ? (
+          <div className="mt-6 flex justify-end">
+            <DaemonToggle />
+          </div>
+        ) : null}
       </CliPanel>
     );
   }
@@ -90,10 +111,11 @@ export function IdentityPanel({
       title="identity"
       status={badge}
       density="spacious"
+      revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex items-start justify-between gap-4">
-        <h1 className="font-mono text-xl tracking-tight leading-[1.4]">
+        <h1 className="font-mono text-2xl tracking-tight leading-[1.3]">
           <span className="phosphor">█ pim</span>
           <span className="text-muted-foreground"> · </span>
           <span className="text-foreground">{status.node}</span>
@@ -135,6 +157,11 @@ export function IdentityPanel({
           </span>
         )}
       </p>
+      {showDaemonToggle === true ? (
+        <div className="mt-5 pt-4 border-t border-border flex justify-end">
+          <DaemonToggle />
+        </div>
+      ) : null}
     </CliPanel>
   );
 }

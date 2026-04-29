@@ -1,52 +1,42 @@
 /**
- * <Dashboard /> — Phase-2 4-panel stack (02-UI-SPEC §S2, 02-CONTEXT
- * D-08/D-10/D-30).
+ * <Dashboard /> — primary screen (Phase 5 composition).
  *
- * Replaces the Phase-1 single-CliPanel layout with the four sections
- * locked by the UI-SPEC mockup, in this order (do NOT reorder):
+ * Stack ordering reflects visual hierarchy (Phase 5 of the UI/UX
+ * overhaul). Top to bottom:
  *
- *   1. IdentityPanel  — `█ pim · {node}` hero + mesh/interface/uptime
- *                       detail (STAT-01, STAT-04).
- *   2. PeerListPanel  — D-13-sorted connected peers, empty state copy
- *                       verbatim (PEER-01, STAT-02 connected count).
- *   3. NearbyPanel    — discovered-but-unpaired peers (PEER-05, D-19).
- *   4. MetricsPanel   — one dense line with forwarded / dropped /
- *                       egress per D-23 (STAT-02, STAT-03).
+ *   1. IdentityPanel  — hero (density="spacious"), `█ pim · {node}` +
+ *                       mesh/interface/uptime detail. Now also owns
+ *                       the DaemonToggle as a bottom-right action
+ *                       inside the panel body — replaces the previous
+ *                       header strip that competed for primary attention.
+ *   2. RouteTogglePanel — primary action; CliPanel emphasis (2px primary
+ *                       left edge) when state === ON so the panel
+ *                       outranks neighbours by visual weight.
+ *   3. PeerListPanel  — D-13-sorted connected peers; teaching empty
+ *                       state via TeachingEmptyState (Phase 3).
+ *   4. NearbyPanel    — discovered-but-unpaired peers; only rendered
+ *                       when there's a real entry to act on.
+ *   5. MetricsPanel   — periphery (density="compact"); single dense
+ *                       line, smallest panel.
  *
- * D-10 (Phase 4): RouteTogglePanel rendered between IdentityPanel and
- * PeerListPanel. Component derives its own state from useDaemonState
- * + useRouteTable; this screen passes only `limitedMode` so dim
- * opacity stays consistent across the panel stack.
+ * Reveal staggering: every panel gets a `revealDelay` driving the
+ * .crt-on-stagger CSS animation declared in globals.css. Sequence:
+ * 0/80/160/220/280 ms — the staggered phosphor warm-up makes the
+ * dashboard feel like a CRT firing up rather than a static document.
  *
- * D-06/D-07/D-08 (Phase 4 Plan 04-05): Dashboard wires PeerListPanel's
- * two enabled action buttons. `[ + Add peer nearby ]` calls a local
- * scrollToNearby() which scrolls the NearbyPanel into view via a ref;
- * the same scroll is also triggered by the `pim-ui:scroll-to-nearby`
- * window event dispatched by the WelcomeScreen (Plan 04-04) on the
- * `[ ADD PEER NEARBY ]` path. `[ Invite peer ]` opens the shell-level
- * InvitePeerSheet via useInvitePeer().open().
+ * Spacing rhythm (Phase 5): the ScreenContainer's default gap-6 is
+ * compressed to gap-4 for tight clusters (Identity ↔ Routing) and
+ * a manual `mt-6` is added before PeerList + before Metrics so the
+ * peer list and the periphery breathe. Visually the eye groups the
+ * top two panels as one cluster, the peer list as the workspace, and
+ * the metrics as the readout.
  *
- * D-30 limited mode: when daemon.state is anything other than "running", every panel dims
- * to opacity-60 and badges flip to [STALE]. The IdentityPanel also
- * appends a relative "last seen: N ago" hint derived from
- * snapshot.baselineTimestamp. This is honest — last-known state is
- * more useful than a blank screen.
+ * D-30 limited mode preserved: every panel dims and badges flip to
+ * [STALE]. IdentityPanel also appends `last seen: N ago` from the
+ * snapshot baseline.
  *
- * Shell layout changes in this plan:
- *   - Logo hero is removed — the sidebar (Plan 02-02) now owns
- *     branding via the `█ pim` wordmark.
- *   - AboutFooter is removed — Phase-2 Dashboard is panel-stack-only
- *     per UI-SPEC §S2.
- *   - ReconnectToast and StopConfirmDialog are moved to AppShell —
- *     these are app-level chrome, not Dashboard content.
- *   - DaemonToggle stays on the Dashboard, rendered in a small action
- *     row above the 4 panels so the IdentityPanel layout matches the
- *     ASCII mockup verbatim.
- *
- * Plan 02-04 will wire onPeerSelect / onNearbyPair to open the Peer
- * Detail slide-over + Pair Approval modal. Phase 2 Plan 03 accepts
- * those props but leaves them optional with no-op defaults so the
- * panels render cleanly before the slide-over plumbing lands.
+ * W1 invariant preserved — ScrollToNearby still uses browser
+ * CustomEvent, no Tauri listeners added.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -60,7 +50,6 @@ import { IdentityPanel } from "@/components/identity/identity-panel";
 import { PeerListPanel } from "@/components/peers/peer-list-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
-import { DaemonToggle } from "@/components/brand/daemon-toggle";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 import { ScreenContainer } from "@/components/shell/screen-container";
@@ -126,30 +115,37 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
   // BannerStack. Dashboard no longer renders it inline.
 
   return (
-    <ScreenContainer>
-      <div className="flex items-center justify-between">
-        <ScreenRefresh
-          onRefresh={actions.reseed}
-          ariaLabel="refresh dashboard"
-          className="justify-start"
-        />
-        <DaemonToggle />
-      </div>
+    <ScreenContainer className="gap-4">
+      {/* Tiny refresh affordance — no longer competes with the primary
+          DaemonToggle (which now lives inside IdentityPanel). Stays
+          right-aligned and low-weight; keyboard users can still trigger
+          a manual reseed but visually it stays out of the way. */}
+      <ScreenRefresh
+        onRefresh={actions.reseed}
+        ariaLabel="refresh dashboard"
+      />
 
+      {/* Cluster 1 — identity + primary routing action (tight). */}
       <IdentityPanel
         status={status}
         limitedMode={limitedMode}
         lastSeenTimestamp={snapshot.baselineTimestamp}
+        showDaemonToggle={true}
+        revealDelay={0}
       />
 
-      <RouteTogglePanel limitedMode={limitedMode} />
+      <RouteTogglePanel limitedMode={limitedMode} revealDelay={80} />
 
-      <PeerListPanel
-        peers={peers}
-        onPeerSelect={onPeerSelect}
-        onInvitePeer={openInvite}
-        limitedMode={limitedMode}
-      />
+      {/* Cluster 2 — peers workspace (loose separation above). */}
+      <div className="mt-6">
+        <PeerListPanel
+          peers={peers}
+          onPeerSelect={onPeerSelect}
+          onInvitePeer={openInvite}
+          limitedMode={limitedMode}
+          revealDelay={160}
+        />
+      </div>
 
       {/* Auto-pair is enabled by default — discovered peers transition
           to CONNECTED in <20ms, so the Nearby panel would otherwise sit
@@ -162,11 +158,19 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
             discovered={nearby}
             onPair={onNearbyPair}
             limitedMode={limitedMode}
+            revealDelay={220}
           />
         </div>
       ) : null}
 
-      <MetricsPanel status={status} limitedMode={limitedMode} />
+      {/* Periphery — metrics readout (loose separation above). */}
+      <div className="mt-6">
+        <MetricsPanel
+          status={status}
+          limitedMode={limitedMode}
+          revealDelay={280}
+        />
+      </div>
     </ScreenContainer>
   );
 }

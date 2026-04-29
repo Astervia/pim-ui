@@ -67,6 +67,15 @@ import { cn } from "@/lib/utils";
 export interface RouteTogglePanelProps {
   /** D-30: when true, panel dims to opacity-60 and badge flips to [STALE]. */
   limitedMode?: boolean;
+  /**
+   * Phase 5 — when true AND routing is ON, the underlying CliPanel
+   * renders with `emphasis` (2px primary left border). Defaults to
+   * true; pass false to suppress (e.g. on the dedicated Routing tab
+   * where emphasis would be redundant).
+   */
+  emphasizeWhenOn?: boolean;
+  /** Phase 2/5 — staggered reveal delay forwarded to CliPanel. */
+  revealDelay?: number | null;
 }
 
 /** Defensive coercion of an unknown thrown value to a user-safe message. */
@@ -78,7 +87,11 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps) {
+export function RouteTogglePanel({
+  limitedMode = false,
+  emphasizeWhenOn = true,
+  revealDelay = 0,
+}: RouteTogglePanelProps) {
   const status = useStatus();
   const routeOn = useRouteOn();
   // gwPeer reserved for future enrichment (D-14); current rendering
@@ -311,6 +324,9 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
     );
   }
 
+  const emphasis =
+    emphasizeWhenOn === true && routeOn === true && limitedMode === false;
+
   return (
     <CliPanel
       title="ROUTING"
@@ -318,6 +334,8 @@ export function RouteTogglePanel({ limitedMode = false }: RouteTogglePanelProps)
         label: badgeBlink === true ? badgeLabel : badgeLabel,
         variant: badgeVariant,
       }}
+      emphasis={emphasis}
+      revealDelay={revealDelay}
       className={cn(
         limitedMode === true && "opacity-60",
         // The CliPanel Badge does not currently expose a blink prop;

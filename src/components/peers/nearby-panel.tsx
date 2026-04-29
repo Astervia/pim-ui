@@ -34,12 +34,15 @@ export interface NearbyPanelProps {
   discovered: PeerDiscovered[];
   onPair?: (d: PeerDiscovered) => void;
   limitedMode?: boolean;
+  /** Phase 2/5 — staggered reveal delay forwarded to CliPanel. */
+  revealDelay?: number | null;
 }
 
 export function NearbyPanel({
   discovered,
   onPair,
   limitedMode = false,
+  revealDelay = 0,
 }: NearbyPanelProps) {
   const isEmpty = discovered.length === 0;
   const badgeLabel = isEmpty === true ? "SCANNING" : `${discovered.length} NEARBY`;
@@ -51,6 +54,7 @@ export function NearbyPanel({
     <CliPanel
       title="nearby — not paired"
       status={badge}
+      revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
       {isEmpty === true ? (
