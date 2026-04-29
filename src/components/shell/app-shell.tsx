@@ -93,7 +93,7 @@ import { ReconnectToast } from "@/components/brand/reconnect-toast";
 import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
-import { KillSwitchBanner } from "@/components/brand/kill-switch-banner";
+import { BannerStack } from "./banner-stack";
 // Phase 5 Plan 05-01 D-03 + D-29: ⌘K toggles the command palette atom.
 // Plan 05-05 replaced the Plan 05-01 stub at src/lib/command-palette/state.ts
 // with the real module-level atom + useSyncExternalStore — this import path
@@ -229,13 +229,14 @@ export function AppShell() {
       <Sidebar />
       <main
         aria-label="content"
-        className="flex-1 overflow-y-auto px-8 py-8"
+        className="flex-1 overflow-y-auto px-8 py-8 flex flex-col gap-6"
       >
-        {/* Phase 4 D-21: KillSwitchBanner sits above active-screen content
-            but inside <main> so it scrolls with the page on overflow. The
-            banner self-derives visibility from useKillSwitch() and
-            renders nothing when the kill-switch condition is false. */}
-        <KillSwitchBanner />
+        {/* Phase 1 Task 1.3: BannerStack consolidates KillSwitchBanner +
+            LimitedModeBanner into a single mount point. Each banner
+            self-derives visibility; the stack renders nothing visible
+            when both conditions are false. Sits above ActiveScreen so
+            banners scroll with content on long screens (Logs / Settings). */}
+        <BannerStack />
         <ActiveScreen />
       </main>
       {/* App-level chrome moved from Dashboard by Plan 02-03 — neither

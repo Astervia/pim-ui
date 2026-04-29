@@ -36,6 +36,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
+import { ScreenContainer } from "@/components/shell/screen-container";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -98,7 +99,7 @@ export function SettingsScreen() {
   return (
     <TooltipProvider>
       <main aria-label="settings" className="flex flex-col">
-        <div className="max-w-3xl flex flex-col gap-6">
+        <ScreenContainer>
           <ScreenRefresh
             onRefresh={refetch}
             ariaLabel="refresh settings (re-fetch config from daemon)"
@@ -167,7 +168,7 @@ export function SettingsScreen() {
             open={open.about}
             onOpenChange={setOpenFor("about")}
           />
-        </div>
+        </ScreenContainer>
       </main>
     </TooltipProvider>
   );

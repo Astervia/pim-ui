@@ -29,6 +29,7 @@
  */
 
 import { CliPanel } from "@/components/brand/cli-panel";
+import { ScreenContainer } from "@/components/shell/screen-container";
 import { useGatewayPreflight } from "@/hooks/use-gateway-preflight";
 import { useGatewayStatus } from "@/hooks/use-gateway-status";
 import { useDaemonState } from "@/hooks/use-daemon-state";
@@ -63,33 +64,33 @@ export function GatewayScreen() {
   // Branch 1 — daemon not running
   if (snapshot.state !== "running") {
     return (
-      <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+      <ScreenContainer density="wide">{refreshRow}
         <CliPanel title="gateway" status={{ label: "OFFLINE", variant: "muted" }}>
           <p className="font-code text-sm text-muted-foreground">
             pim daemon is not running — start the daemon to run gateway pre-flight.
           </p>
         </CliPanel>
-      </div>
+      </ScreenContainer>
     );
   }
 
   // Branch 2 — initial loading
   if (result === null && loading === true) {
     return (
-      <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+      <ScreenContainer density="wide">{refreshRow}
         <CliPanel title="gateway" status={{ label: "CHECKING", variant: "muted" }}>
           <p className="font-code text-sm text-muted-foreground">
             checking pre-flight…
           </p>
         </CliPanel>
-      </div>
+      </ScreenContainer>
     );
   }
 
   // Branch 3 — preflight error (D-43 inline, no toast)
   if (result === null && error !== null) {
     return (
-      <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+      <ScreenContainer density="wide">{refreshRow}
         <CliPanel title="gateway" status={{ label: "ERROR", variant: "destructive" }}>
           <p className="font-code text-sm text-destructive">
             gateway pre-flight failed: {error.message}
@@ -102,7 +103,7 @@ export function GatewayScreen() {
             [ Re-run pre-flight ]
           </button>
         </CliPanel>
-      </div>
+      </ScreenContainer>
     );
   }
 
@@ -126,7 +127,7 @@ export function GatewayScreen() {
         activeStatus.conntrack.max,
       );
       return (
-        <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+        <ScreenContainer density="wide">{refreshRow}
           <CliPanel title="gateway" status={{ label: badge }}>
             <GatewayActivePanel
               status={activeStatus}
@@ -134,7 +135,7 @@ export function GatewayScreen() {
               disabling={gatewayStatus.loading}
             />
           </CliPanel>
-        </div>
+        </ScreenContainer>
       );
     }
   }
@@ -142,11 +143,11 @@ export function GatewayScreen() {
   // Branch 4 — non-Linux (GATE-04, D-10)
   if (result.platform !== "linux") {
     return (
-      <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+      <ScreenContainer density="wide">{refreshRow}
         <CliPanel title="gateway" status={{ label: "LINUX-ONLY", variant: "muted" }}>
           <LinuxOnlyPanel platform={result.platform} />
         </CliPanel>
-      </div>
+      </ScreenContainer>
     );
   }
 
@@ -155,7 +156,7 @@ export function GatewayScreen() {
   const badgeLabel = allOk === true ? "READY" : "PRE-FLIGHT";
 
   return (
-    <div className="max-w-5xl flex flex-col gap-6">{refreshRow}
+    <ScreenContainer density="wide">{refreshRow}
       <CliPanel title="gateway" status={{ label: badgeLabel }}>
         <p className="font-code text-sm text-muted-foreground mb-3">
           share your internet with the mesh
@@ -170,6 +171,6 @@ export function GatewayScreen() {
           />
         ) : null}
       </CliPanel>
-    </div>
+    </ScreenContainer>
   );
 }

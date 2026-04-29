@@ -38,6 +38,7 @@ import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 import { RouteTablePanel } from "@/components/routing/route-table-panel";
 import { KnownGatewaysPanel } from "@/components/routing/known-gateways-panel";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
+import { ScreenContainer } from "@/components/shell/screen-container";
 
 export function RouteScreen() {
   const { snapshot, actions } = useDaemonState();
@@ -61,7 +62,7 @@ export function RouteScreen() {
   const gateways = table === null ? [] : table.gateways;
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6">
+    <ScreenContainer>
       <ScreenRefresh onRefresh={refreshAll} ariaLabel="refresh routing" />
       <RouteTogglePanel limitedMode={limitedMode} />
       <RouteTablePanel
@@ -73,6 +74,6 @@ export function RouteScreen() {
         limitedMode={limitedMode}
       />
       <KnownGatewaysPanel gateways={gateways} limitedMode={limitedMode} />
-    </div>
+    </ScreenContainer>
   );
 }

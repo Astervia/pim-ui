@@ -30,6 +30,7 @@ import { useLogsStream, type StreamStatus } from "@/hooks/use-logs-stream";
 import { useFilteredLogs } from "@/hooks/use-log-filters";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
+import { ScreenContainer } from "@/components/shell/screen-container";
 import type { BadgeVariant } from "@/components/ui/badge";
 
 interface BadgeSpec {
@@ -68,7 +69,7 @@ export function LogsScreen() {
     errorMessage === null || errorMessage === undefined ? false : true;
 
   return (
-    <div className="max-w-5xl flex flex-col gap-6">
+    <ScreenContainer density="wide">
       <ScreenRefresh
         onRefresh={actions.reseed}
         ariaLabel="refresh logs"
@@ -91,6 +92,6 @@ export function LogsScreen() {
           <LogList events={rows} />
         )}
       </CliPanel>
-    </div>
+    </ScreenContainer>
   );
 }

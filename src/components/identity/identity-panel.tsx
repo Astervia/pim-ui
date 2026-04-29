@@ -55,6 +55,7 @@ export function IdentityPanel({
       <CliPanel
         title="identity"
         status={{ label: "WAITING", variant: "muted" }}
+        density="spacious"
         className={cn(limitedMode === true && "opacity-60")}
       >
         <p className="text-muted-foreground">Loading status…</p>
@@ -85,6 +86,7 @@ export function IdentityPanel({
     <CliPanel
       title="identity"
       status={badge}
+      density="spacious"
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex items-start justify-between gap-4">

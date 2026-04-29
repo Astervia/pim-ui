@@ -39,6 +39,7 @@ export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps)
       <CliPanel
         title="metrics"
         status={{ label: "WAITING", variant: "muted" }}
+        density="compact"
         className={cn(limitedMode === true && "opacity-60")}
       >
         <p className="text-muted-foreground">Loading metrics…</p>
@@ -74,6 +75,7 @@ export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps)
     <CliPanel
       title="metrics"
       status={badge}
+      density="compact"
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm">

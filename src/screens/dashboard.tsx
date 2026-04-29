@@ -60,10 +60,10 @@ import { IdentityPanel } from "@/components/identity/identity-panel";
 import { PeerListPanel } from "@/components/peers/peer-list-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
-import { LimitedModeBanner } from "@/components/brand/limited-mode-banner";
 import { DaemonToggle } from "@/components/brand/daemon-toggle";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
+import { ScreenContainer } from "@/components/shell/screen-container";
 
 export interface DashboardProps {
   /** Wired by Plan 02-04 to open the Peer Detail slide-over. */
@@ -122,19 +122,11 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
   // visible with last-known data but dim to opacity-60.
   const limitedMode = snapshot.state === "running" ? false : true;
 
-  // The Phase-1 LimitedModeBanner still surfaces in the transient /
-  // offline states. `reconnecting` keeps the panels visible without the
-  // banner because the Phase-1 banner is authored for daemon-lifecycle
-  // states, not for the brief reconnect window.
-  const showLimitedBanner =
-    snapshot.state === "stopped" ||
-    snapshot.state === "starting" ||
-    snapshot.state === "error";
+  // Phase 1 Task 1.3: LimitedModeBanner moved to AppShell-level
+  // BannerStack. Dashboard no longer renders it inline.
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6">
-      {showLimitedBanner === true ? <LimitedModeBanner /> : null}
-
+    <ScreenContainer>
       <div className="flex items-center justify-between">
         <ScreenRefresh
           onRefresh={actions.reseed}
@@ -175,6 +167,6 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
       ) : null}
 
       <MetricsPanel status={status} limitedMode={limitedMode} />
-    </div>
+    </ScreenContainer>
   );
 }

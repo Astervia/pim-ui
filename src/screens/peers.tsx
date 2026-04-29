@@ -12,9 +12,9 @@
  *                                  (PEER-02, this plan Task 1).
  *   4. <RemovePeerAlertDialog /> — destructive AlertDialog (Task 2).
  *
- * Layout: matches the Dashboard column shape (`max-w-4xl` flex column,
- * gap-6) so the visual grammar is consistent across ⌘1 / ⌘2 (Phase 2
- * locked-in pattern). The two overlay surfaces are siblings of the
+ * Layout: routes through the shell-level <ScreenContainer /> primitive
+ * (Phase 1 Task 1.2) so every screen shares the same width + rhythm
+ * grammar. The two overlay surfaces are siblings of the
  * panels so they survive tab switches at shell-level should this screen
  * ever be unmounted; they are mounted here too so PeersScreen is the
  * single owner of its overlays per the plan.
@@ -47,6 +47,7 @@ import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { AddPeerSheet } from "@/components/peers/add-peer-sheet";
 import { RemovePeerAlertDialog } from "@/components/peers/remove-peer-alert-dialog";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
+import { ScreenContainer } from "@/components/shell/screen-container";
 import type { PeerDiscovered, PeerSummary } from "@/lib/rpc-types";
 
 export function PeersScreen() {
@@ -62,7 +63,7 @@ export function PeersScreen() {
   const onNearbyPair = (d: PeerDiscovered) => requestOutbound(d);
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6">
+    <ScreenContainer>
       <ScreenRefresh onRefresh={actions.reseed} ariaLabel="refresh peers" />
       <PeersPanel
         peers={peers}
@@ -79,6 +80,6 @@ export function PeersScreen() {
           (PEER-03). */}
       <AddPeerSheet />
       <RemovePeerAlertDialog />
-    </div>
+    </ScreenContainer>
   );
 }
