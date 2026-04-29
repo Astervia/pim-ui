@@ -1,38 +1,43 @@
 /**
- * <PeerDetailSheet /> — right-edge slide-over that opens when a peer row
- * is clicked on the Dashboard (PEER-04, 02-CONTEXT D-15..D-18,
- * 02-UI-SPEC §S3 Peer Detail slide-over).
+ * <PeerDetailSheet /> — right-edge slide-over for a single peer.
  *
- * Width: 480px per D-15 / UI-SPEC §Spacing §Slide-over width.
- * Four sections in fixed order per D-17:
- *   1. IDENTITY      — node_id (copy), short_id, mesh_ip, label
- *   2. CONNECTION    — transport, state (StatusIndicator + word), hops,
- *                      last_seen, latency, is_gateway
- *   3. TRUST         — source string: D-17 verbatim
- *                      "configured in pim.toml" or "paired via discovery"
- *   4. TROUBLESHOOT  — last 25 peers.event entries for this peer;
- *      LOG            failed peer pins a pair_failed reason at top
- *                     in text-destructive per UI-SPEC §Section 4.
+ * Post-redesign: the sheet primitive now owns the top-chrome (close
+ * button + macOS clearance) so this file renders only content. The
+ * header is restructured around a single display name + short_id reveal
+ * + status pill, removing the previous "title (uppercased) followed by
+ * the same id again" redundancy.
  *
- * Phase-3 peer-action affordances are intentionally OMITTED per D-18 —
- * not disabled, not rendered at all. Those land in Phase 3 with PEER-02
- * and PEER-03 once the add/remove/re-pair RPCs are wired.
+ * Layout:
  *
- * Interaction:
- *   - Header's `[ show full ]` button toggles 8-char short_id ↔ 64-char
- *     full node_id (D-16).
- *   - Close via `Esc`, click outside, or × glyph (Radix Sheet default).
- *   - showFull is reset whenever the selected peer changes.
+ *   ┌── (sheet chrome: × close) ───────────────┐
+ *   │                                          │
+ *   │  pim                                     │  display name
+ *   │  9efa1720…660f2bd7   [ show full ]       │  short id (reveal full)
+ *   │  9efa17206618...660f2bd7                 │  full id when shown
+ *   │                                          │
+ *   │  ◆ active · tcp · 6ms · 6s ago · gateway │  status pill
+ *   │                                          │
+ *   ├──────────────────────────────────────────┤
+ *   │  IDENTITY                                │
+ *   │    node_id   ...                         │
+ *   │    mesh_ip   ...                         │
+ *   │    label     ...                         │
+ *   │                                          │
+ *   │  ROUTING                                 │
+ *   │    hops, latency, last_seen, is_gateway  │
+ *   │                                          │
+ *   │  TRUST                                   │
+ *   │    source                                │
+ *   │                                          │
+ *   │  TROUBLESHOOT                            │
+ *   │    log entries                           │
+ *   └──────────────────────────────────────────┘
  *
- * Phase 4 D-25: the failed-event callout in the troubleshoot log gets
- * a docs link appended below the reason line — same SECURITY_DOCS_URL
- * + HANDSHAKE_FAIL_SUBLINE copy as the PeerRow sub-line (voice-contract
- * consistency). The link is a nested <button> calling Tauri shell.open;
- * the detail sheet's troubleshoot log already shows the daemon's
- * reason string, the docs link is the resolution affordance.
+ * Phase 4 D-25 preserved: failed peers' troubleshoot log gets a docs
+ * link after the reason line — same SECURITY_DOCS_URL as the PeerRow
+ * sub-line.
  *
- * NO border-radius, NO gradients, NO literal palette colors, NO
- * exclamation marks.
+ * NO border-radius, NO gradients, NO literal palette colors.
  */
 
 import { useEffect, useState } from "react";
@@ -40,7 +45,6 @@ import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusIndicator } from "@/components/brand/status-indicator";
@@ -55,7 +59,6 @@ import { HANDSHAKE_FAIL_SUBLINE, SECURITY_DOCS_URL } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import type { PeerState, PeerSummary } from "@/lib/rpc-types";
 
-// Honesty-contract state-word colour (mirrors peer-row.tsx).
 const STATE_WORD_CLASS: Record<PeerState, string> = {
   active: "text-foreground",
   relayed: "text-accent",
@@ -63,10 +66,31 @@ const STATE_WORD_CLASS: Record<PeerState, string> = {
   failed: "text-destructive",
 };
 
-/** ISO-8601 → "HH:mm:ss" in local time. */
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return d.toTimeString().slice(0, 8);
+}
+
+interface SectionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+/**
+ * Section primitive — title in caps + tracking on top, content stack
+ * below. Sections are separated by a subtle 1px border-t for terminal
+ * rhythm; the first section drops the rule so the header below the
+ * sheet chrome reads cleanly.
+ */
+function Section({ title, children }: SectionProps) {
+  return (
+    <section className="flex flex-col gap-3 pt-5 mt-5 border-t border-border first:mt-0 first:pt-0 first:border-t-0">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-secondary">
+        {title}
+      </h3>
+      <div className="flex flex-col gap-1.5">{children}</div>
+    </section>
+  );
 }
 
 export function PeerDetailSheet() {
@@ -74,7 +98,6 @@ export function PeerDetailSheet() {
   const [showFull, setShowFull] = useState(false);
   const log = usePeerTroubleshootLog(selected?.node_id);
 
-  // Reset show-full reveal whenever the selected peer changes.
   useEffect(() => {
     setShowFull(false);
   }, [selected?.node_id]);
@@ -82,21 +105,18 @@ export function PeerDetailSheet() {
   if (selected === null) return null;
   const peer: PeerSummary = selected;
 
-  // Failed-peer callout per UI-SPEC §Section 4: when peer.state === "failed",
-  // pin the most recent `pair_failed` event at top with reason in destructive.
   const failedEvent: PeerLogEntry | undefined =
     peer.state === "failed"
       ? log.find((e) => e.kind === "pair_failed")
       : undefined;
 
-  // Connection column values.
   const latencyValue =
     peer.latency_ms === null ? "—" : `${peer.latency_ms}ms`;
   const isGatewayValue = peer.is_gateway === true ? "yes (egress)" : "no";
-  // D-17: TRUST source copy VERBATIM.
   const trustSource =
     peer.static === true ? "configured in pim.toml" : "paired via discovery";
   const labelValue = peer.label === null ? "—" : peer.label;
+  const displayName = peer.label === null ? peer.node_id_short : peer.label;
 
   return (
     <Sheet
@@ -107,91 +127,81 @@ export function PeerDetailSheet() {
     >
       <SheetContent
         side="right"
-        className="w-[480px] sm:max-w-[480px] p-6 gap-6"
+        className="w-[480px] sm:max-w-[480px]"
       >
-        <SheetHeader>
-          <SheetTitle>
-            {peer.label === null ? peer.node_id_short : peer.label}
-          </SheetTitle>
-          <div className="font-code text-sm text-text-secondary flex items-center gap-2">
-            <span>{peer.node_id_short}</span>
-            <button
-              type="button"
-              onClick={() => setShowFull((s) => (s === true ? false : true))}
-              className="font-mono text-xs uppercase tracking-wider text-primary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-100 ease-linear"
-            >
-              [ show {showFull === true ? "short" : "full"} ]
-            </button>
+        {/* Header — display name + short_id reveal + status pill row.
+            Sits inside the sheet body padding so it inherits the chrome
+            clearance from the primitive. */}
+        <header className="flex flex-col gap-3 pb-5 border-b border-border">
+          <div className="flex flex-col gap-1.5">
+            <SheetTitle>{displayName}</SheetTitle>
+            <div className="font-code text-sm text-text-secondary flex items-center gap-3 flex-wrap">
+              <span className="break-all">{peer.node_id_short}</span>
+              <button
+                type="button"
+                onClick={() => setShowFull((s) => (s === true ? false : true))}
+                className="font-mono text-[10px] uppercase tracking-wider text-primary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-100 ease-linear"
+              >
+                [ {showFull === true ? "hide" : "show full"} ]
+              </button>
+            </div>
+            {showFull === true ? (
+              <pre className="font-code text-xs break-all text-foreground whitespace-pre-wrap mt-1 select-text">
+                {peer.node_id}
+              </pre>
+            ) : null}
           </div>
-          {showFull === true && (
-            <pre className="font-code text-xs break-all mt-2 text-foreground whitespace-pre-wrap">
-              {peer.node_id}
-            </pre>
-          )}
-        </SheetHeader>
 
-        {/* Section 1 — IDENTITY */}
-        <section
-          aria-label="identity"
-          className="flex flex-col gap-1 border-b border-border pb-4"
-        >
-          <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
-            identity
-          </h3>
+          {/* Status pill — answers "what is this peer doing right now?"
+              in a single scannable row. */}
+          <div className="flex items-center gap-2 flex-wrap font-code text-sm">
+            <StatusIndicator state={peer.state} />
+            <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
+            <span className="text-text-secondary">·</span>
+            <span className="text-text-secondary">{peer.transport}</span>
+            {peer.latency_ms === null ? null : (
+              <>
+                <span className="text-text-secondary">·</span>
+                <span className="text-text-secondary tabular-nums">
+                  {peer.latency_ms}ms
+                </span>
+              </>
+            )}
+            <span className="text-text-secondary">·</span>
+            <span className="text-text-secondary tabular-nums">
+              {peer.last_seen_s}s ago
+            </span>
+            {peer.is_gateway === true ? (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-primary border border-primary/60 px-1 py-px shrink-0">
+                gateway
+              </span>
+            ) : null}
+            {peer.static === true ? (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-text-secondary border border-border px-1 py-px shrink-0">
+                static
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        <Section title="identity">
           <KvRow label="node_id" value={peer.node_id} copyable />
-          <KvRow label="short_id" value={peer.node_id_short} />
           <KvRow label="mesh_ip" value={peer.mesh_ip} />
           <KvRow label="label" value={labelValue} />
-        </section>
+        </Section>
 
-        {/* Section 2 — CONNECTION */}
-        <section
-          aria-label="connection"
-          className="flex flex-col gap-1 border-b border-border pb-4"
-        >
-          <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
-            connection
-          </h3>
-          <KvRow label="transport" value={peer.transport} />
-          <KvRow
-            label="state"
-            value={
-              <span className="inline-flex items-center gap-1">
-                <StatusIndicator state={peer.state} />
-                <span className={STATE_WORD_CLASS[peer.state]}>
-                  {peer.state}
-                </span>
-              </span>
-            }
-          />
+        <Section title="routing">
           <KvRow label="hops" value={String(peer.route_hops)} />
-          <KvRow
-            label="last_seen"
-            value={`${formatDuration(peer.last_seen_s)} ago`}
-          />
           <KvRow label="latency" value={latencyValue} />
+          <KvRow label="last_seen" value={`${formatDuration(peer.last_seen_s)} ago`} />
           <KvRow label="is_gateway" value={isGatewayValue} />
-        </section>
+        </Section>
 
-        {/* Section 3 — TRUST */}
-        <section
-          aria-label="trust"
-          className="flex flex-col gap-1 border-b border-border pb-4"
-        >
-          <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
-            trust
-          </h3>
+        <Section title="trust">
           <KvRow label="source" value={trustSource} />
-        </section>
+        </Section>
 
-        {/* Section 4 — TROUBLESHOOT LOG */}
-        <section
-          aria-label="troubleshoot log"
-          className="flex-1 min-h-0 flex flex-col"
-        >
-          <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
-            troubleshoot log
-          </h3>
+        <Section title="troubleshoot log">
           {log.length === 0 ? (
             <p className="font-code text-sm text-text-secondary">
               No events recorded this session
@@ -199,7 +209,7 @@ export function PeerDetailSheet() {
           ) : (
             <ul
               role="list"
-              className="font-code text-sm leading-[1.7] space-y-0.5 overflow-y-auto"
+              className="font-code text-sm leading-[1.7] flex flex-col gap-0.5"
             >
               {failedEvent === undefined ? null : (
                 <li className="pb-2 mb-2 border-b border-border flex flex-col gap-1">
@@ -212,11 +222,6 @@ export function PeerDetailSheet() {
                       reason: {failedEvent.reason === undefined ? "unknown" : failedEvent.reason}
                     </span>
                   </div>
-                  {/* Phase 4 D-25: docs-link button appended to the
-                      failed-event callout. Verbatim HANDSHAKE_FAIL_SUBLINE
-                      from copy.ts; opens SECURITY_DOCS_URL via Tauri
-                      shell.open — same handler shape as the PeerRow
-                      sub-line (D-24) for voice-contract consistency. */}
                   <button
                     type="button"
                     onClick={() => {
@@ -250,7 +255,7 @@ export function PeerDetailSheet() {
                 ))}
             </ul>
           )}
-        </section>
+        </Section>
       </SheetContent>
     </Sheet>
   );

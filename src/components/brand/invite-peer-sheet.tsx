@@ -82,9 +82,9 @@ export function InvitePeerSheet() {
     >
       <SheetContent
         side="right"
-        className="w-[480px] sm:max-w-[480px] p-6 gap-6"
+        className="w-[480px] sm:max-w-[480px]"
       >
-        <SheetHeader>
+        <SheetHeader className="pb-5 border-b border-border">
           <SheetTitle>{INVITE_TITLE}</SheetTitle>
         </SheetHeader>
 

@@ -92,11 +92,14 @@ export function AddPeerSheet() {
     >
       <SheetContent
         side="right"
-        className="w-[480px] sm:max-w-[480px] p-6 gap-6"
+        className="w-[480px] sm:max-w-[480px]"
         aria-label="add a static peer"
       >
-        <SheetHeader>
+        <SheetHeader className="pb-5 border-b border-border">
           <SheetTitle>Add a static peer</SheetTitle>
+          <p className="font-code text-sm text-text-secondary">
+            Pin a peer's network address so the daemon dials it directly.
+          </p>
         </SheetHeader>
 
         <Form {...form}>
