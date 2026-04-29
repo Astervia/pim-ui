@@ -99,12 +99,11 @@ export function MobileTopBar() {
     <header
       className={cn(
         "md:hidden sticky top-0 z-30",
-        "flex items-center justify-between gap-4",
-        // h-24 (96px) is tall enough that the macOS traffic lights at
-        // y=12–28 can never visually collide with the centred content
-        // row (which sits around y=48). Also gives the hero wordmark
-        // real presence — phones treat this bar as the page header.
-        "h-24 px-4 sm:px-5",
+        "flex items-center justify-between gap-5",
+        // h-28 (112px) gives the hero wordmark real presence and a
+        // comfortable buffer above the macOS traffic-light triplet
+        // (y=12–28). Phones treat this bar as the page header.
+        "h-28 px-5 sm:px-6",
         "bg-card border-b border-border",
       )}
     >
