@@ -105,12 +105,21 @@ export function SidebarWordmark() {
         </span>
         <span className={tokens.text}>pim</span>
       </div>
+      {/*
+        `key={caption}` forces React to unmount + remount the node on
+        every state change. Without it, swapping the caption string
+        while a CSS animation (phosphor-pulse on the starting / reconnecting
+        states) is mid-cycle could leave residual paint from the prior
+        state on top of the next one — observed in the wild as
+        "STOPPED" and "STARTING…" rendered superimposed during the
+        stopped→starting transition.
+      */}
       <div
+        key={caption}
         className={cn(
-          "mt-1 font-mono text-[10px] uppercase tracking-[0.2em]",
+          "mt-2 font-mono text-xs uppercase tracking-[0.15em]",
           tokens.caption,
         )}
-        aria-live="polite"
       >
         {caption}
       </div>

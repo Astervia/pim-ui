@@ -140,14 +140,14 @@ export function Sidebar() {
           file just mounts it. */}
       <SidebarWordmark />
 
-      {/* Full-width box-drawing rule — replaces the previous truncated
-          `├──` glyph. Reads as a real terminal divider and gives the
-          wordmark a generous breathing room before the nav cluster. */}
+      {/* Full-width box-drawing rule — endcaps removed per user feedback;
+          a clean `─` run reads quieter and lets the wordmark above breathe
+          without a visual frame trapping it. */}
       <div
         aria-hidden="true"
         className="px-5 pb-3 text-muted-foreground select-none font-mono text-xs leading-none tracking-tight"
       >
-        ├──────────────────┤
+        ──────────────────
       </div>
 
       {/* Active nav list — six rows, each a real <button>. */}
