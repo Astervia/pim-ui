@@ -127,7 +127,11 @@ export function Sidebar() {
   return (
     <nav
       aria-label="main"
-      className="w-60 bg-card border-r border-border font-mono flex flex-col shrink-0"
+      // Sidebar pins to viewport: parent shell is now `h-screen
+      // overflow-hidden`, so this `h-screen` sibling stays put while
+      // <main> scrolls. Internal `overflow-y-auto` handles the (rare)
+      // case where the sidebar itself overflows on very short windows.
+      className="w-60 h-screen overflow-y-auto bg-card border-r border-border font-mono flex flex-col shrink-0"
     >
       {/* Phase 4 P1.5 — wordmark is now a live status surface. The block
           glyph re-tints with daemon.state (running → primary phosphor,
@@ -136,16 +140,18 @@ export function Sidebar() {
           file just mounts it. */}
       <SidebarWordmark />
 
-      {/* First box-drawing separator — above the active nav group. */}
+      {/* Full-width box-drawing rule — replaces the previous truncated
+          `├──` glyph. Reads as a real terminal divider and gives the
+          wordmark a generous breathing room before the nav cluster. */}
       <div
         aria-hidden="true"
-        className="px-4 text-muted-foreground select-none"
+        className="px-5 pb-3 text-muted-foreground select-none font-mono text-xs leading-none tracking-tight"
       >
-        ├──
+        ├──────────────────┤
       </div>
 
       {/* Active nav list — six rows, each a real <button>. */}
-      <ul role="list" className="flex flex-col mt-2">
+      <ul role="list" className="flex flex-col mt-2 px-1">
         {NAV.map((row) => {
           const isActive = active === row.id;
           const badge = rowBadge[row.id] ?? null;
@@ -157,12 +163,14 @@ export function Sidebar() {
                 onKeyDown={(e) => onRowKeyDown(e, row.id)}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "w-full flex items-center justify-between px-4 py-3",
+                  "w-full flex items-center justify-between gap-2 px-4 py-3",
                   "font-mono text-xs uppercase tracking-widest",
+                  "border-l-2 border-transparent",
                   "focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-[-1px]",
+                  "transition-colors duration-100 ease-linear",
                   isActive
-                    ? "bg-popover text-primary"
-                    : "text-foreground hover:text-primary hover:bg-popover/40",
+                    ? "bg-popover text-primary border-l-primary"
+                    : "text-foreground hover:text-primary hover:bg-popover/40 hover:border-l-border-active",
                 )}
               >
                 <span className="flex items-center gap-2 min-w-0">
