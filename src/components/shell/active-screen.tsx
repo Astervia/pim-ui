@@ -36,6 +36,7 @@ import { LogsScreen } from "@/screens/logs";
 import { SettingsScreen } from "@/screens/settings";
 import { RouteScreen } from "@/screens/routing";
 import { GatewayScreen } from "@/screens/gateway";
+import { AboutScreen } from "@/screens/about";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
@@ -152,6 +153,11 @@ function renderScreen(
       // ships the SettingsScreen scaffold (nine CollapsibleCliPanel
       // section stubs in fixed order; bodies populated by 03-05/06).
       return <SettingsScreen />;
+    case "about":
+      // ⌘7 — dedicated About surface (split out of the previous Settings
+      // section). Houses app + daemon version, credits, repo link,
+      // keyboard shortcuts, and crash-log access.
+      return <AboutScreen />;
     default:
       return assertNever(active);
   }

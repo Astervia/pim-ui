@@ -155,6 +155,12 @@ export function AppShell() {
           e.preventDefault();
           requestActive("settings", setActive);
           break;
+        case "7":
+          // ⌘7 routes to the dedicated About tab (split out of the
+          // Settings section for a real surface, not a buried row).
+          e.preventDefault();
+          requestActive("about", setActive);
+          break;
         case ",":
           // ⌘, alias for ⌘6 (macOS Preferences idiom per 03-UI-SPEC
           // §Shell chrome note). Swallow so it does NOT trigger Tauri's

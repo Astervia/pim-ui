@@ -27,7 +27,8 @@ export type ActiveScreenId =
   | "logs"
   | "settings"
   | "routing"
-  | "gateway";
+  | "gateway"
+  | "about";
 
 // ─── Module-level atom ─────────────────────────────────────────────
 

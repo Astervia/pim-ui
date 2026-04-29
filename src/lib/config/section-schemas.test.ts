@@ -12,9 +12,9 @@ import {
   type SectionRawWinsMap,
 } from "./schema-diff";
 
-// Assert thirteen section ids (exactly).
-type AssertThirteenSections = typeof SECTION_IDS extends readonly [
-  string,
+// Assert twelve section ids (exactly) — "about" was promoted to its
+// own ⌘7 screen, no longer a settings collapsible section.
+type AssertTwelveSections = typeof SECTION_IDS extends readonly [
   string,
   string,
   string,
@@ -30,7 +30,7 @@ type AssertThirteenSections = typeof SECTION_IDS extends readonly [
 ]
   ? true
   : false;
-const _s: AssertThirteenSections = true;
+const _s: AssertTwelveSections = true;
 void _s;
 
 // Assert every SectionId has a schema entry (exhaustive Record<SectionId, …>).

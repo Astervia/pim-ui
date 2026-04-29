@@ -73,6 +73,7 @@ const NAV: readonly ActiveRow[] = [
   { id: "gateway", label: "gateway", shortcut: "⌘4" },
   { id: "logs", label: "logs", shortcut: "⌘5" },
   { id: "settings", label: "settings", shortcut: "⌘6" },
+  { id: "about", label: "about", shortcut: "⌘7" },
 ];
 
 export function Sidebar() {

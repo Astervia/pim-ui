@@ -62,7 +62,6 @@ import { GatewaySection } from "@/components/settings/sections/gateway-section";
 import { TrustSection } from "@/components/settings/sections/trust-section";
 import { NotificationsSection } from "@/components/settings/sections/notifications-section";
 import { AdvancedSection } from "@/components/settings/sections/advanced-section";
-import { AboutSection } from "@/components/settings/sections/about-section";
 
 type OpenMap = Record<SectionId, boolean>;
 
@@ -264,13 +263,6 @@ export function SettingsScreen() {
             <AdvancedSection
               open={effectiveOpen.advanced}
               onOpenChange={setOpenFor("advanced")}
-            />
-          ) : null}
-
-          {visible.about === true ? (
-            <AboutSection
-              open={effectiveOpen.about}
-              onOpenChange={setOpenFor("about")}
             />
           ) : null}
         </ScreenContainer>

@@ -26,7 +26,6 @@ export const SECTION_IDS = [
   "trust",
   "notifications",
   "advanced",
-  "about",
 ] as const;
 
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -167,11 +166,6 @@ export const SECTION_SCHEMAS: Readonly<Record<SectionId, SectionSchema>> = {
     id: "advanced",
     title: "ADVANCED — RAW CONFIG",
     // Raw TOML editor saves the textarea verbatim; no form-mapped keys.
-    tomlKeys: [],
-  },
-  about: {
-    id: "about",
-    title: "ABOUT",
     tomlKeys: [],
   },
 };
