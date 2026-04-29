@@ -80,6 +80,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
+      # Windows is intentionally absent: per CLAUDE.md the daemon
+      # bridge speaks JSON-RPC 2.0 over a Unix domain socket, which
+      # tokio::net::unix only exposes on `cfg(unix)`. The Windows
+      # port is out of scope for v1 and tracked separately. Adding
+      # it here just to fail every push isn't useful.
       matrix:
         include:
           - label: ubuntu-22.04
@@ -88,8 +93,6 @@ jobs:
             runner: macos-15
           - label: macos-x86_64
             runner: macos-15-intel
-          - label: windows
-            runner: windows-latest
     steps:
       - uses: actions/checkout@v4
 
