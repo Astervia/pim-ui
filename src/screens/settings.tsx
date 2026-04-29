@@ -48,7 +48,6 @@ import {
   type SectionId,
 } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
-import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { ScreenContainer } from "@/components/shell/screen-container";
 import { SettingsSearch } from "@/components/settings/settings-search";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
@@ -97,7 +96,7 @@ function matchesQuery(id: SectionId, query: string): boolean {
 }
 
 export function SettingsScreen() {
-  const { base, loading, loadError, refetch } = useSettingsConfig();
+  const { base, loading, loadError } = useSettingsConfig();
   const [open, setOpen] = useState<OpenMap>(() => buildClosedMap());
   const [query, setQuery] = useState<string>("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -172,10 +171,6 @@ export function SettingsScreen() {
     <TooltipProvider>
       <main aria-label="settings" className="flex flex-col">
         <ScreenContainer>
-          <ScreenRefresh
-            onRefresh={refetch}
-            ariaLabel="refresh settings (re-fetch config from daemon)"
-          />
           <SettingsSearch
             ref={searchRef}
             value={query}

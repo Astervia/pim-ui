@@ -38,10 +38,9 @@ import { PreflightSection } from "@/components/gateway/preflight-section";
 import { NatInterfaceSelect } from "@/components/gateway/nat-interface-select";
 import { GatewayActivePanel } from "@/components/gateway/gateway-active-panel";
 import { gaugeBadgeLabel } from "@/components/gateway/conntrack-gauge";
-import { ScreenRefresh } from "@/components/brand/screen-refresh";
 
 export function GatewayScreen() {
-  const { snapshot, actions } = useDaemonState();
+  const { snapshot } = useDaemonState();
   const { result, loading, error, refetch } = useGatewayPreflight();
   // Plan 05-03: only run gateway.status when on Linux (avoids unnecessary
   // RPC chatter on macOS/Windows where the call would resolve with active: false
@@ -49,22 +48,10 @@ export function GatewayScreen() {
   const platformIsLinux = result === null ? false : result.platform === "linux";
   const gatewayStatus = useGatewayStatus({ enabled: platformIsLinux });
 
-  // Screen-level refresh — reseed the snapshot AND re-run pre-flight.
-  // gatewayStatus auto-refetches off snapshot changes once reseed lands.
-  const refreshAll = async () => {
-    await Promise.all([actions.reseed(), refetch()]);
-  };
-
-  // Render the same `[ refresh ]` row above every branch's CliPanel so
-  // the affordance is uniform. Each branch's panel is unchanged below.
-  const refreshRow = (
-    <ScreenRefresh onRefresh={refreshAll} ariaLabel="refresh gateway" />
-  );
-
   // Branch 1 — daemon not running
   if (snapshot.state !== "running") {
     return (
-      <ScreenContainer density="wide">{refreshRow}
+      <ScreenContainer density="wide">
         <CliPanel title="gateway" status={{ label: "OFFLINE", variant: "muted" }}>
           <p className="font-code text-sm text-muted-foreground">
             pim daemon is not running — start the daemon to run gateway pre-flight.
@@ -77,7 +64,7 @@ export function GatewayScreen() {
   // Branch 2 — initial loading
   if (result === null && loading === true) {
     return (
-      <ScreenContainer density="wide">{refreshRow}
+      <ScreenContainer density="wide">
         <CliPanel title="gateway" status={{ label: "CHECKING", variant: "muted" }}>
           <p className="font-code text-sm text-muted-foreground">
             checking pre-flight…
@@ -90,7 +77,7 @@ export function GatewayScreen() {
   // Branch 3 — preflight error (D-43 inline, no toast)
   if (result === null && error !== null) {
     return (
-      <ScreenContainer density="wide">{refreshRow}
+      <ScreenContainer density="wide">
         <CliPanel title="gateway" status={{ label: "ERROR", variant: "destructive" }}>
           <p className="font-code text-sm text-destructive">
             gateway pre-flight failed: {error.message}
@@ -127,7 +114,7 @@ export function GatewayScreen() {
         activeStatus.conntrack.max,
       );
       return (
-        <ScreenContainer density="wide">{refreshRow}
+        <ScreenContainer density="wide">
           <CliPanel title="gateway" status={{ label: badge }}>
             <GatewayActivePanel
               status={activeStatus}
@@ -143,7 +130,7 @@ export function GatewayScreen() {
   // Branch 4 — non-Linux (GATE-04, D-10)
   if (result.platform !== "linux") {
     return (
-      <ScreenContainer density="wide">{refreshRow}
+      <ScreenContainer density="wide">
         <CliPanel title="gateway" status={{ label: "LINUX-ONLY", variant: "muted" }}>
           <LinuxOnlyPanel platform={result.platform} />
         </CliPanel>
@@ -156,7 +143,7 @@ export function GatewayScreen() {
   const badgeLabel = allOk === true ? "READY" : "PRE-FLIGHT";
 
   return (
-    <ScreenContainer density="wide">{refreshRow}
+    <ScreenContainer density="wide">
       <CliPanel title="gateway" status={{ label: badgeLabel }}>
         <p className="font-code text-sm text-muted-foreground mb-3">
           share your internet with the mesh

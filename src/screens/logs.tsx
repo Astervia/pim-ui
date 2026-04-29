@@ -41,8 +41,6 @@ import {
   type StreamStatus,
 } from "@/hooks/use-logs-stream";
 import { useFilteredLogs } from "@/hooks/use-log-filters";
-import { useDaemonState } from "@/hooks/use-daemon-state";
-import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { ScreenContainer } from "@/components/shell/screen-container";
 import type { BadgeVariant } from "@/components/ui/badge";
 
@@ -71,7 +69,6 @@ export function LogsScreen() {
     status,
     errorMessage,
   } = useLogsStream();
-  const { actions } = useDaemonState();
   // events arrive pre-filtered by levels + crates + peer + source
   // (all client-side) from useLogsStream; useFilteredLogs adds the
   // search-text + time-range filters on top per D-21 / D-22.
@@ -110,10 +107,6 @@ export function LogsScreen() {
 
   return (
     <ScreenContainer density="wide">
-      <ScreenRefresh
-        onRefresh={actions.reseed}
-        ariaLabel="refresh logs"
-      />
       <CliPanel title="logs" status={badge}>
         <LogFilterBar
           levels={levels}

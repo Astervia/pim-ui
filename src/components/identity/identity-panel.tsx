@@ -33,9 +33,37 @@ import { CliPanel } from "@/components/brand/cli-panel";
 import { ScanLoader } from "@/components/brand/scan-loader";
 import { StatusIndicator } from "@/components/brand/status-indicator";
 import { DaemonToggle } from "@/components/brand/daemon-toggle";
+import {
+  TopologyDiagram,
+  type TopologyHop,
+} from "@/components/brand/topology-diagram";
 import { formatDuration } from "@/lib/format";
 import { useActiveScreen } from "@/hooks/use-active-screen";
 import { cn } from "@/lib/utils";
+
+/**
+ * Build the topology hop list from the daemon snapshot. The selected
+ * gateway is always the last hop before "internet"; intermediate
+ * relays are inferred when the gateway peer reports route_hops > 1.
+ */
+function buildHops(status: Status | null): readonly TopologyHop[] {
+  if (status === null) return [];
+  const gatewayId = status.routes.selected_gateway;
+  if (gatewayId === null) return [];
+  const peer = status.peers.find((p) => p.node_id === gatewayId);
+  if (peer === undefined) {
+    return [{ label: gatewayId.slice(0, 8), latencyMs: null }];
+  }
+  const hops: TopologyHop[] = [];
+  if (peer.route_hops > 1) {
+    hops.push({ label: `relay (${peer.route_hops}h)`, latencyMs: null });
+  }
+  hops.push({
+    label: peer.label === null ? peer.node_id_short : peer.label,
+    latencyMs: peer.latency_ms,
+  });
+  return hops;
+}
 
 export interface IdentityPanelProps {
   status: Status | null;
@@ -106,6 +134,9 @@ export function IdentityPanel({
         )
       : null;
 
+  const hops = buildHops(status);
+  const routing = status.route_on === true;
+
   return (
     <CliPanel
       title="identity"
@@ -115,7 +146,7 @@ export function IdentityPanel({
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex items-start justify-between gap-4">
-        <h1 className="font-mono text-2xl tracking-tight leading-[1.3]">
+        <h1 className="font-mono text-3xl tracking-tight leading-[1.2]">
           <span className="phosphor">█ pim</span>
           <span className="text-text-secondary"> · </span>
           <span className="text-foreground">{status.node}</span>
@@ -123,7 +154,7 @@ export function IdentityPanel({
         <StatusIndicator state={indicatorState} />
       </div>
 
-      <p className="mt-1 text-sm text-foreground">
+      <p className="mt-3 text-sm text-foreground">
         <span className="text-text-secondary">mesh:</span> {status.mesh_ip}
         <span className="text-text-secondary"> · </span>
         interface {status.interface.name}
@@ -172,6 +203,16 @@ export function IdentityPanel({
           </span>
         )}
       </p>
+
+      {/*
+        Topology line — appears whenever the user has a path worth
+        showing OR when in solo mode (renders `you · local`). Reads
+        as "where is my traffic actually going?" answered in one row.
+      */}
+      <div className="mt-4 pt-3 border-t border-border">
+        <TopologyDiagram hops={hops} routing={routing} />
+      </div>
+
       {showDaemonToggle === true ? (
         <div className="mt-5 pt-4 border-t border-border flex justify-end">
           <DaemonToggle />
