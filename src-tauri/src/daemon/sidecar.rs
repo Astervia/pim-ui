@@ -56,9 +56,15 @@
 //! Apple Developer Program prereq we're deferring.
 
 use anyhow::{anyhow, Result};
+// Path / PathBuf and Duration are referenced only by the macOS-gated
+// privileged-spawn helpers below; gate the imports too so non-macOS
+// builds don't trip `unused_imports` under the CI's `-D warnings`.
+#[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+#[cfg(target_os = "macos")]
+use std::time::Duration;
 use tauri::AppHandle;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;

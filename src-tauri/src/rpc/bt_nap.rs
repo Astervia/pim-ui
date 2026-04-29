@@ -182,17 +182,20 @@ fn run_other_checks() -> BtNapPreflightResult {
 /// but the work is synchronous fast filesystem access.
 #[tauri::command]
 pub async fn bt_nap_preflight() -> Result<BtNapPreflightResult, String> {
+    // Each branch is the LAST expression in the function body for its
+    // target — drop the `return` keyword so clippy::needless_return
+    // stays happy under the CI's `-D warnings` strictness.
     #[cfg(target_os = "linux")]
     {
-        return Ok(run_linux_checks());
+        Ok(run_linux_checks())
     }
     #[cfg(target_os = "macos")]
     {
-        return Ok(run_macos_checks());
+        Ok(run_macos_checks())
     }
     #[cfg(target_os = "windows")]
     {
-        return Ok(run_windows_checks());
+        Ok(run_windows_checks())
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {

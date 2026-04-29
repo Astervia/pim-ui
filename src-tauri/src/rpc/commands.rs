@@ -218,7 +218,7 @@ pub async fn config_exists() -> Result<ConfigExistsResult, String> {
 pub async fn save_text_file(path: String, content: String) -> Result<String, String> {
     let p = std::path::PathBuf::from(&path);
     if let Some(parent) = p.parent() {
-        if parent.exists() == false {
+        if !parent.exists() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("create parent dir failed: {e}"))?;
         }
@@ -238,7 +238,7 @@ pub async fn save_text_file(path: String, content: String) -> Result<String, Str
 pub async fn read_pim_config_text() -> Result<ReadConfigResult, String> {
     let path = resolve_config_path();
     let path_str = path.to_string_lossy().to_string();
-    if path.try_exists().unwrap_or(false) == false {
+    if !path.try_exists().unwrap_or(false) {
         return Ok(ReadConfigResult {
             raw: String::new(),
             path: path_str,
@@ -307,13 +307,16 @@ fn chrono_secs_to_rfc3339(secs: u64) -> String {
 #[tauri::command]
 pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
     use std::process::Command;
+    // Each branch is the LAST expression for its target; the `return`s
+    // are gone so clippy::needless_return stays happy under
+    // `-D warnings`.
     #[cfg(target_os = "macos")]
     {
         Command::new("open")
             .args(["-R", &path])
             .spawn()
             .map_err(|e| format!("open -R failed: {e}"))?;
-        return Ok(());
+        Ok(())
     }
     #[cfg(target_os = "windows")]
     {
@@ -321,7 +324,7 @@ pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
             .args(["/select,", &path])
             .spawn()
             .map_err(|e| format!("explorer /select failed: {e}"))?;
-        return Ok(());
+        Ok(())
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
