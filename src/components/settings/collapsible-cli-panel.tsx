@@ -1,27 +1,24 @@
 /**
- * <CollapsibleCliPanel /> — brand-wrapped Radix Collapsible on top of the
- * CliPanel header shape. Phase 3 Plan 03-04 §Part A.
+ * <CollapsibleCliPanel /> — brand-wrapped Radix Collapsible on top of
+ * the CliPanel header shape. Settings sections compose this primitive.
  *
- * Spec: 03-UI-SPEC §S1 Settings page + §S1a CollapsibleCliPanel anatomy +
- *        §Interaction states (CollapsibleCliPanel header).
+ * Post-redesign — the header gets larger, the title leads with the
+ * section name in title weight (rather than chrome-tier muted), and a
+ * subtle hover highlight gives keyboard/mouse users a clear affordance
+ * that the row is interactive. The `┌─── TITLE ───┐` ascii bracketing
+ * stays — it's the brand's signature for box-drawn panels.
  *
  * Anatomy:
- *   header (CollapsibleTrigger button)
- *     ┌─── TITLE ───┐                   summary…   pendingRestartToken?  ▸/▾
- *   body (CollapsibleContent)
- *     children (consumer renders the form / banner / save footer)
  *
- * Brand rules:
- *   - Zero radius (no rounded-*) — the box-drawing header IS the radius story.
- *   - bg-popover surface, border-border outline (mirrors CliPanel parent).
- *   - font-mono uppercase tracking-widest for the header title (chrome role).
- *   - Animation classes mirror the existing dialog.tsx / sheet.tsx patterns
- *     (data-[state=open]:animate-in, data-[state=closed]:animate-out, fade
- *     and slide). When the project's tailwind animation utilities aren't
- *     loaded the class names are no-ops at runtime — collapse still works
- *     correctly via Radix Collapsible's data-state attributes.
+ *   ┌─── IDENTITY ───┐  pepe · 9efa1720           ▾
+ *   │
+ *   │  body content (gap-5 stack)
+ *   │
+ *   │  ── footer rule ──
+ *   │  [ DISCARD ]  [ SAVE ]
+ *   └
  *
- * Bang-free per project policy.
+ * Brand absolutes preserved: zero radius, tokens only, no shadows.
  */
 
 import type { ReactNode } from "react";
@@ -33,11 +30,11 @@ import {
 import { cn } from "@/lib/utils";
 
 export interface CollapsibleCliPanelProps {
-  /** Section id — used for aria-controls + scroll anchor (e.g. "transport"). */
+  /** Section id — used for aria-controls + scroll anchor. */
   id: string;
   /** Uppercase title rendered between box-drawing corners. */
   title: string;
-  /** One-line summary rendered in the header right area (collapsed view). */
+  /** One-line summary rendered in the header right area when collapsed. */
   summary: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,9 +61,10 @@ export function CollapsibleCliPanel({
         id={`settings-section-${id}`}
         className={cn(
           "bg-popover border border-border text-foreground",
-          "font-code text-sm leading-[1.7]",
+          "data-[state=open]:border-l-2 data-[state=open]:border-l-primary",
           className,
         )}
+        data-state={open === true ? "open" : "closed"}
       >
         <CollapsibleTrigger asChild>
           <button
@@ -76,18 +74,53 @@ export function CollapsibleCliPanel({
             aria-expanded={open}
             className={cn(
               "w-full flex items-center justify-between gap-4",
-              "px-4 py-2 border-b border-border",
-              "font-mono text-xs uppercase tracking-widest",
-              "text-muted-foreground hover:text-primary",
+              "px-5 py-3.5 border-b border-transparent",
+              "data-[state=open]:border-b-border",
+              "text-left",
+              "hover:bg-card/40",
               "focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-[-1px]",
               "transition-colors duration-100 ease-linear",
+              "group/header",
             )}
+            data-state={open === true ? "open" : "closed"}
           >
-            <span>┌─── {title} ───┐</span>
-            <span className="flex items-center gap-2 text-foreground normal-case tracking-normal">
-              {summary}
+            {/* Title — leads with the section name at title weight so the
+                section reads as a real heading rather than a chrome
+                whisper. The `┌── ──┐` brackets stay as brand grammar. */}
+            <span className="flex items-center gap-2 min-w-0">
+              <span
+                aria-hidden
+                className="font-mono text-xs text-text-secondary leading-none shrink-0"
+              >
+                ┌──
+              </span>
+              <span className="font-mono text-sm uppercase tracking-[0.18em] font-semibold text-foreground truncate">
+                {title}
+              </span>
+              <span
+                aria-hidden
+                className="font-mono text-xs text-text-secondary leading-none shrink-0"
+              >
+                ──┐
+              </span>
+            </span>
+
+            {/* Right cluster — summary, optional pending-restart token,
+                and the open/close indicator. */}
+            <span className="flex items-center gap-3 text-text-secondary shrink-0">
+              <span className="font-code text-xs normal-case tracking-normal hidden sm:inline-flex items-center">
+                {summary}
+              </span>
               {pendingRestartToken}
-              <span aria-hidden="true" className="text-muted-foreground">
+              <span
+                aria-hidden
+                className={cn(
+                  "font-mono text-base leading-none w-4 text-center",
+                  "transition-colors duration-100 ease-linear",
+                  open === true ? "text-primary" : "text-text-secondary",
+                  "group-hover/header:text-primary",
+                )}
+              >
                 {open === true ? "▾" : "▸"}
               </span>
             </span>
@@ -103,7 +136,7 @@ export function CollapsibleCliPanel({
             "duration-150 ease-out",
           )}
         >
-          <div className="px-5 py-4">{children}</div>
+          <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
         </CollapsibleContent>
       </section>
     </Collapsible>

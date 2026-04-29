@@ -265,7 +265,9 @@ export function InterfaceSection({ open, onOpenChange }: InterfaceSectionProps) 
           dirty={form.formState.isDirty}
           state={state}
           onSave={onSave}
-        />
+          onDiscard={() => form.reset()}
+          dirtyFieldCount={Object.keys(form.formState.dirtyFields).length}
+          />
       </Form>
     </CollapsibleCliPanel>
   );

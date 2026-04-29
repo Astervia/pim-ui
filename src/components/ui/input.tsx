@@ -1,43 +1,84 @@
 /**
- * <Input /> — prompt-style input.
+ * <Input /> — bordered prompt-style input.
  *
- * Spec: .design/branding/pim/patterns/STYLE.md → Component patterns → Input
+ * Post-redesign: the previous implementation rendered a borderless
+ * `> ` prompt with no visible field boundary, which read as "raw text"
+ * inside long settings forms — the user couldn't tell where a field
+ * started or ended. The redesign adds a real terminal field box
+ * (popover bg + 1px border) that lights up to primary on focus, so
+ * the field is unmistakable while the brand prompt-prefix grammar
+ * is preserved.
  *
- * Rules:
- *   - No box, no border, no ring
- *   - "> " prompt prefix before the field
- *   - Monospace always
- *   - Focus: blinking block cursor (we use caret-color + a trailing █)
+ * Anatomy:
+ *
+ *   ┌────────────────────────────────────────┐
+ *   │ > 192.168.0.137:9100                   │   default — border-border
+ *   └────────────────────────────────────────┘
+ *
+ *   ┌────────────────────────────────────────┐
+ *   │ > █                                    │   focused — border-primary
+ *   └────────────────────────────────────────┘   prompt re-tints primary
+ *
+ *   ┌────────────────────────────────────────┐
+ *   │ > 192.168.0.137:9100                   │   error — border-destructive
+ *   └────────────────────────────────────────┘   (driven by aria-invalid)
+ *
+ * The field stays zero-radius, monospace, no shadow / glow — the
+ * border IS the field; everything else is text.
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  /** Prompt character. Defaults to "> ". */
+  /** Prompt character. Defaults to "> ". Pass "" to suppress. */
   prompt?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, prompt = "> ", ...props }, ref) => (
-    <div
-      className={cn(
-        "flex items-center font-code text-sm text-foreground",
-        "bg-transparent border-none",
-        className,
-      )}
-    >
-      <span className="text-primary select-none">{prompt}</span>
-      <input
-        ref={ref}
+  ({ className, prompt = "> ", "aria-invalid": ariaInvalid, ...props }, ref) => {
+    const invalid = ariaInvalid === true || ariaInvalid === "true";
+    return (
+      <div
+        data-invalid={invalid === true ? true : undefined}
         className={cn(
-          "flex-1 bg-transparent outline-none border-none",
-          "font-code text-foreground placeholder:text-muted-foreground",
-          "caret-primary",
+          "group flex items-center gap-2",
+          "bg-popover text-foreground",
+          "border border-border",
+          "focus-within:border-primary",
+          "data-[invalid=true]:border-destructive",
+          "px-3 py-2",
+          "transition-colors duration-100 ease-linear",
+          props.disabled === true && "opacity-50 cursor-not-allowed",
+          className,
         )}
-        {...props}
-      />
-    </div>
-  ),
+      >
+        {prompt === "" ? null : (
+          <span
+            aria-hidden
+            className={cn(
+              "font-code text-text-secondary leading-none select-none",
+              "group-focus-within:text-primary",
+              "transition-colors duration-100 ease-linear",
+            )}
+          >
+            {prompt.trim()}
+          </span>
+        )}
+        <input
+          ref={ref}
+          aria-invalid={ariaInvalid}
+          className={cn(
+            "flex-1 min-w-0 bg-transparent outline-none border-none",
+            "font-code text-sm leading-tight text-foreground",
+            "placeholder:text-muted-foreground",
+            "caret-primary",
+            "disabled:cursor-not-allowed",
+          )}
+          {...props}
+        />
+      </div>
+    );
+  },
 );
 Input.displayName = "Input";

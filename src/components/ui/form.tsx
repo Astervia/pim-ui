@@ -121,7 +121,12 @@ function FormLabel({
       data-slot="form-label"
       data-error={hasError(error)}
       className={cn(
-        "font-mono text-xs uppercase tracking-widest text-muted-foreground",
+        // text-foreground (was muted-foreground) so labels are
+        // unambiguously legible — labels ARE the primary scannable
+        // text of a form. Tracking trimmed from widest → wider so the
+        // sentence-case label reads as a real label rather than a
+        // chrome heading.
+        "font-mono text-xs uppercase tracking-wider text-foreground font-semibold",
         "data-[error=true]:text-destructive",
         className,
       )}
@@ -157,7 +162,7 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
       data-slot="form-description"
       id={formDescriptionId}
       className={cn(
-        "font-mono text-sm text-muted-foreground leading-[1.6]",
+        "font-code text-xs text-text-secondary leading-[1.55]",
         className,
       )}
       {...props}

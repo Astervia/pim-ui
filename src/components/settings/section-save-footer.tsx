@@ -1,94 +1,142 @@
 /**
- * <SectionSaveFooter /> — shared per-section save row. Phase 3 Plan 03-04 §Part C.
+ * <SectionSaveFooter /> — per-section save/discard footer.
  *
- * Spec: 03-UI-SPEC §Primary CTAs table (Per-section Save button) +
- *        §Daemon-stopped copy + §Interaction states (per-section save flow).
+ * Post-redesign: separated from the section body by a 1px rule, with
+ * the dirty-count and saved/error state surfaced inline so the user
+ * never has to guess what's about to land. Discard button restores
+ * the original snapshot via the form's `reset()` helper without
+ * leaving the section.
  *
- * Layout:
- *   ┌────────────────────────────────────────────────────────────┐
- *   │  Daemon stopped — reconnect to save.    (only when limited) │
- *   │                                              · [ Save ]    │
- *   └────────────────────────────────────────────────────────────┘
+ * Anatomy:
  *
- * State labels (D-25, 03-UI-SPEC §Primary CTAs):
- *   idle   → `[ Save ]`        (enabled iff dirty && !limited)
- *   saving → `[ Saving… ]`     (disabled, aria-busy)
- *   saved  → `[ Saved ]`       (disabled — caller flips back to idle after 2s)
- *   error  → `[ Save ]`        (re-enabled so user can retry)
+ *   ──────────────────────────────────────────────────────
+ *     ◆ 2 unsaved fields           [ DISCARD ]  [ SAVE ]
  *
- * Limited-mode (LimitedModeBanner active, snapshot.state !== "running"):
- *   - Inline hint above button: `Daemon stopped — reconnect to save.`
- *     (verbatim per 03-UI-SPEC §Daemon-stopped copy)
- *   - Save button disabled regardless of dirty
+ * State labels (D-25):
+ *   idle   → `[ SAVE ]`     (enabled iff dirty && !limited)
+ *   saving → `[ SAVING… ]`  (disabled, aria-busy)
+ *   saved  → `[ SAVED ]`    (disabled — caller flips back to idle after 2s)
+ *   error  → `[ SAVE ]`     (re-enabled so user can retry)
  *
- * Bang-free per project policy. Comparisons are `=== false` / `!== ` only
- * where TS narrows naturally — no `!value` patterns.
+ * Limited mode renders the verbatim 03-UI-SPEC copy
+ * "Daemon stopped — reconnect to save." inline above the button row,
+ * and disables Save (Discard stays usable so the user can revert
+ * locally even when the daemon is unreachable).
  */
 
 import { Button } from "@/components/ui/button";
 import { useDaemonState } from "@/hooks/use-daemon-state";
+import { cn } from "@/lib/utils";
 
-/**
- * Per-section save state. Re-exported by `@/hooks/use-section-save` (the
- * orchestrator that drives this footer); declared here so the footer
- * component is self-describing for read-only consumers.
- */
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
 export interface SectionSaveFooterProps {
   dirty: boolean;
   state: SaveState;
   onSave: () => void;
+  /** Optional discard handler — typically `() => form.reset()`. */
+  onDiscard?: () => void;
+  /** Optional explicit dirty-field count for the inline status hint. */
+  dirtyFieldCount?: number;
 }
 
 export function SectionSaveFooter({
   dirty,
   state,
   onSave,
+  onDiscard,
+  dirtyFieldCount,
 }: SectionSaveFooterProps) {
   const { snapshot } = useDaemonState();
   const limited = snapshot.state === "running" ? false : true;
 
-  const label =
+  const saveLabel =
     state === "saving"
-      ? "[ Saving… ]"
+      ? "[ SAVING… ]"
       : state === "saved"
-        ? "[ Saved ]"
-        : "[ Save ]";
+        ? "[ SAVED ]"
+        : "[ SAVE ]";
 
-  // Disabled: limited-mode wins; otherwise depends on dirty + transient state.
-  const disabled =
+  const saveDisabled =
     limited === true ||
     dirty === false ||
     state === "saving" ||
     state === "saved";
 
+  const discardDisabled =
+    dirty === false || state === "saving" || state === "saved";
+
+  // Inline status — describes WHAT state the section is in.
+  let status: React.ReactNode = null;
+  if (state === "saved") {
+    status = (
+      <span className="flex items-center gap-2 text-primary">
+        <span aria-hidden className="phosphor">
+          ◆
+        </span>
+        <span>saved · daemon reloaded</span>
+      </span>
+    );
+  } else if (state === "error") {
+    status = (
+      <span className="flex items-center gap-2 text-destructive">
+        <span aria-hidden>✗</span>
+        <span>save failed · review fields above</span>
+      </span>
+    );
+  } else if (limited === true) {
+    status = (
+      <span className="flex items-center gap-2 text-text-secondary">
+        <span aria-hidden>○</span>
+        <span>daemon stopped — reconnect to save</span>
+      </span>
+    );
+  } else if (dirty === true) {
+    const count = dirtyFieldCount ?? 0;
+    const label =
+      count <= 0
+        ? "unsaved changes"
+        : count === 1
+          ? "1 unsaved field"
+          : `${count} unsaved fields`;
+    status = (
+      <span className="flex items-center gap-2 text-accent">
+        <span aria-hidden className="phosphor-pulse">
+          ◆
+        </span>
+        <span>{label}</span>
+      </span>
+    );
+  }
+
   return (
-    <div className="mt-6 flex flex-col gap-2">
-      {limited === true && (
-        <p className="font-mono text-sm text-muted-foreground">
-          Daemon stopped — reconnect to save.
-        </p>
-      )}
-      <div className="flex items-center justify-end gap-2">
-        {dirty === true && limited === false && (
-          <span
-            aria-label="unsaved changes"
-            role="img"
-            className="text-primary font-mono"
+    <div className={cn("mt-6 pt-4 border-t border-border")}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="font-code text-xs min-h-5">
+          {status}
+        </div>
+        <div className="flex items-center gap-2">
+          {onDiscard !== undefined ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={discardDisabled}
+              onClick={onDiscard}
+            >
+              [ DISCARD ]
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="default"
+            disabled={saveDisabled}
+            aria-busy={state === "saving" ? true : undefined}
+            onClick={onSave}
           >
-            ·
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="default"
-          disabled={disabled}
-          aria-busy={state === "saving" ? true : undefined}
-          onClick={onSave}
-        >
-          {label}
-        </Button>
+            {saveLabel}
+          </Button>
+        </div>
       </div>
     </div>
   );
