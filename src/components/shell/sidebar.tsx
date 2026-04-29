@@ -40,6 +40,9 @@ import { cn } from "@/lib/utils";
 // Phase 4 P1.5 — sidebar becomes a live status surface.
 import { SidebarWordmark } from "@/components/shell/sidebar-wordmark";
 import { SidebarRowBadge } from "@/components/shell/sidebar-row-badge";
+// Phase 8 — discoverability footer hint mounts at the sidebar's bottom
+// edge via mt-auto inside the existing flex column.
+import { CmdKHint } from "@/components/shell/cmd-k-hint";
 import {
   useFailedPeerCount,
   useGatewayActive,
@@ -186,6 +189,12 @@ export function Sidebar() {
           separator + reserved <ul> are dropped together to keep the chrome
           clean (an empty separator would dangle below settings). If a future
           phase adds a new reserved entry, restore the separator + ul block. */}
+
+      {/* Phase 8 — ⌘K discoverability hint. Self-hides via localStorage
+          once dismissed or once the user has pressed ⌘K at least once.
+          `mt-auto` inside this flex-col nav pushes the hint to the
+          sidebar's bottom edge, leaving the rest of the chrome above. */}
+      <CmdKHint />
     </nav>
   );
 }

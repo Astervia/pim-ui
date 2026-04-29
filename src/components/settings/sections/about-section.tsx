@@ -29,6 +29,12 @@ import { Button } from "@/components/ui/button";
 import { useActiveScreen } from "@/hooks/use-active-screen";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
+// Phase 8 — keyboard cheat sheet rendered from the locked-copy source so
+// the shortcuts list can never drift from AppShell's keydown bindings.
+import {
+  KEYBOARD_SHORTCUTS,
+  KEYBOARD_SHORTCUTS_HEADING,
+} from "@/lib/copy";
 
 const KERNEL_REPO_URL = "https://github.com/Astervia/proximity-internet-mesh";
 const KERNEL_REPO_LABEL = "github.com/Astervia/proximity-internet-mesh ↗";
@@ -173,6 +179,35 @@ export function AboutSection({ open, onOpenChange }: AboutSectionProps) {
           </Button>
         </div>
       </dl>
+
+      {/* Phase 8 — keyboard cheat sheet. Lives inside the same About
+          collapsible (no new section in the settings orchestrator) so
+          power-user discoverability is one click deep without polluting
+          Layer-1. The list is sourced from KEYBOARD_SHORTCUTS in
+          src/lib/copy.ts, which is the single source of truth that
+          tracks AppShell's keydown handler. */}
+      <section
+        aria-labelledby="about-keyboard-shortcuts-heading"
+        className="mt-6 border-t border-border pt-4"
+      >
+        <h3
+          id="about-keyboard-shortcuts-heading"
+          className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-3"
+        >
+          {KEYBOARD_SHORTCUTS_HEADING}
+        </h3>
+        <dl className="font-mono text-sm flex flex-col gap-2">
+          {KEYBOARD_SHORTCUTS.map((shortcut) => (
+            <div
+              key={shortcut.key}
+              className="flex items-baseline gap-4"
+            >
+              <dt className="text-primary w-32 shrink-0">{shortcut.key}</dt>
+              <dd className="text-foreground">{shortcut.label}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </CollapsibleCliPanel>
   );
 }

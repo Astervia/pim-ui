@@ -122,3 +122,40 @@ export const EMPTY_GATEWAYS_NEXT =
 // ─── Toasts (D-31) ───────────────────────────────────────────────────
 
 export const KILL_SWITCH_TOAST = "kill-switch active · routing blocked";
+
+// ─── Phase 8 — discoverability (⌘K hint + keyboard cheat sheet) ───────
+//
+// Single source of truth for the keyboard shortcuts surfaced in the
+// About settings section. Mirrors the bindings in
+// src/components/shell/app-shell.tsx so the cheat sheet can never drift
+// from the live AppShell key handler. When AppShell gains or removes a
+// binding, update this list in lock-step.
+//
+// Voice rules (D-36): no exclamation marks, lowercase descriptions,
+// em-dash separators kept in the rendering layer (not baked into the
+// data) so the markup can choose `<dt>/<dd>` semantics.
+
+export const CMDK_HINT_LABEL = "⌘K · search anything";
+export const CMDK_HINT_DISMISS = "×";
+export const CMDK_HINT_ARIA = "open command palette";
+export const CMDK_HINT_DISMISS_ARIA = "dismiss command palette hint";
+
+export const KEYBOARD_SHORTCUTS_HEADING = "Keyboard shortcuts";
+
+export interface KeyboardShortcut {
+  readonly key: string;
+  readonly label: string;
+}
+
+export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcut[] = [
+  { key: "⌘1", label: "Dashboard" },
+  { key: "⌘2", label: "Peers" },
+  { key: "⌘3", label: "Routing" },
+  { key: "⌘4", label: "Gateway" },
+  { key: "⌘5", label: "Logs" },
+  { key: "⌘6 / ⌘,", label: "Settings" },
+  { key: "⌘K", label: "Command palette" },
+  { key: "⌘F", label: "Filter settings sections (when on Settings)" },
+  { key: "⌘↑", label: "Collapse all settings sections (when on Settings)" },
+  { key: "⌘↓", label: "Expand all settings sections (when on Settings)" },
+];
