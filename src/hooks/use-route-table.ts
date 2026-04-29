@@ -32,7 +32,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useDaemonState } from "./use-daemon-state";
-import { callDaemon } from "@/lib/rpc";
+import { callDaemon, type DaemonSubscription } from "@/lib/rpc";
 import type {
   RouteTableResult,
   RpcError,
@@ -55,6 +55,14 @@ export interface UseRouteTableResult {
 
 let refcount = 0;
 let unsubscribe: (() => Promise<void>) | null = null;
+// Tracks the in-flight subscribe Promise. Without this, a cleanup that fires
+// before the subscribe resolves (StrictMode dev double-mount, fast remount)
+// would leave the wrapped handler in `eventHandlers` permanently — every
+// subsequent status.event then calls a leaked handler, which calls doFetch,
+// which calls notifyAll, which forces a re-render, which (combined with the
+// stable-actions fix) used to re-fire this effect and stack ANOTHER leak.
+// Stable actions stops the re-fire loop; this flag plugs the residual leak.
+let pendingSubscribe: Promise<DaemonSubscription> | null = null;
 let sharedTable: RouteTableResult | null = null;
 let sharedError: RpcError | null = null;
 let sharedLoading = false;
@@ -124,30 +132,49 @@ export function useRouteTable(): UseRouteTableResult {
     if (refcount === 1) {
       // First consumer: fetch and subscribe (joins W1 fan-out).
       void doFetch();
-      void actions
-        .subscribe("status.event", (evt: StatusEvent) => {
-          if (REFETCH_KINDS.has(evt.kind) === true) {
-            void doFetch();
+      const p = actions.subscribe("status.event", (evt: StatusEvent) => {
+        if (REFETCH_KINDS.has(evt.kind) === true) {
+          void doFetch();
+        }
+      });
+      pendingSubscribe = p;
+      void p
+        .then((s) => {
+          if (pendingSubscribe === p) {
+            // Still the most recent subscribe — promote to module-level handle.
+            unsubscribe = s.unsubscribe;
+            pendingSubscribe = null;
+          } else {
+            // A newer subscribe took over (StrictMode or fast remount race) —
+            // tear THIS one down so the handler set doesn't grow.
+            void s.unsubscribe().catch(() => {});
           }
         })
-        .then((s) => {
-          unsubscribe = s.unsubscribe;
-        })
         .catch((e) => {
+          if (pendingSubscribe === p) pendingSubscribe = null;
           // Subscribe failure is recoverable: route.table still works,
           // refetch via [ refresh ] button is the escape hatch (D-20).
-          // Surface as a warning; do not poison sharedError because
-          // the consumer's error UI is for route.table failures only.
+          // Surface as a warning; do not poison sharedError because the
+          // consumer's error UI is for route.table failures only.
           console.warn("useRouteTable subscribe failed:", e);
         });
     }
     return () => {
       subscribers.delete(sub);
       refcount = refcount - 1;
-      if (refcount === 0 && unsubscribe !== null) {
-        const u = unsubscribe;
-        unsubscribe = null;
-        u().catch(() => {});
+      if (refcount === 0) {
+        if (unsubscribe !== null) {
+          const u = unsubscribe;
+          unsubscribe = null;
+          u().catch(() => {});
+        } else if (pendingSubscribe !== null) {
+          // Subscribe still in flight when the last consumer left — chain
+          // the unsubscribe onto its resolution so the wrapped handler
+          // doesn't leak in `eventHandlers`.
+          const p = pendingSubscribe;
+          pendingSubscribe = null;
+          void p.then((s) => s.unsubscribe()).catch(() => {});
+        }
         sharedTable = null;
         sharedError = null;
         sharedLoading = false;
@@ -169,6 +196,7 @@ export function useRouteTable(): UseRouteTableResult {
 export const __test_resetRouteTable = (): void => {
   refcount = 0;
   unsubscribe = null;
+  pendingSubscribe = null;
   sharedTable = null;
   sharedError = null;
   sharedLoading = false;

@@ -42,7 +42,7 @@
  * toggle, banner, stop-confirm dialog), Plan 02-03..06 dashboard panels.
  */
 
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import {
@@ -124,6 +124,38 @@ const eventHandlers = new Map<RpcEventName, Set<(p: unknown) => void>>();
 let hasSeeded = false;
 let statusSub: DaemonSubscription | null = null;
 let peersSub: DaemonSubscription | null = null;
+
+// Live-tick: re-fetch status + peers.discovered every 1s while daemon is
+// running so uptime, peer last_seen_s, discovered first_seen_s and any
+// other timestamp-derived fields keep ticking in the UI without manual
+// refresh. Subscriptions still drive instant updates on significant
+// events; this is the freshness pulse for time-derived values.
+const POLL_INTERVAL_MS = 1000;
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+let pollInFlight = false;
+
+async function pollSnapshot(): Promise<void> {
+  if (pollInFlight === true) return;
+  if (snapshot.state !== "running") return;
+  pollInFlight = true;
+  try {
+    const [status, discovered] = await Promise.all([
+      callDaemon("status", null),
+      callDaemon("peers.discovered", null),
+    ]);
+    setSnapshot({
+      ...snapshot,
+      status,
+      discovered,
+      peerCount: status.peers.filter((p) => p.state === "active").length,
+    });
+  } catch (e) {
+    // Failure leaves the existing snapshot intact (D-30 honest last-state).
+    console.warn("poll (status+peers.discovered) failed:", e);
+  } finally {
+    pollInFlight = false;
+  }
+}
 
 /**
  * Register a local fan-out handler and ensure Rust forwards the stream.
@@ -425,6 +457,15 @@ async function ensureListeners() {
   } catch (e) {
     console.warn("lastDaemonError hydrate failed:", e);
   }
+
+  // Start the 1s freshness pulse. pollSnapshot self-gates on
+  // snapshot.state === "running" so it costs ~nothing while the daemon
+  // is stopped.
+  if (pollInterval === null) {
+    pollInterval = setInterval(() => {
+      void pollSnapshot();
+    }, POLL_INTERVAL_MS);
+  }
 }
 
 function releaseListeners() {
@@ -434,6 +475,10 @@ function releaseListeners() {
   unlistenState = null;
   unlistenRpcEvent?.();
   unlistenRpcEvent = null;
+  if (pollInterval !== null) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
 }
 
 // ─── Public API ────────────────────────────────────────────────────
@@ -479,6 +524,59 @@ function getStopConfirmOpen(): boolean {
   return stopConfirmOpen;
 }
 
+// Module-level singleton: every action reads/writes only module-level state
+// (snapshot, stopConfirmOpen, eventHandlers, etc.), so there's no closure to
+// capture from the React render context. Returning a stable reference is
+// load-bearing — if `actions` is a fresh object literal per render, every
+// downstream `useEffect([actions])` (useRouteTable, usePairApproval,
+// usePendingRestart, usePeerTroubleshootLog, useSectionSave, useRawTomlSave)
+// re-fires on every snapshot change. Each re-fire unsubscribes + re-subscribes
+// + refetches over the Unix socket; combined with the 1 s pollSnapshot tick
+// and React StrictMode's effect double-invocation in dev, this floods the
+// Tauri bridge and saturates the renderer (perceived as the WebView freezing
+// when the user clicks `[ CONFIRM TURN ON ]`). With a stable singleton,
+// `[actions]` deps stop oscillating and the loop closes.
+const STABLE_ACTIONS: DaemonActions = {
+  start: () => startDaemon(),
+  stop: async () => {
+    if (snapshot.peerCount > 0) {
+      setStopConfirm(true);
+      return;
+    }
+    await stopDaemon();
+  },
+  confirmStop: async () => {
+    setStopConfirm(false);
+    await stopDaemon();
+  },
+  dismissStopConfirm: () => setStopConfirm(false),
+  // Delegates to the module-level helper so external subscribers and the
+  // reactive-spine path share one implementation. W1 preserved —
+  // registerHandler never allocates a Tauri subscription; it only registers
+  // in `eventHandlers` and asks Rust (via subscribeDaemon / invoke) to start
+  // forwarding the stream.
+  subscribe: registerHandler,
+  reseed: async () => {
+    try {
+      const [status, discovered] = await Promise.all([
+        callDaemon("status", null),
+        callDaemon("peers.discovered", null),
+      ]);
+      setSnapshot({
+        ...snapshot,
+        status,
+        discovered,
+        peerCount: status.peers.filter((p) => p.state === "active").length,
+      });
+    } catch (e) {
+      // Reseed failure does not clear existing last-known state. The user
+      // will see a stale snapshot; the next live event or successful retry
+      // corrects it.
+      console.warn("reseed (status+peers.discovered) failed:", e);
+    }
+  },
+};
+
 export function useDaemonState(): DaemonStateHookResult {
   const snap = useSyncExternalStore(subscribeLocal, getSnapshot, getSnapshot);
   const scoOpen = useSyncExternalStore(
@@ -492,58 +590,10 @@ export function useDaemonState(): DaemonStateHookResult {
     return () => releaseListeners();
   }, []);
 
-  const start = useCallback(async () => {
-    await startDaemon();
-  }, []);
-  const stop = useCallback(async () => {
-    if (snapshot.peerCount > 0) {
-      setStopConfirm(true);
-      return;
-    }
-    await stopDaemon();
-  }, []);
-  const confirmStop = useCallback(async () => {
-    setStopConfirm(false);
-    await stopDaemon();
-  }, []);
-  const dismissStopConfirm = useCallback(() => setStopConfirm(false), []);
-
-  const reseed = useCallback(async () => {
-    try {
-      const [status, discovered] = await Promise.all([
-        callDaemon("status", null),
-        callDaemon("peers.discovered", null),
-      ]);
-      setSnapshot({
-        ...snapshot,
-        status,
-        discovered,
-        peerCount: status.peers.filter((p) => p.state === "active").length,
-      });
-    } catch (e) {
-      // Reseed failure does not clear existing last-known state. The
-      // user will see a stale snapshot; the next live event or
-      // successful retry corrects it.
-      console.warn("reseed (status+peers.discovered) failed:", e);
-    }
-  }, []);
-
-  const subscribe = useCallback(async function <E extends RpcEventName>(
-    event: E,
-    handler: (p: RpcEventMap[E]) => void,
-  ): Promise<DaemonSubscription> {
-    // Delegate to the module-level helper so external subscribers and
-    // the reactive-spine path share one implementation. W1 preserved —
-    // registerHandler never allocates a Tauri subscription; it only
-    // registers in `eventHandlers` and asks Rust (via subscribeDaemon
-    // / invoke) to start forwarding the stream.
-    return registerHandler(event, handler);
-  }, []);
-
   return {
     snapshot: snap,
     stopConfirmOpen: scoOpen,
-    actions: { start, stop, confirmStop, dismissStopConfirm, subscribe, reseed },
+    actions: STABLE_ACTIONS,
   };
 }
 
@@ -562,4 +612,9 @@ export const __test_resetDaemonStateAtom = () => {
   hasSeeded = false;
   statusSub = null;
   peersSub = null;
+  if (pollInterval !== null) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+  pollInFlight = false;
 };
