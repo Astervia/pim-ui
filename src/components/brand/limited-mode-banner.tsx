@@ -58,7 +58,6 @@ interface Variant {
 function variantFor(
   state: DaemonState,
   lastError: DaemonLastError | null,
-  externalKill: boolean,
 ): Variant {
   // Phase 01.1 D-20: crash-on-boot branch. Must run BEFORE the generic
   // `state === "error"` branch so the more-specific crash copy wins —
@@ -116,15 +115,6 @@ function variantFor(
       accentClass: "accent",
     };
   }
-  if (externalKill) {
-    return {
-      headlineGlyph: "✗",
-      headlineText: "DAEMON STOPPED UNEXPECTEDLY",
-      body:
-        "The daemon process exited. Start it to reconnect. See docs/TROUBLESHOOTING.md §unexpected-stop.",
-      accentClass: "destructive",
-    };
-  }
   return {
     headlineGlyph: "◐",
     headlineText: "LIMITED MODE",
@@ -141,11 +131,6 @@ export function LimitedModeBanner({
   const { requestPermission } = useTunPermission();
   if (snapshot.state === "running") return null;
 
-  // Heuristic: if we previously saw a `running` state (baselineTimestamp set) and
-  // are now stopped with no user-initiated action, treat as external kill.
-  const externalKill =
-    snapshot.state === "stopped" && snapshot.baselineTimestamp !== null;
-
   // Phase 01.1: pass the full DaemonLastError union — variantFor() now
   // owns the message-extraction AND the D-20 crash-on-boot branch
   // (`pickCrashOnBoot(lastError)` runs first inside variantFor and wins
@@ -154,8 +139,8 @@ export function LimitedModeBanner({
   // was a Phase 1 workaround obsoleted by the union extension.
   const lastError = snapshot.lastError;
   const v = useMemo(
-    () => variantFor(snapshot.state, lastError, externalKill),
-    [snapshot.state, lastError, externalKill],
+    () => variantFor(snapshot.state, lastError),
+    [snapshot.state, lastError],
   );
 
   const isDestructive = v.accentClass === "destructive";

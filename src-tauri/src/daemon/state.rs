@@ -152,7 +152,26 @@ impl DaemonConnection {
                 conn.report_crash_on_boot(app, info).await;
             });
         };
-        if let Err(e) = self.sidecar.spawn(&app, on_crash_on_boot).await {
+
+        // The handshake watchdog must NOT count human-typing time in the
+        // macOS auth dialog. Sidecar fires this callback once the daemon
+        // process is actually running (post-auth on macOS, immediate on
+        // Linux/Windows); only then does the rpc.hello clock start.
+        let conn_for_auth = self.clone();
+        let app_for_auth = app.clone();
+        let on_post_auth = move || {
+            let conn = conn_for_auth.clone();
+            let app = app_for_auth.clone();
+            tokio::spawn(async move {
+                conn.arm_handshake_watchdog(app).await;
+            });
+        };
+
+        if let Err(e) = self
+            .sidecar
+            .spawn(&app, on_crash_on_boot, on_post_auth)
+            .await
+        {
             let err = RpcError {
                 code: -32000,
                 message: format!("{e}"),
@@ -164,35 +183,6 @@ impl DaemonConnection {
             return Err(e);
         }
 
-        // W2 checker fix: arm the handshake watchdog. If we're still in
-        // `Starting` after HANDSHAKE_TIMEOUT_SECS, transition to Error.
-        let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
-        *self.watchdog_cancel.lock().await = Some(cancel_tx);
-        {
-            let self_ref = self.clone();
-            let app_wd = app.clone();
-            tokio::spawn(async move {
-                tokio::select! {
-                    _ = tokio::time::sleep(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS)) => {
-                        // Timeout elapsed — if we're still Starting, transition to Error.
-                        let cur = *self_ref.state.lock().await;
-                        if cur == DaemonState::Starting {
-                            let err = RpcError {
-                                code: -32000,
-                                message: format!("daemon did not answer rpc.hello within {HANDSHAKE_TIMEOUT_SECS}s"),
-                                data: None,
-                            };
-                            *self_ref.last_error.lock().await = Some(err.clone());
-                            self_ref.set_state(&app_wd, DaemonState::Error, Some(err), None, None).await;
-                        }
-                    }
-                    _ = cancel_rx => {
-                        // Handshake succeeded (or stop() was called) — watchdog cancels cleanly.
-                    }
-                }
-            });
-        }
-
         // Spawn a background task that handles connect + reconnect forever,
         // until stop() is called.
         let self_ref = self.clone();
@@ -201,6 +191,33 @@ impl DaemonConnection {
             self_ref.connect_loop(app_clone).await;
         });
         Ok(())
+    }
+
+    /// Arm the rpc.hello handshake watchdog. Fired by the sidecar's
+    /// `on_post_auth` callback so the timer doesn't count macOS auth-dialog
+    /// time. If we're still in `Starting` after HANDSHAKE_TIMEOUT_SECS,
+    /// transitions to Error.
+    async fn arm_handshake_watchdog(self: Arc<Self>, app: AppHandle) {
+        let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
+        *self.watchdog_cancel.lock().await = Some(cancel_tx);
+        let self_ref = self.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS)) => {
+                    let cur = *self_ref.state.lock().await;
+                    if cur == DaemonState::Starting {
+                        let err = RpcError {
+                            code: -32000,
+                            message: format!("daemon did not answer rpc.hello within {HANDSHAKE_TIMEOUT_SECS}s"),
+                            data: None,
+                        };
+                        *self_ref.last_error.lock().await = Some(err.clone());
+                        self_ref.set_state(&app, DaemonState::Error, Some(err), None, None).await;
+                    }
+                }
+                _ = cancel_rx => {}
+            }
+        });
     }
 
     /// Drive running -> stopped. Idempotent.
@@ -304,7 +321,13 @@ impl DaemonConnection {
                     backoff = Duration::from_millis(500);
                     if let Err(e) = self.handshake_and_pump(app.clone(), client).await {
                         log::warn!("daemon pump exited: {e}");
-                        // Disconnect detected — go into reconnecting and retry.
+                        // Race fix: stop() may have just run and set Stopped.
+                        // Without this guard, we'd overwrite Stopped with
+                        // Reconnecting and the loop would spin forever trying
+                        // to reach a daemon the user just killed.
+                        if matches!(self.current_state().await, DaemonState::Stopped) {
+                            return;
+                        }
                         self.set_state(&app, DaemonState::Reconnecting, None, None, None)
                             .await;
                     } else {

@@ -110,12 +110,29 @@ impl Sidecar {
     /// `on_crash_on_boot` fires AT MOST ONCE per spawn, only when the
     /// daemon dies within `CRASH_ON_BOOT_THRESHOLD_MS`.
     ///
+    /// `on_post_auth` fires AT MOST ONCE per spawn, the moment the daemon
+    /// process is genuinely running and ready to receive `rpc.hello`. On
+    /// Linux/Windows that's immediately after spawn (no auth gate). On
+    /// macOS it fires after the user authenticates the osascript prompt
+    /// (or is skipped to immediate when an existing daemon is detected on
+    /// the socket fast-path). The caller (`DaemonConnection::start`) uses
+    /// this signal to arm the rpc.hello handshake watchdog so its 10s
+    /// budget doesn't count human-typing time in the auth dialog. The
+    /// callback is NOT fired on auth-cancel / wrapper-error — those paths
+    /// invoke `on_crash_on_boot` instead and the watchdog never arms.
+    ///
     /// On macOS the spawn routes through `osascript do shell script with
     /// administrator privileges`; PID-file liveness probing replaces the
     /// pipe-based exit detection used on the other platforms.
-    pub async fn spawn<F>(&self, app: &AppHandle, on_crash_on_boot: F) -> Result<()>
+    pub async fn spawn<F, G>(
+        &self,
+        app: &AppHandle,
+        on_crash_on_boot: F,
+        on_post_auth: G,
+    ) -> Result<()>
     where
         F: Fn(CrashOnBootInfo) + Send + Sync + Clone + 'static,
+        G: FnOnce() + Send + 'static,
     {
         #[cfg(target_os = "macos")]
         {
@@ -130,13 +147,18 @@ impl Sidecar {
                     target: "pim-daemon",
                     "PIM_NO_PRIVILEGED_SPAWN=1 — skipping osascript path, using normal Tauri sidecar"
                 );
-                return self.spawn_default(app, on_crash_on_boot).await;
+                return self
+                    .spawn_default(app, on_crash_on_boot, on_post_auth)
+                    .await;
             }
-            return self.spawn_macos_privileged(app, on_crash_on_boot).await;
+            return self
+                .spawn_macos_privileged(app, on_crash_on_boot, on_post_auth)
+                .await;
         }
         #[cfg(not(target_os = "macos"))]
         {
-            self.spawn_default(app, on_crash_on_boot).await
+            self.spawn_default(app, on_crash_on_boot, on_post_auth)
+                .await
         }
     }
 
@@ -188,9 +210,15 @@ impl Sidecar {
     /// UI — fine for the Linux daemon (CAP_NET_ADMIN or root via service
     /// unit), the Windows daemon (TBD), or the dev stub on macOS (binds
     /// only a Unix socket, needs no privileges).
-    async fn spawn_default<F>(&self, app: &AppHandle, on_crash_on_boot: F) -> Result<()>
+    async fn spawn_default<F, G>(
+        &self,
+        app: &AppHandle,
+        on_crash_on_boot: F,
+        on_post_auth: G,
+    ) -> Result<()>
     where
         F: Fn(CrashOnBootInfo) + Send + Sync + Clone + 'static,
+        G: FnOnce() + Send + 'static,
     {
         let sidecar = app
             .shell()
@@ -256,6 +284,10 @@ impl Sidecar {
         });
 
         *self.child.lock().await = Some(child);
+        // No auth gate on Linux/Windows (or on the macOS dev-stub path
+        // that re-uses spawn_default) — daemon is running already, fire
+        // on_post_auth immediately so the watchdog starts counting now.
+        on_post_auth();
         Ok(())
     }
 
@@ -267,9 +299,15 @@ impl Sidecar {
     /// macOS privileged spawn. See module-doc for the full theory of
     /// operation.
     #[cfg(target_os = "macos")]
-    async fn spawn_macos_privileged<F>(&self, app: &AppHandle, on_crash_on_boot: F) -> Result<()>
+    async fn spawn_macos_privileged<F, G>(
+        &self,
+        app: &AppHandle,
+        on_crash_on_boot: F,
+        on_post_auth: G,
+    ) -> Result<()>
     where
         F: Fn(CrashOnBootInfo) + Send + Sync + Clone + 'static,
+        G: FnOnce() + Send + 'static,
     {
         let socket_path = crate::daemon::socket_path::resolve_socket_path();
         let pid_file = pid_file_path();
@@ -297,6 +335,9 @@ impl Sidecar {
                         "socket {} alive — skipping privileged spawn (pre-existing daemon answering)",
                         socket_path.display()
                     );
+                    // Pre-existing daemon — no auth dialog gate; arm the
+                    // rpc.hello watchdog right away.
+                    on_post_auth();
                     return Ok(());
                 }
                 Err(e) => {
@@ -424,6 +465,13 @@ impl Sidecar {
         let pid_file_after_wrapper = pid_file.clone();
         let log_file_after_wrapper = log_file.clone();
         let config_path_after_wrapper = config_path.clone();
+        // FnOnce captured by the spawned task. Kept inside an Option so
+        // it can be `take()`-and-called from the success branch without
+        // moving out of the closure (FnOnce can't be cloned). The cancel
+        // branch leaves it as None and the callback is dropped — desired,
+        // because we don't want to arm the watchdog when there's no
+        // daemon to wait on.
+        let mut on_post_auth_slot: Option<G> = Some(on_post_auth);
         tokio::spawn(async move {
             let mut wrapper_stderr_tail: Vec<u8> = Vec::with_capacity(STDERR_TAIL_BYTES);
             while let Some(event) = rx.recv().await {
@@ -464,6 +512,12 @@ impl Sidecar {
                                 probe_at,
                                 on_crash_after_wrapper,
                             ));
+                            // Auth done — daemon is starting. Now (and only
+                            // now) is when the rpc.hello watchdog's 10s
+                            // budget should begin counting.
+                            if let Some(cb) = on_post_auth_slot.take() {
+                                cb();
+                            }
                         } else {
                             // Cancel / auth-fail / osascript error.
                             let stderr_tail =

@@ -49,7 +49,7 @@
  * panels render cleanly before the slide-over plumbing lands.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { PeerSummary, PeerDiscovered } from "@/lib/rpc-types";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useStatus } from "@/hooks/use-status";
@@ -79,8 +79,22 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
   const discovered = useDiscovered();
   const { open: openInvite } = useInvitePeer();
 
-  // Phase 4 D-07: ref to the NearbyPanel wrapper so [ + Add peer nearby ]
-  // (and the WelcomeScreen window event below) can scroll it into view.
+  // Hide discovered peers that already exist in the connected peer list —
+  // the daemon advertises a peer via broadcast even after pairing, so an
+  // active peer would otherwise appear twice (once as CONNECTED and again
+  // as NEARBY with a misleading [ PAIR ] button).
+  const nearby = useMemo(
+    () =>
+      discovered.filter(
+        (d) =>
+          d.node_id === null ||
+          peers.some((p) => p.node_id === d.node_id) === false,
+      ),
+    [discovered, peers],
+  );
+
+  // Ref retained so the WelcomeScreen's `pim-ui:scroll-to-nearby` event
+  // can still bring the NearbyPanel into view after onboarding completes.
   const nearbyRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToNearby = () => {
@@ -141,18 +155,24 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
       <PeerListPanel
         peers={peers}
         onPeerSelect={onPeerSelect}
-        onAddPeerNearby={scrollToNearby}
         onInvitePeer={openInvite}
         limitedMode={limitedMode}
       />
 
-      <div ref={nearbyRef}>
-        <NearbyPanel
-          discovered={discovered}
-          onPair={onNearbyPair}
-          limitedMode={limitedMode}
-        />
-      </div>
+      {/* Auto-pair is enabled by default — discovered peers transition
+          to CONNECTED in <20ms, so the Nearby panel would otherwise sit
+          empty as visual noise. We render it only when there is actually
+          an unpaired peer to act on (manual-pair mode, failed handshake,
+          or briefly during the discovery → connection window). */}
+      {nearby.length > 0 ? (
+        <div ref={nearbyRef}>
+          <NearbyPanel
+            discovered={nearby}
+            onPair={onNearbyPair}
+            limitedMode={limitedMode}
+          />
+        </div>
+      ) : null}
 
       <MetricsPanel status={status} limitedMode={limitedMode} />
     </div>

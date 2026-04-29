@@ -33,8 +33,6 @@ import { cn } from "@/lib/utils";
 export interface PeerListPanelProps {
   peers: PeerSummary[];
   onPeerSelect?: (peer: PeerSummary) => void;
-  /** Phase 4 D-06/D-07: scroll the NearbyPanel into view. */
-  onAddPeerNearby?: () => void;
   /** Phase 4 D-06/D-08: open the InvitePeerSheet. */
   onInvitePeer?: () => void;
   limitedMode?: boolean;
@@ -43,7 +41,6 @@ export interface PeerListPanelProps {
 export function PeerListPanel({
   peers,
   onPeerSelect,
-  onAddPeerNearby,
   onInvitePeer,
   limitedMode = false,
 }: PeerListPanelProps) {
@@ -94,23 +91,11 @@ export function PeerListPanel({
         </ul>
       )}
 
-      {/* ActionRow — Phase 4 D-06: both buttons enabled; click handlers
-          come from Dashboard (onAddPeerNearby / onInvitePeer). Button
-          children start with "[" so <Button> does NOT re-bracket.
-          Limited-mode dim is handled by the panel wrapper's opacity-60;
-          the buttons themselves remain functional so the user can still
-          open the InvitePeerSheet (UI-only, no daemon RPC) or scroll to
-          NearbyPanel while the daemon is in a transient state. */}
+      {/* ActionRow — only [ Invite peer ] remains. The previous
+          [ + Add peer nearby ] button merely scrolled to the NearbyPanel
+          rendered directly below; redundant on dashboards where both
+          panels are visible at once, so it has been removed. */}
       <div className="mt-4 pt-3 border-t border-border flex gap-4 px-4">
-        <Button
-          variant="default"
-          aria-label="add peer nearby"
-          onClick={() => {
-            if (onAddPeerNearby !== undefined) onAddPeerNearby();
-          }}
-        >
-          [ + Add peer nearby ]
-        </Button>
         <Button
           variant="default"
           aria-label="invite peer"
