@@ -99,17 +99,18 @@ export function MobileTopBar() {
     <header
       className={cn(
         "md:hidden sticky top-0 z-30",
-        "flex items-center justify-between gap-3",
-        "h-14 px-3",
+        "flex items-center justify-between gap-4",
+        // h-24 (96px) is tall enough that the macOS traffic lights at
+        // y=12–28 can never visually collide with the centred content
+        // row (which sits around y=48). Also gives the hero wordmark
+        // real presence — phones treat this bar as the page header.
+        "h-24 px-4 sm:px-5",
         "bg-card border-b border-border",
-        "backdrop-blur-0",
-        // The body has a CRT scanline overlay at z-9999 — the bar sits
-        // at z-30 so it stays beneath that effect (consistent with the
-        // rest of the chrome).
       )}
     >
-      {/* Left — hamburger as a bracketed terminal action. Wide touch
-          target (h-10 px-3 ≈ 40×~44px) so a thumb tap lands reliably. */}
+      {/* Left — hamburger as a bracketed terminal action. h-14 / px-4 →
+          a 56px-tall touch target with comfortable side-padding so a
+          thumb tap lands reliably without overshooting. */}
       <button
         type="button"
         onClick={toggle}
@@ -117,8 +118,8 @@ export function MobileTopBar() {
         aria-label={open === true ? "close navigation" : "open navigation"}
         className={cn(
           "inline-flex items-center justify-center gap-2",
-          "h-10 px-3 min-w-[44px]",
-          "font-mono text-sm uppercase tracking-wider",
+          "h-14 px-4 min-w-[60px]",
+          "font-mono text-base uppercase tracking-wider",
           "text-foreground border border-border",
           "hover:border-primary hover:text-primary",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
@@ -126,17 +127,19 @@ export function MobileTopBar() {
           "transition-colors duration-100 ease-linear",
         )}
       >
-        <span className="font-mono text-text-secondary">[</span>
-        <span aria-hidden className="text-base leading-none">
+        <span className="font-mono text-text-secondary text-lg leading-none">[</span>
+        <span aria-hidden className="text-2xl leading-none">
           {open === true ? "×" : "≡"}
         </span>
-        <span className="font-mono text-text-secondary">]</span>
+        <span className="font-mono text-text-secondary text-lg leading-none">]</span>
       </button>
 
-      {/* Centre — stacked wordmark + state caption. Anchors the brand
-          when the desktop sidebar is collapsed behind the drawer. */}
-      <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-        <div className="flex items-baseline gap-[0.3ch] font-mono text-xl leading-none tracking-tight">
+      {/* Centre — hero wordmark + state caption. text-3xl makes the
+          mark unmistakable on phone screens; the caption gets generous
+          0.25em tracking so the daemon-state word reads as a banner
+          rather than a subtitle whisper. */}
+      <div className="flex flex-col items-start gap-1 flex-1 min-w-0">
+        <div className="flex items-baseline gap-[0.4ch] font-mono text-3xl leading-none tracking-tight">
           <span className={tokens.block} aria-hidden="true">
             █
           </span>
@@ -145,7 +148,7 @@ export function MobileTopBar() {
         <div
           key={caption}
           className={cn(
-            "font-mono text-[10px] uppercase tracking-[0.18em] leading-none",
+            "font-mono text-xs uppercase tracking-[0.25em] leading-none",
             tokens.caption,
           )}
         >
@@ -153,11 +156,14 @@ export function MobileTopBar() {
         </div>
       </div>
 
-      {/* Right — single state glyph mirroring the daemon's liveness so
-          the user sees the network state without opening the drawer. */}
+      {/* Right — single state glyph at hero size (text-3xl) so daemon
+          liveness is unmistakable from across the room. */}
       <span
         aria-hidden="true"
-        className={cn("font-mono text-xl leading-none", tokens.glyphClass)}
+        className={cn(
+          "font-mono text-3xl leading-none shrink-0",
+          tokens.glyphClass,
+        )}
       >
         {tokens.glyph}
       </span>
