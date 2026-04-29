@@ -30,7 +30,7 @@
  *   - active row has aria-current="page"
  */
 
-import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, type KeyboardEvent, type ReactNode } from "react";
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
 // Plan 03-04 §Part H.3 (checker Blocker 1) — D-13 nav-away interception:
 // Sidebar clicks route through `requestActive` so dirty Settings sections
@@ -48,6 +48,7 @@ import {
   useGatewayActive,
   useNearbyCount,
 } from "@/hooks/use-sidebar-counts";
+import { useSidebarOpen } from "@/hooks/use-sidebar-open";
 
 interface ActiveRow {
   readonly id: ActiveScreenId;
@@ -76,6 +77,25 @@ const NAV: readonly ActiveRow[] = [
 
 export function Sidebar() {
   const { active, setActive } = useActiveScreen();
+  const { open: drawerOpen, close: closeDrawer } = useSidebarOpen();
+
+  // Auto-close the mobile drawer whenever the active route changes.
+  // On md+ viewports the drawer is always-visible (the close is a
+  // no-op there because the open flag is mobile-only chrome).
+  useEffect(() => {
+    if (drawerOpen === true) closeDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // Esc closes the drawer on mobile.
+  useEffect(() => {
+    if (drawerOpen === false) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDrawer();
+    };
+    window.addEventListener("keydown", handler as never);
+    return () => window.removeEventListener("keydown", handler as never);
+  }, [drawerOpen, closeDrawer]);
   // Phase 4 P1.5 — derive optional row-badge content from existing
   // daemon-state selectors. Each hook is a thin reducer over the snapshot;
   // no new RPC and no new Tauri listener. Failure outranks nearby on the
@@ -128,14 +148,34 @@ export function Sidebar() {
   }
 
   return (
-    <nav
-      aria-label="main"
-      // Sidebar pins to viewport: parent shell is now `h-screen
-      // overflow-hidden`, so this `h-screen` sibling stays put while
-      // <main> scrolls. Internal `overflow-y-auto` handles the (rare)
-      // case where the sidebar itself overflows on very short windows.
-      className="w-60 h-screen overflow-y-auto bg-card border-r border-border font-mono flex flex-col shrink-0"
-    >
+    <>
+      {/* Mobile backdrop — only visible when the drawer is open AND
+          the viewport is below the md breakpoint. Tapping the backdrop
+          dismisses the drawer. */}
+      {drawerOpen === true ? (
+        <button
+          type="button"
+          aria-label="close navigation"
+          onClick={closeDrawer}
+          className="md:hidden fixed inset-0 z-40 bg-background/80 transition-opacity duration-100 ease-linear"
+        />
+      ) : null}
+      <nav
+        aria-label="main"
+        // Layout strategy:
+        //   - md+ (≥768px): sidebar is a static flex sibling 240px wide.
+        //   - mobile: sidebar is a fixed left-edge drawer that slides in
+        //     when `drawerOpen === true`. Translates fully off-screen
+        //     when closed so it doesn't intercept pointer events.
+        // Internal scroll is preserved so very tall NAV groups still
+        // scroll inside the sidebar rather than the whole window.
+        className={cn(
+          "w-60 h-screen overflow-y-auto bg-card border-r border-border font-mono flex flex-col shrink-0",
+          "fixed inset-y-0 left-0 z-50 transition-transform duration-150 ease-out",
+          drawerOpen === true ? "translate-x-0" : "-translate-x-full",
+          "md:static md:translate-x-0 md:transition-none",
+        )}
+      >
       {/* Phase 4 P1.5 — wordmark is now a live status surface. The block
           glyph re-tints with daemon.state (running → primary phosphor,
           starting/reconnecting → accent phosphor-pulse, error → destructive,
@@ -206,6 +246,7 @@ export function Sidebar() {
           `mt-auto` inside this flex-col nav pushes the hint to the
           sidebar's bottom edge, leaving the rest of the chrome above. */}
       <CmdKHint />
-    </nav>
+      </nav>
+    </>
   );
 }

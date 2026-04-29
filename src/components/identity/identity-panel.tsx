@@ -146,7 +146,7 @@ export function IdentityPanel({
       className={cn(limitedMode === true && "opacity-60")}
     >
       <div className="flex items-start justify-between gap-4">
-        <h1 className="font-mono text-3xl tracking-tight leading-[1.2]">
+        <h1 className="font-mono text-2xl sm:text-3xl tracking-tight leading-[1.2] break-words min-w-0">
           <span className="phosphor">█ pim</span>
           <span className="text-text-secondary"> · </span>
           <span className="text-foreground">{status.node}</span>

@@ -94,6 +94,8 @@ import { StopConfirmDialog } from "@/components/brand/stop-confirm-dialog";
 import { SubscriptionErrorToast } from "@/components/brand/subscription-error-toast";
 import { InvitePeerSheet } from "@/components/brand/invite-peer-sheet";
 import { BannerStack } from "./banner-stack";
+import { MobileMenuButton } from "./mobile-menu-button";
+import { cn } from "@/lib/utils";
 // Phase 5 Plan 05-01 D-03 + D-29: ⌘K toggles the command palette atom.
 // Plan 05-05 replaced the Plan 05-01 stub at src/lib/command-palette/state.ts
 // with the real module-level atom + useSyncExternalStore — this import path
@@ -245,8 +247,27 @@ export function AppShell() {
       <Sidebar />
       <main
         aria-label="content"
-        className="flex-1 overflow-y-auto px-8 py-8 flex flex-col gap-6"
+        className={cn(
+          "flex-1 overflow-y-auto flex flex-col gap-6",
+          // Mobile: tighter horizontal padding so 320–375px viewports
+          // have room for content. Tablet+ restores the 2rem breathing
+          // room that the desktop window benefits from.
+          "px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8",
+        )}
       >
+        {/* Mobile chrome bar — only renders below md, where the sidebar
+            is hidden behind a drawer. Hamburger opens the drawer; a
+            small wordmark anchors the brand so the page never reads
+            as a headless content blob. */}
+        <div className="md:hidden flex items-center justify-between gap-3 -mx-1 mb-2">
+          <div className="flex items-center gap-3">
+            <MobileMenuButton />
+            <span className="font-mono text-base tracking-tight">
+              <span className="phosphor text-primary">█ pim</span>
+            </span>
+          </div>
+          <span className="sr-only">Mobile navigation header</span>
+        </div>
         {/* Phase 1 Task 1.3: BannerStack consolidates KillSwitchBanner +
             LimitedModeBanner into a single mount point. Each banner
             self-derives visibility; the stack renders nothing visible
