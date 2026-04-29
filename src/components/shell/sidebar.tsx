@@ -30,13 +30,21 @@
  *   - active row has aria-current="page"
  */
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
 // Plan 03-04 §Part H.3 (checker Blocker 1) — D-13 nav-away interception:
 // Sidebar clicks route through `requestActive` so dirty Settings sections
 // open the discard dialog before the tab change lands.
 import { requestActive } from "@/hooks/use-gated-navigation";
 import { cn } from "@/lib/utils";
+// Phase 4 P1.5 — sidebar becomes a live status surface.
+import { SidebarWordmark } from "@/components/shell/sidebar-wordmark";
+import { SidebarRowBadge } from "@/components/shell/sidebar-row-badge";
+import {
+  useFailedPeerCount,
+  useGatewayActive,
+  useNearbyCount,
+} from "@/hooks/use-sidebar-counts";
 
 interface ActiveRow {
   readonly id: ActiveScreenId;
@@ -62,6 +70,39 @@ const NAV: readonly ActiveRow[] = [
 
 export function Sidebar() {
   const { active, setActive } = useActiveScreen();
+  // Phase 4 P1.5 — derive optional row-badge content from existing
+  // daemon-state selectors. Each hook is a thin reducer over the snapshot;
+  // no new RPC and no new Tauri listener. Failure outranks nearby on the
+  // peers row, so we resolve the badge here rather than per render branch.
+  const nearbyCount = useNearbyCount();
+  const failedPeerCount = useFailedPeerCount();
+  const gatewayActive = useGatewayActive();
+
+  const peersBadge: ReactNode = (() => {
+    if (failedPeerCount > 0) {
+      return <SidebarRowBadge tone="warn">{`${failedPeerCount} err`}</SidebarRowBadge>;
+    }
+    if (nearbyCount > 0) {
+      return (
+        <SidebarRowBadge tone="info">{`${nearbyCount} nearby`}</SidebarRowBadge>
+      );
+    }
+    return null;
+  })();
+
+  const gatewayBadge: ReactNode =
+    gatewayActive === true ? (
+      <SidebarRowBadge tone="on">active</SidebarRowBadge>
+    ) : null;
+
+  // Map nav-row id → optional badge. Missing entries render no badge.
+  // `logs` is intentionally omitted — Phase 8 owns the error-backlog
+  // counter; adding a stub here would lock in semantics the later phase
+  // hasn't yet committed to.
+  const rowBadge: Partial<Record<ActiveScreenId, ReactNode>> = {
+    peers: peersBadge,
+    gateway: gatewayBadge,
+  };
 
   function onRowKeyDown(
     event: KeyboardEvent<HTMLButtonElement>,
@@ -85,11 +126,12 @@ export function Sidebar() {
       aria-label="main"
       className="w-60 bg-card border-r border-border font-mono flex flex-col shrink-0"
     >
-      {/* Wordmark — the block glyph U+2588 gets the phosphor glow;
-          the "pim" wordmark is also phosphor per UI-SPEC §Shell chrome. */}
-      <div className="px-4 py-6 font-mono text-xl tracking-tight leading-[1.4]">
-        <span className="phosphor">█ pim</span>
-      </div>
+      {/* Phase 4 P1.5 — wordmark is now a live status surface. The block
+          glyph re-tints with daemon.state (running → primary phosphor,
+          starting/reconnecting → accent phosphor-pulse, error → destructive,
+          stopped → muted). Implementation owns the rhythm + tokens; this
+          file just mounts it. */}
+      <SidebarWordmark />
 
       {/* First box-drawing separator — above the active nav group. */}
       <div
@@ -103,6 +145,7 @@ export function Sidebar() {
       <ul role="list" className="flex flex-col mt-2">
         {NAV.map((row) => {
           const isActive = active === row.id;
+          const badge = rowBadge[row.id] ?? null;
           return (
             <li key={row.id}>
               <button
@@ -119,11 +162,17 @@ export function Sidebar() {
                     : "text-foreground hover:text-primary hover:bg-popover/40",
                 )}
               >
-                <span>
+                <span className="flex items-center gap-2 min-w-0">
                   {/* Active rows lead with ▶ (U+25B6); inactive with >.
                       Exact copy per UI-SPEC §Sidebar nav row. */}
-                  {isActive ? "▶ " : "> "}
-                  {row.label}
+                  <span className="truncate">
+                    {isActive ? "▶ " : "> "}
+                    {row.label}
+                  </span>
+                  {/* Phase 4 P1.5 — optional live count/state badge. Sits
+                      between the label and the keyboard hint so it never
+                      collides with the right-aligned shortcut. */}
+                  {badge}
                 </span>
                 <span className="text-muted-foreground">{row.shortcut}</span>
               </button>
