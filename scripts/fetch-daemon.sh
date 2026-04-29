@@ -40,9 +40,18 @@ asset_triple_for() {
 # Detect host triple if no args were passed.
 if [ $# -eq 0 ]; then
   case "$(uname -s)-$(uname -m)" in
-    Darwin-arm64)  TRIPLES=("aarch64-apple-darwin") ;;
-    Darwin-x86_64) TRIPLES=("x86_64-apple-darwin") ;;
-    Linux-x86_64)  TRIPLES=("x86_64-unknown-linux-gnu") ;;
+    Darwin-arm64)         TRIPLES=("aarch64-apple-darwin") ;;
+    Darwin-x86_64)        TRIPLES=("x86_64-apple-darwin") ;;
+    Linux-x86_64)         TRIPLES=("x86_64-unknown-linux-gnu") ;;
+    # Windows runners (Git Bash / MSYS2 / Cygwin all match here).
+    # proximity-internet-mesh does not yet ship a Windows release —
+    # the loop below detects the empty asset_triple_for() result and
+    # places a stub at src-tauri/binaries/pim-daemon-<triple>.exe so
+    # `cargo build` resolves the externalBin path without bundling a
+    # real daemon.
+    MINGW*-x86_64|MSYS*-x86_64|CYGWIN*-x86_64)
+      TRIPLES=("x86_64-pc-windows-msvc")
+      ;;
     *)
       echo "fetch-daemon: unsupported host $(uname -sm); pass triples explicitly" >&2
       exit 1
@@ -57,7 +66,19 @@ mkdir -p src-tauri/binaries
 for triple in "${TRIPLES[@]}"; do
   src_triple="$(asset_triple_for "$triple")"
   if [ -z "$src_triple" ]; then
-    echo "fetch-daemon: no proximity release for $triple — skipping" >&2
+    # No upstream asset for this triple yet (e.g. Windows). Drop a stub
+    # so tauri.conf.json's externalBin resolves and `cargo build` can
+    # link; do NOT bundle this for release. desktop-release.yml is
+    # responsible for either (a) skipping unsupported targets or (b)
+    # providing a real binary once proximity ships one.
+    ext=""
+    case "$triple" in
+      *windows*) ext=".exe" ;;
+    esac
+    stub="src-tauri/binaries/pim-daemon-${triple}${ext}"
+    echo "fetch-daemon: no proximity release for $triple — stubbing $stub" >&2
+    : >"$stub"
+    chmod 755 "$stub"
     continue
   fi
 
