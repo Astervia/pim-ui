@@ -100,10 +100,11 @@ export function MobileTopBar() {
       className={cn(
         "md:hidden sticky top-0 z-30",
         "flex items-center justify-between gap-5",
-        // h-28 (112px) gives the hero wordmark real presence and a
-        // comfortable buffer above the macOS traffic-light triplet
-        // (y=12–28). Phones treat this bar as the page header.
-        "h-28 px-5 sm:px-6",
+        // pt-7 pb-5 centres content in the lower half of a 112px bar
+        // so the macOS traffic-light triplet (y=12–28) sits in the
+        // top-padding airspace, and the wordmark gets visible breath
+        // above AND below the content row.
+        "h-28 pt-7 pb-5 px-5 sm:px-6",
         "bg-card border-b border-border",
       )}
     >
