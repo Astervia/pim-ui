@@ -1,152 +1,158 @@
 /**
- * Phase 4 D-17: ROUTING TABLE panel for the Routing screen (04-03).
+ * <RouteTablePanel /> — the routing table on the Routing screen.
  *
- * Columns: destination · via · hops · learned_from · age
+ * Post-redesign — node ids truncate to 4+4 ellipsis (`9efa…2bd7`) so
+ * they fit fixed columns; the routing table reads cleanly without the
+ * full 64-char hex blowing past the column boundary. Default routes
+ * (destination === "internet" or `0.0.0.0/0`) get a `[default]` tag so
+ * they're easy to spot.
+ *
+ * Columns (4-zone, single-line per route):
+ *
+ *   destination               via             hops    age
+ *   ───────────────────────────────────────────────────────
+ *   ◆ 10.77.0.1               9efa…2bd7       1       12s
+ *   ◆ 0.0.0.0/0  [default]    9efa…2bd7       1       8s
  *
  * Selected route — i.e. the route whose `via` matches the daemon's
- * `routes.selected_gateway`, or whose destination is "internet" — gets a
- * leading ◆ glyph and `text-primary` on the destination cell so the eye
- * lands on it (D-17 mockup).
+ * `routes.selected_gateway`, OR whose destination is "internet" /
+ * "0.0.0.0/0" — gets a leading ◆ glyph and `text-primary` on the
+ * destination cell.
  *
- * D-20 escape hatch: a `[ refresh ]` action sits at the top of the panel
- * body (CliPanel does not currently expose a `headerActions` slot, so
- * the button is rendered inline above the column header — without
- * mutating CliPanel's API). The button calls the `onRefresh` prop which
- * the consumer wires to `useRouteTable().refetch`.
+ * Refresh button removed: the route table refetches automatically on
+ * route_on / route_off / gateway_selected / gateway_lost / kill_switch
+ * status events (use-route-table.ts owns the fan-out join). A manual
+ * refresh affordance is no longer needed at the panel chrome.
  *
- * D-30 limited mode: when the daemon is not `running`, the panel dims
- * to opacity-60 and the badge flips to `[STALE]` (mirrors the Phase-2
- * convention used by IdentityPanel / PeerListPanel).
+ * Empty state via TeachingEmptyState (Phase 3) — locked copy.
  *
- * Empty-state copy is locked verbatim from `src/lib/copy.ts`
- * (`ROUTE_TABLE_EMPTY`). The `[ refresh ]` label is also imported from
- * copy.ts (`ROUTE_TABLE_REFRESH`).
- *
- * Bang-free per D-36: every conditional uses `=== false` / `=== null` /
- * `=== true` instead of the JS negation operator. Brand absolutes (no
- * border-radius classes, no fade-blends, no literal palette colors) are
- * enforced by the audit grep gate; all signal lives in brand tokens
- * (`text-primary`, `text-muted-foreground`).
- *
- * W1 contract: this component owns ZERO Tauri event subscriptions. Data
- * is supplied via props by the parent screen (`<RouteScreen />`), which
- * reads from `useRouteTable` (a W1 fan-out joiner that registers no new
- * Tauri-side subscription).
+ * D-30 limited mode preserved.
  */
 
 import type { RouteEntry } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
-import { Button } from "@/components/ui/button";
-import { formatDuration } from "@/lib/format";
-import {
-  EMPTY_ROUTES_NEXT,
-  ROUTE_TABLE_EMPTY,
-  ROUTE_TABLE_REFRESH,
-} from "@/lib/copy";
+import { formatDuration, formatNodeIdEllipsis } from "@/lib/format";
+import { EMPTY_ROUTES_NEXT, ROUTE_TABLE_EMPTY } from "@/lib/copy";
 import { useSelectedGateway } from "@/hooks/use-routing";
 import { cn } from "@/lib/utils";
 
 export interface RouteTablePanelProps {
   routes: RouteEntry[];
-  onRefresh: () => void;
+  /** Kept for prop compatibility; refresh affordance no longer rendered. */
+  onRefresh?: () => void;
   loading?: boolean;
   limitedMode?: boolean;
 }
 
+const DEFAULT_ROUTE_DESTINATIONS = new Set([
+  "0.0.0.0/0",
+  "::/0",
+  "internet",
+  "default",
+]);
+
+function isDefaultRoute(r: RouteEntry): boolean {
+  return DEFAULT_ROUTE_DESTINATIONS.has(r.destination);
+}
+
 export function RouteTablePanel({
   routes,
-  onRefresh,
-  loading = false,
   limitedMode = false,
 }: RouteTablePanelProps) {
   const { id: selectedGatewayId } = useSelectedGateway();
 
+  // Sort: default routes first, then by destination alphabetical.
+  const sorted = [...routes].sort((a, b) => {
+    const aDefault = isDefaultRoute(a);
+    const bDefault = isDefaultRoute(b);
+    if (aDefault === bDefault) return a.destination.localeCompare(b.destination);
+    return aDefault === true ? -1 : 1;
+  });
+
   const badge = limitedMode === true
     ? { label: "STALE", variant: "muted" as const }
-    : { label: `${routes.length} ROUTES`, variant: "default" as const };
+    : {
+        label: routes.length === 1 ? "1 ROUTE" : `${routes.length} ROUTES`,
+        variant: "muted" as const,
+      };
 
   return (
     <CliPanel
-      title="ROUTING TABLE"
+      title="routing table"
       status={badge}
       className={cn(limitedMode === true && "opacity-60")}
     >
-      {/* D-20 [ refresh ] escape hatch — rendered inline above the
-          column header because CliPanel does not (currently) expose a
-          headerActions slot. */}
-      <div className="flex justify-end px-4 pb-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRefresh}
-          aria-label="refresh routing table"
-          aria-disabled={loading === true ? true : undefined}
-        >
-          {ROUTE_TABLE_REFRESH}
-        </Button>
-      </div>
-
-      {/* Column header — muted, uppercase, monospace, 2ch leading slot
-          for the ◆ glyph on the selected row. */}
+      {/* Column header — uppercase muted, monospace. Fixed widths so
+          truncated ids align across rows. */}
       <div
         role="presentation"
         className={cn(
-          "grid grid-cols-[2ch_18ch_14ch_6ch_14ch_1fr]",
-          "gap-x-2 px-4 pb-1 mb-1 border-b border-border",
-          "font-mono text-xs uppercase tracking-widest text-muted-foreground",
+          "grid grid-cols-[2ch_minmax(20ch,1fr)_14ch_5ch_8ch]",
+          "gap-x-3 px-4 pb-2 mb-1 border-b border-border",
+          "font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground",
         )}
       >
         <span></span>
         <span>destination</span>
         <span>via</span>
         <span>hops</span>
-        <span>learned_from</span>
         <span>age</span>
       </div>
 
-      {routes.length === 0 ? (
+      {sorted.length === 0 ? (
         <TeachingEmptyState
           headline={ROUTE_TABLE_EMPTY}
           next={EMPTY_ROUTES_NEXT}
         />
       ) : (
-        <ul role="list" className="divide-y divide-border/30">
-          {routes.map((r, i) => {
+        <ul role="list" className="flex flex-col divide-y divide-border/30">
+          {sorted.map((r, i) => {
+            const isDefault = isDefaultRoute(r);
             const isSelected =
               selectedGatewayId !== null &&
-              (r.via === selectedGatewayId || r.destination === "internet");
+              (r.via === selectedGatewayId || isDefault === true);
             return (
               <li
                 key={`${r.destination}-${i}`}
                 className={cn(
-                  "grid grid-cols-[2ch_18ch_14ch_6ch_14ch_1fr]",
-                  "gap-x-2 px-4 py-1 font-code text-sm",
+                  "grid grid-cols-[2ch_minmax(20ch,1fr)_14ch_5ch_8ch]",
+                  "gap-x-3 px-4 py-2 font-code text-sm items-center",
                 )}
               >
                 <span
-                  className={
+                  className={cn(
+                    "text-center",
                     isSelected === true
                       ? "text-primary phosphor"
-                      : "text-muted-foreground"
-                  }
+                      : "text-text-secondary",
+                  )}
                   aria-label={isSelected === true ? "selected route" : undefined}
                 >
                   {isSelected === true ? "◆" : ""}
                 </span>
-                <span
-                  className={
-                    isSelected === true ? "text-primary" : "text-foreground"
-                  }
-                >
-                  {r.destination}
+                <span className="flex items-center gap-2 min-w-0 truncate">
+                  <span
+                    className={cn(
+                      "truncate",
+                      isSelected === true ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {r.destination}
+                  </span>
+                  {isDefault === true ? (
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-text-secondary border border-border px-1 py-px shrink-0">
+                      default
+                    </span>
+                  ) : null}
                 </span>
-                <span className="text-text-secondary">{r.via}</span>
-                <span className="text-text-secondary">{r.hops}</span>
-                <span className="text-text-secondary">
-                  {r.learned_from === "" ? "—" : r.learned_from}
+                <span className="text-text-secondary truncate">
+                  {formatNodeIdEllipsis(r.via)}
                 </span>
-                <span className="text-text-secondary">
+                <span className="text-text-secondary tabular-nums">
+                  {r.hops}
+                </span>
+                <span className="text-text-secondary tabular-nums">
                   {formatDuration(r.age_s)}
                 </span>
               </li>

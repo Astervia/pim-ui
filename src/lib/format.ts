@@ -84,6 +84,19 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * Render a node id as a 4+4 ellipsis (`a3c2…7f8e`) — preferred form on
+ * routing surfaces where the user is comparing entries against log
+ * lines (which surface both prefix and suffix).
+ *
+ * Falls back to the input verbatim for ids shorter than 9 chars.
+ */
+export function formatNodeIdEllipsis(nodeId: string | null | undefined): string {
+  if (nodeId === null || nodeId === undefined || nodeId === "") return "—";
+  if (nodeId.length < 9) return nodeId;
+  return `${nodeId.slice(0, 4)}…${nodeId.slice(-4)}`;
+}
+
+/**
  * Render a short-form node id.
  *
  * - null / undefined / empty string → `"(no id)"` — matches the D-20

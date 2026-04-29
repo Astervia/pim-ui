@@ -34,14 +34,17 @@
 
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useRouteTable } from "@/hooks/use-route-table";
+import { useStatus } from "@/hooks/use-status";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 import { RouteTablePanel } from "@/components/routing/route-table-panel";
 import { KnownGatewaysPanel } from "@/components/routing/known-gateways-panel";
+import { RouteSummaryPanel } from "@/components/routing/route-summary-panel";
 import { ScreenContainer } from "@/components/shell/screen-container";
 
 export function RouteScreen() {
   const { snapshot } = useDaemonState();
-  const { table, loading, refetch } = useRouteTable();
+  const { table } = useRouteTable();
+  const status = useStatus();
 
   // D-30 limited mode: same convention as Dashboard — anything other
   // than `running` is "limited", panels render last-known data dimmed.
@@ -56,14 +59,13 @@ export function RouteScreen() {
   return (
     <ScreenContainer>
       <RouteTogglePanel limitedMode={limitedMode} />
-      <RouteTablePanel
+      <RouteSummaryPanel
+        status={status}
+        gateways={gateways}
         routes={routes}
-        onRefresh={() => {
-          void refetch();
-        }}
-        loading={loading}
         limitedMode={limitedMode}
       />
+      <RouteTablePanel routes={routes} limitedMode={limitedMode} />
       <KnownGatewaysPanel gateways={gateways} limitedMode={limitedMode} />
     </ScreenContainer>
   );

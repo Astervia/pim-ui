@@ -1,36 +1,34 @@
 /**
- * Phase 4 D-17: KNOWN GATEWAYS panel for the Routing screen (04-03).
+ * <KnownGatewaysPanel /> — gateways the daemon learned via routing
+ * advertisements, on the Routing screen.
  *
- * Columns: short_id · via · hops · score · selected
+ * Post-redesign — single-line rows with a 4+4-truncated id, score
+ * rendered as a horizontal block-glyph bar gauge, and a `[selected]`
+ * tag inline rather than a dedicated column. Latency is enriched from
+ * `usePeers()` when the gateway happens to also be a directly
+ * connected peer (multi-hop gateways have no latency to surface).
  *
- * Selected gateway row (gateway.selected === true) gets a leading ◆
- * glyph + `text-primary` on the short_id cell so the eye lands on it
- * (D-17 mockup). The "selected" column renders the literal word
- * `selected` on that row and an empty cell on the others — the column
- * header is the source of truth for what the glyph means.
+ *   ┌─── GATEWAYS ─────────────────[2 known]──┐
+ *   │ gateway     reach        score    age   │
+ *   │ ───────────────────────────────────     │
+ *   │ ◆ 9efa…2bd7 direct · 6ms ████████░░ 0.85│
+ *   │             [selected]                  │
+ *   │   abc1…ef23 via relay 2h ██████░░░░ 0.62│
+ *   └─────────────────────────────────────────┘
  *
- * `short_id` is rendered as a 4+4 ellipsis (`a3c2…7f8e`) per the D-17
- * mockup convention. Daemon emits 64-char hex node_id; the prefix
- * convention used elsewhere (`PeerSummary.node_id_short`) is 8 chars,
- * but the routing screen explicitly wants the 4-then-4 form so the user
- * can spot-match start AND end of the node id when comparing log lines
- * to the routing table.
+ * The panel surfaces the score as a visualisation (BarGauge) AND a
+ * numeric value so a researcher can compare against the kernel's
+ * gateway-selection heuristic without losing the at-a-glance read.
  *
- * D-30 limited mode: dims to opacity-60, flips badge to `[STALE]`.
- *
- * Empty-state copy is locked verbatim from `src/lib/copy.ts`
- * (`KNOWN_GATEWAYS_EMPTY`).
- *
- * Bang-free per D-36 — every conditional uses `=== true` / `=== null` /
- * `=== false`. Brand absolutes (no border-radius classes, no fade-blends,
- * no literal palette colors) are enforced by the audit grep gate.
- *
- * W1 contract: this component owns ZERO Tauri event subscriptions.
+ * D-30 limited mode preserved.
  */
 
 import type { KnownGateway } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { BarGauge } from "@/components/brand/bar-gauge";
 import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
+import { usePeers } from "@/hooks/use-peers";
+import { formatNodeIdEllipsis } from "@/lib/format";
 import { EMPTY_GATEWAYS_NEXT, KNOWN_GATEWAYS_EMPTY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -39,93 +37,125 @@ export interface KnownGatewaysPanelProps {
   limitedMode?: boolean;
 }
 
-/**
- * Render an 8-char short id as `aaaa…bbbb` (D-17 mockup). When the
- * input is shorter than 8 chars, return it verbatim — defensive only;
- * the daemon never emits short ids, only 64-char node_ids.
- */
-function shortId(node_id: string): string {
-  if (node_id.length <= 8) return node_id;
-  return `${node_id.slice(0, 4)}…${node_id.slice(-4)}`;
-}
-
 export function KnownGatewaysPanel({
   gateways,
   limitedMode = false,
 }: KnownGatewaysPanelProps) {
+  const peers = usePeers();
+
+  const enriched = gateways.map((g) => {
+    const peer = peers.find((p) => p.node_id === g.node_id);
+    return {
+      ...g,
+      latencyMs: peer?.latency_ms ?? null,
+    };
+  });
+
+  // Sort: selected first, then by score descending.
+  const sorted = [...enriched].sort((a, b) => {
+    if (a.selected !== b.selected) return a.selected === true ? -1 : 1;
+    return b.score - a.score;
+  });
+
   const badge = limitedMode === true
     ? { label: "STALE", variant: "muted" as const }
-    : { label: `${gateways.length} GATEWAYS`, variant: "default" as const };
+    : {
+        label: gateways.length === 1 ? "1 KNOWN" : `${gateways.length} KNOWN`,
+        variant: "muted" as const,
+      };
 
   return (
     <CliPanel
-      title="KNOWN GATEWAYS"
+      title="gateways"
       status={badge}
       className={cn(limitedMode === true && "opacity-60")}
     >
-      {/* Column header — muted, uppercase, monospace, 2ch leading slot
-          for the ◆ glyph on the selected row. */}
-      <div
-        role="presentation"
-        className={cn(
-          "grid grid-cols-[2ch_12ch_14ch_6ch_8ch_1fr]",
-          "gap-x-2 px-4 pb-1 mb-1 border-b border-border",
-          "font-mono text-xs uppercase tracking-widest text-muted-foreground",
-        )}
-      >
-        <span></span>
-        <span>short_id</span>
-        <span>via</span>
-        <span>hops</span>
-        <span>score</span>
-        <span>selected</span>
-      </div>
-
-      {gateways.length === 0 ? (
+      {sorted.length === 0 ? (
         <TeachingEmptyState
           headline={KNOWN_GATEWAYS_EMPTY}
           next={EMPTY_GATEWAYS_NEXT}
         />
       ) : (
-        <ul role="list" className="divide-y divide-border/30">
-          {gateways.map((g) => (
-            <li
-              key={g.node_id}
-              className={cn(
-                "grid grid-cols-[2ch_12ch_14ch_6ch_8ch_1fr]",
-                "gap-x-2 px-4 py-1 font-code text-sm",
-              )}
-            >
-              <span
-                className={
-                  g.selected === true
-                    ? "text-primary phosphor"
-                    : "text-muted-foreground"
-                }
-                aria-label={
-                  g.selected === true ? "selected gateway" : undefined
-                }
-              >
-                {g.selected === true ? "◆" : ""}
-              </span>
-              <span
-                className={
-                  g.selected === true ? "text-primary" : "text-foreground"
-                }
-              >
-                {shortId(g.node_id)}
-              </span>
-              <span className="text-text-secondary">
-                {g.via === "" ? "(direct)" : g.via}
-              </span>
-              <span className="text-text-secondary">{g.hops}</span>
-              <span className="text-text-secondary">{g.score.toFixed(2)}</span>
-              <span className="text-text-secondary">
-                {g.selected === true ? "selected" : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* Column header */}
+          <div
+            role="presentation"
+            className={cn(
+              "grid grid-cols-[2ch_14ch_minmax(0,1fr)_minmax(14ch,18ch)]",
+              "gap-x-3 px-4 pb-2 mb-1 border-b border-border",
+              "font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground",
+            )}
+          >
+            <span></span>
+            <span>gateway</span>
+            <span>reach</span>
+            <span>score</span>
+          </div>
+
+          <ul role="list" className="flex flex-col divide-y divide-border/30">
+            {sorted.map((g) => {
+              const reachLabel =
+                g.hops <= 1
+                  ? g.latencyMs === null
+                    ? "direct"
+                    : `direct · ${g.latencyMs}ms`
+                  : `via relay · ${g.hops} hops`;
+              return (
+                <li
+                  key={g.node_id}
+                  className={cn(
+                    "grid grid-cols-[2ch_14ch_minmax(0,1fr)_minmax(14ch,18ch)]",
+                    "gap-x-3 px-4 py-2 font-code text-sm items-center",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-center",
+                      g.selected === true
+                        ? "text-primary phosphor"
+                        : "text-text-secondary",
+                    )}
+                    aria-label={
+                      g.selected === true ? "selected gateway" : undefined
+                    }
+                  >
+                    {g.selected === true ? "◆" : ""}
+                  </span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={cn(
+                        "truncate",
+                        g.selected === true ? "text-primary" : "text-foreground",
+                      )}
+                    >
+                      {formatNodeIdEllipsis(g.node_id)}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 min-w-0 text-text-secondary">
+                    <span className="truncate">{reachLabel}</span>
+                    {g.selected === true ? (
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-primary border border-primary/60 px-1 py-px shrink-0">
+                        selected
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="flex items-center gap-2 justify-end">
+                    <BarGauge
+                      value={g.score}
+                      max={1}
+                      cells={8}
+                      tone={g.selected === true ? "primary" : "muted"}
+                      ariaLabel={`gateway score ${g.score.toFixed(2)}`}
+                    />
+                    <span className="text-text-secondary tabular-nums w-[4ch] text-right">
+                      {g.score.toFixed(2)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </CliPanel>
   );
