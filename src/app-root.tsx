@@ -35,6 +35,8 @@ import App from "./App";
 import { configExists } from "@/lib/rpc";
 import { FirstRunScreen } from "@/screens/first-run";
 import { WelcomeScreen } from "@/screens/welcome";
+import { SimpleShell } from "@/components/shell/simple-shell";
+import { useAppMode } from "@/hooks/use-app-mode";
 
 type ConfigState =
   | { kind: "loading" }
@@ -50,6 +52,11 @@ export function AppRoot(): React.JSX.Element {
     kind: "loading",
   });
   const [bootstrapped, setBootstrapped] = useState(false);
+  // Simple vs advanced mode — once onboarding is done this atom
+  // decides which shell to render. Default is "simple" for new users
+  // (UX-PLAN §2a, persona Aria). Persisted in localStorage via
+  // useAppMode.
+  const { mode } = useAppMode();
   // Phase 4 D-01 + D-03: gate the WelcomeScreen on the localStorage flag.
   // Initialized synchronously so a returning user (flag === "true")
   // bypasses WelcomeScreen on the very first render — no UI flash.
@@ -136,5 +143,13 @@ export function AppRoot(): React.JSX.Element {
     );
   }
 
+  // After onboarding the user is either in simple mode (one-screen
+  // shell with a TURN ON button) or advanced mode (full sidebar via
+  // AppShell). Both share the same providers and daemon-state hooks —
+  // only the chrome differs. The useAppMode atom is persisted to
+  // localStorage so the choice survives relaunches.
+  if (mode === "simple") {
+    return <SimpleShell />;
+  }
   return <App />;
 }

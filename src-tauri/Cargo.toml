@@ -30,6 +30,7 @@ log = "0.4"
 async-trait = "0.1"
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
+tauri-plugin-dialog = "2"
 # `tracing` was previously direct; we use the `log` crate exclusively now
 # because tauri-plugin-log only captures `log` output. Keeping it removed
 # avoids the easy mistake of writing `tracing::info!` and silently losing

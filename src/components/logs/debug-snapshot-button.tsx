@@ -4,26 +4,23 @@
  * Spec: 03-UI-SPEC §S6 row 3 (right-aligned export button) + §S8
  * Debug snapshot toast.
  *
- * Click flow:
- *   1. Build the DebugSnapshot object synchronously from the live
- *      daemon snapshot (status + peers + discovered) + the current
- *      log buffer (use-logs-stream allEvents) + the filter values
- *      currently in effect (level, peer, source — though source is
- *      not part of the D-23 schema's filters_applied, only level /
- *      peer_id / text / time_range are).
- *   2. Trigger a Blob + `<a download>` download with a Windows-safe
- *      filename per D-24.
- *   3. Fire a sonner success toast: `Snapshot saved as {filename}`
- *      (auto-dismiss 4s).
- *   4. On failure (rare — only if Blob/URL APIs reject), fire a
- *      destructive toast `Couldn't generate snapshot.` with a
- *      `[Show in Logs →]` action that navigates to Logs (no source
- *      filter applied — snapshot failures are UI-side, not daemon-
- *      source filterable).
+ * Click flow (post-redesign — native save dialog):
+ *   1. Build the DebugSnapshot synchronously from the live daemon
+ *      snapshot + the current log buffer + the filter values in effect.
+ *   2. Open the OS save dialog via `dialog.save()` (Tauri shell) or
+ *      fall back to a Blob+anchor download (plain webview / mobile).
+ *   3. On confirmation:
+ *        - Tauri path → success toast `Saved to {path}` with a
+ *          `[ Reveal ]` action that calls `reveal_in_file_manager`.
+ *        - Webview fallback → success toast `Saved as {filename}` with
+ *          no reveal action (the browser decides where the file lands).
+ *   4. On cancellation: silent — no toast, no download. The user
+ *      explicitly chose not to export.
+ *   5. On failure (write rejected, dialog crashed): destructive toast
+ *      `Couldn't save snapshot.` with the underlying message.
  *
- * Label flips to `[ Preparing… ]` for < 100 ms while the blob is
- * assembled (03-UI-SPEC §S6: "barely perceptible; included for the
- * honesty of the label").
+ * Label flips to `[ Preparing… ]` while the dialog is up so a slow
+ * picker doesn't read as a frozen button.
  *
  * Brand rules: zero border radius, no shadows, no literal palette
  * colors, no exclamation marks anywhere in this file.
@@ -42,8 +39,8 @@ import {
 import { useActiveScreen } from "@/hooks/use-active-screen";
 import {
   buildDebugSnapshot,
-  downloadSnapshot,
-  snapshotFilename,
+  revealSnapshotInFileManager,
+  saveSnapshot,
 } from "@/lib/debug-snapshot";
 
 function timeRangeLabel(r: LogTimeRange): string {
@@ -53,6 +50,12 @@ function timeRangeLabel(r: LogTimeRange): string {
   if (r.preset === "last_1h") return "Last 1 hour";
   if (r.preset === "all") return "All session";
   return "Custom…";
+}
+
+function shortenPath(p: string, max: number = 56): string {
+  if (p.length <= max) return p;
+  // Keep filename + tail context. Truncate from the head.
+  return `…${p.slice(p.length - (max - 1))}`;
 }
 
 export interface DebugSnapshotButtonProps {
@@ -66,7 +69,7 @@ export function DebugSnapshotButton({ className }: DebugSnapshotButtonProps) {
   const { searchTextDebounced, timeRange } = useLogFilters();
   const { setActive } = useActiveScreen();
 
-  const onClick = (): void => {
+  const onClick = async (): Promise<void> => {
     setPreparing(true);
     try {
       const built = buildDebugSnapshot({
@@ -86,23 +89,47 @@ export function DebugSnapshotButton({ className }: DebugSnapshotButtonProps) {
           time_range: timeRangeLabel(timeRange),
         },
       });
-      downloadSnapshot(built);
-      toast.success(`Snapshot saved as ${snapshotFilename(built.captured_at)}`, {
-        duration: 4000,
-      });
-    } catch {
-      // Checker Warning 5: wire the [Show in Logs →] action directly
-      // on the failure toast so users have a one-click path to the
-      // log surface for triage. The action: { label: "Show in Logs →" }
-      // shape is recognized by sonner's renderer.
-      toast.error("Couldn't generate snapshot.", {
+
+      const result = await saveSnapshot(built);
+      if (result.kind === "cancelled") {
+        // Silent — user chose not to export.
+        return;
+      }
+      if (result.kind === "saved") {
+        toast.success(`Saved to ${shortenPath(result.path)}`, {
+          duration: 6000,
+          action:
+            result.revealable === true
+              ? {
+                  label: "Reveal",
+                  onClick: () => {
+                    revealSnapshotInFileManager(result.path).catch((e) => {
+                      toast.error(
+                        `Couldn't reveal: ${e instanceof Error ? e.message : String(e)}`,
+                      );
+                    });
+                  },
+                }
+              : undefined,
+        });
+        return;
+      }
+      // saved-fallback (plain webview Blob download)
+      toast.success(`Saved as ${result.filename}`, { duration: 4000 });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      // Checker Warning 5 preserved: a `[Show in Logs →]` action lives
+      // on the destructive toast so the user has a one-click path to
+      // triage the underlying problem.
+      toast.error(`Couldn't save snapshot. ${message}`, {
         duration: 8000,
-        action: { label: "Show in Logs →", onClick: () => {
-          setActive("logs");
-          // No source filter — snapshot failures are UI-side errors,
-          // not daemon-source filterable events.
-          applyLogsFilter({});
-        } },
+        action: {
+          label: "Show in Logs →",
+          onClick: () => {
+            setActive("logs");
+            applyLogsFilter({});
+          },
+        },
       });
     } finally {
       setPreparing(false);
@@ -112,12 +139,13 @@ export function DebugSnapshotButton({ className }: DebugSnapshotButtonProps) {
   return (
     <Button
       type="button"
-      variant="default"
+      variant="secondary"
+      size="sm"
       onClick={onClick}
       disabled={preparing}
       className={className}
     >
-      {preparing === true ? "[ Preparing… ]" : "[ Export debug snapshot ]"}
+      {preparing === true ? "preparing…" : "↓ export"}
     </Button>
   );
 }

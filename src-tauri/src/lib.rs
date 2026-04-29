@@ -18,6 +18,9 @@ pub fn run() {
         // Tray construction code is added by Plan 05-04 in the .setup() hook.
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_positioner::init())
+        // Native save/open dialogs — used by Logs tab to let the user
+        // pick where the debug snapshot is exported.
+        .plugin(tauri_plugin_dialog::init())
         .manage(daemon::DaemonConnection::new())
         .invoke_handler(tauri::generate_handler![
             rpc::commands::daemon_call,
@@ -29,6 +32,14 @@ pub fn run() {
             // Phase 01.1: first-run config bootstrap.
             rpc::commands::bootstrap_config,
             rpc::commands::config_exists,
+            // Logs tab debug-snapshot export — write the JSON to the
+            // path the user picked in the save dialog, then reveal it
+            // in the OS file manager on confirmation.
+            rpc::commands::save_text_file,
+            rpc::commands::reveal_in_file_manager,
+            // Settings tab — read pim.toml from disk when the daemon
+            // is stopped so the form can populate without a live RPC.
+            rpc::commands::read_pim_config_text,
         ])
         .setup(|app| {
             log::info!(

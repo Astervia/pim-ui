@@ -407,6 +407,123 @@ h2 {
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────
+ * Simple-mode primitives — radar + power-button glow
+ *
+ * The keyframes below are only consumed by the simple-mode screen
+ * (SimpleModeScreen). `radar-pulse` draws a ring that scales out and
+ * fades, `radar-sweep` spins the sweep arm, `peer-blip` pulses a peer
+ * dot when it appears. `power-glow` paints the phosphor halo around
+ * the big button while the system is in the "off" state.
+ *
+ * All animations honor prefers-reduced-motion via the @media block
+ * below.
+ * ─────────────────────────────────────────────────────────────────── */
+
+.radar-pulse {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-primary);
+  opacity: 0;
+  animation: radar-pulse-keyframe 3s ease-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes radar-pulse-keyframe {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.radar-sweep {
+  animation: radar-sweep-keyframe 4s linear infinite;
+  transform-origin: center center;
+}
+@keyframes radar-sweep-keyframe {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.peer-blip {
+  animation: peer-blip-keyframe 1.6s ease-out infinite;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+@keyframes peer-blip-keyframe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  35% {
+    transform: scale(1.6);
+    opacity: 1;
+  }
+}
+
+.power-glow {
+  box-shadow:
+    0 0 0 1px var(--color-primary),
+    0 0 24px rgba(34, 197, 94, 0.18),
+    inset 0 0 24px rgba(34, 197, 94, 0.08);
+  transition: box-shadow 200ms linear;
+}
+.power-glow:hover {
+  box-shadow:
+    0 0 0 1px var(--color-brand-hover),
+    0 0 36px rgba(34, 197, 94, 0.32),
+    inset 0 0 32px rgba(34, 197, 94, 0.16);
+}
+
+/* Slow text fade-in for state transitions in SimpleModeScreen — the
+ * state machine swaps strings as it advances off → searching →
+ * connected; each string gets a quiet fade so it doesn't pop. */
+.simple-fade-in {
+  animation: simple-fade-keyframe 320ms ease-out both;
+}
+@keyframes simple-fade-keyframe {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* prefers-reduced-motion overrides for the keyframes above.
+ * We keep the final state visible (radar stops, peer blip static,
+ * fade disabled) so the UI stays honest about what it shows. */
+@media (prefers-reduced-motion: reduce) {
+  .radar-pulse,
+  .radar-sweep,
+  .peer-blip,
+  .simple-fade-in {
+    animation: none;
+  }
+  .radar-pulse {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  .peer-blip {
+    transform: scale(1);
+    opacity: 1;
+  }
+  .simple-fade-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Scrollbar — keep it out of the way, in palette */
 ::-webkit-scrollbar {
   width: 8px;
@@ -428,10 +545,20 @@ h2 {
   color: var(--color-primary-foreground);
 }
 
-/* Focus outline — ring color on keyboard nav, never on mouse */
-:focus-visible {
-  outline: 1px solid var(--color-ring);
-  outline-offset: 2px;
+/* Focus outline — ring color on keyboard nav, never on mouse.
+ *
+ * Wrapped in @layer base so Tailwind utilities (emitted into
+ * @layer utilities) can override at the same specificity. Without
+ * this layering, `focus-visible:outline-none` from a component class
+ * loses to the unlayered `:focus-visible` rule and the inner element
+ * paints a second ring on top of whatever bordered wrapper it lives
+ * inside (e.g. <Input>'s focus-within:border-primary).
+ */
+@layer base {
+  :focus-visible {
+    outline: 1px solid var(--color-ring);
+    outline-offset: 2px;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────

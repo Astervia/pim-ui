@@ -36,6 +36,9 @@ import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen"
 // Sidebar clicks route through `requestActive` so dirty Settings sections
 // open the discard dialog before the tab change lands.
 import { requestActive } from "@/hooks/use-gated-navigation";
+// Simple ↔ advanced mode: the footer button in the sidebar flips the
+// global atom. AppRoot remounts the shell when the atom changes.
+import { useAppMode } from "@/hooks/use-app-mode";
 import { cn } from "@/lib/utils";
 // Phase 4 P1.5 — sidebar becomes a live status surface.
 import { SidebarWordmark } from "@/components/shell/sidebar-wordmark";
@@ -79,6 +82,7 @@ const NAV: readonly ActiveRow[] = [
 export function Sidebar() {
   const { active, setActive } = useActiveScreen();
   const { open: drawerOpen, close: closeDrawer } = useSidebarOpen();
+  const { setMode } = useAppMode();
 
   // Auto-close the mobile drawer whenever the active route changes.
   // On md+ viewports the drawer is always-visible (the close is a
@@ -241,6 +245,20 @@ export function Sidebar() {
           separator + reserved <ul> are dropped together to keep the chrome
           clean (an empty separator would dangle below settings). If a future
           phase adds a new reserved entry, restore the separator + ul block. */}
+
+      {/* "Simple mode" button — anchored above CmdKHint via mt-auto.
+          Flips the useAppMode atom → AppRoot remounts SimpleShell.
+          ⌘\ is the keyboard counterpart. Quiet style: no border, just
+          small text + chevron, so it doesn't compete with tab nav. */}
+      <button
+        type="button"
+        onClick={() => setMode("simple")}
+        title={"switch to simple mode (⌘\\)"}
+        className="mt-auto mx-3 mb-2 px-3 py-2 flex items-center justify-between gap-2 font-mono text-xs uppercase tracking-widest text-text-secondary hover:text-accent transition-colors duration-100 ease-linear focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-[-1px]"
+      >
+        <span>← simple mode</span>
+        <span className="text-muted-foreground">{"⌘\\"}</span>
+      </button>
 
       {/* Phase 8 — ⌘K discoverability hint. Self-hides via localStorage
           once dismissed or once the user has pressed ⌘K at least once.

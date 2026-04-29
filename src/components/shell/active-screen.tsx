@@ -145,7 +145,7 @@ function renderScreen(
       // the active-state gauge + throughput + peer-through-me list.
       return <GatewayScreen />;
     case "logs":
-      // Real Logs screen: useLogsStream + LogFilterBar + virtualized
+      // Real Logs screen: useLogsStream + LogToolbar + virtualized
       // LogList + D-28 auto-scroll pill.
       return <LogsScreen />;
     case "settings":

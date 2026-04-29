@@ -1,46 +1,45 @@
 /**
  * <SettingsScreen /> — orchestrator screen for ⌘6.
  *
- * After the Phase 01.1 wire-contract correction (April 2026), the
- * Settings page now mirrors the daemon's `pim-core/src/config/model.rs`
- * schema 1:1 — every top-level config table has its own section.
+ * Post-redesign (April 2026): the flat 13-panel scroll-wall is replaced
+ * by a domain-clustered 2-column layout that honours UX-PLAN §1 P2
+ * ("organised by what they do, not by Basic vs Advanced").
  *
- * Section order (UX grouping):
+ * Layout:
  *
- *   1.  IDENTITY        ([node])
- *   2.  INTERFACE       ([interface])
- *   3.  DISCOVERY       ([discovery] — UDP broadcast)
- *   4.  BLUETOOTH       ([bluetooth] — PAN discovery)
- *   5.  WI-FI DIRECT    ([wifi_direct] — IEEE 802.11 P2P)
- *   6.  TRANSPORT       ([transport] — TCP)
- *   7.  ROUTING         ([routing])
- *   8.  RELAY           ([relay])
- *   9.  GATEWAY         ([gateway])
- *  10.  TRUST           ([security])
- *  11.  NOTIFICATIONS   (UI-side preferences — Phase 5 will wire daemon side)
- *  12.  ADVANCED        (raw TOML editor)
- *  13.  ABOUT
+ *   ┌─ settings · 13 / 13 sections · backed by pim-daemon ─────────┐
+ *   │ [⌕ filter sections…]            [▸ collapse all] [▾ expand]  │
+ *   └──────────────────────────────────────────────────────────────┘
+ *   ┌──────────┬──────────────────────────────────────────────────┐
+ *   │ core     │ ──── core ──── who I am · where my data lives    │
+ *   │   identity│ ┌── IDENTITY ─────────────────────────────────┐ │
+ *   │   interfa│ ┌── INTERFACE ────────────────────────────────┐ │
+ *   │ reach    │ ──── reach ──── how nodes find each other      │
+ *   │   discov │ ┌── DISCOVERY ────────────────────────────────┐ │
+ *   │   bluetoo│ ┌── BLUETOOTH ────────────────────────────────┐ │
+ *   │   wi-fi d│ ...                                            │
+ *   └──────────┴──────────────────────────────────────────────────┘
  *
- * Keyboard shortcuts (CustomEvent dispatched by app-shell.tsx):
- *   - `pim:settings-collapse-all`     → collapse every section
- *   - `pim:settings-expand-all`       → expand every section
- *   - `pim:settings-focus-search`     → focus the section search input (⌘F)
+ * The cluster registry (settings-clusters.ts) drives both the sticky
+ * left nav and the inline divider headers in the content column. New
+ * sections need to be added there in addition to section-schemas.ts.
  *
- * Phase 7 (UI/UX overhaul plan): a top-of-screen <SettingsSearch />
- * filters the visible section list by title or by tomlKey synonyms
- * declared in src/lib/config/section-schemas.ts. While a query is
- * active, every matching section is force-opened so the user can
- * scan its content without expanding it manually; clearing the query
- * restores the user's open/closed state because the force-open layer
- * is a derived view, not a write to `open`.
+ * Section state (open/closed, dirty tracking, save lifecycle, raw-wins
+ * banner) is unchanged — the redesign is purely orchestration. Per-
+ * section internals stay exactly as Phase 03-04 / 05 / 06 left them.
  *
- * Discard flow lives at shell level (active-screen.tsx) so it can
- * intercept tab-away navigation AND the Stop daemon path.
+ * Keyboard shortcuts (CustomEvent dispatched by app-shell.tsx) preserved:
+ *   - `pim:settings-collapse-all`
+ *   - `pim:settings-expand-all`
+ *   - `pim:settings-focus-search`
  *
  * W1 contract: NO listen(...) calls — only window.addEventListener.
+ *
+ * Brand rules: zero border radius, no shadows, no literal palette
+ * colors, no exclamation marks anywhere in this file.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   SECTION_IDS,
@@ -48,8 +47,10 @@ import {
   type SectionId,
 } from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
-import { ScreenContainer } from "@/components/shell/screen-container";
-import { SettingsSearch } from "@/components/settings/settings-search";
+import { SETTINGS_CLUSTERS } from "@/components/settings/settings-clusters";
+import { SettingsHeader } from "@/components/settings/settings-header";
+import { SettingsNav } from "@/components/settings/settings-nav";
+import { SettingsClusterDivider } from "@/components/settings/settings-cluster-divider";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -76,11 +77,6 @@ function buildOpenMap(): OpenMap {
 /**
  * Filter predicate — true if the section should be visible for the
  * given query. Empty query is treated as "show everything".
- *
- * Match policy:
- *   - case-insensitive
- *   - substring match on the section's title
- *   - substring match on any of the section's wire tomlKeys
  */
 function matchesQuery(id: SectionId, query: string): boolean {
   if (query === "") return true;
@@ -94,8 +90,42 @@ function matchesQuery(id: SectionId, query: string): boolean {
   return false;
 }
 
+interface SectionRendererArgs {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function renderSection(id: SectionId, args: SectionRendererArgs): ReactNode {
+  switch (id) {
+    case "identity":
+      return <IdentitySection {...args} />;
+    case "interface":
+      return <InterfaceSection {...args} />;
+    case "discovery":
+      return <DiscoverySection {...args} />;
+    case "bluetooth":
+      return <BluetoothSection {...args} />;
+    case "wifi_direct":
+      return <WifiDirectSection {...args} />;
+    case "transport":
+      return <TransportSection {...args} />;
+    case "routing":
+      return <RoutingSection {...args} />;
+    case "relay":
+      return <RelaySection {...args} />;
+    case "gateway":
+      return <GatewaySection {...args} />;
+    case "trust":
+      return <TrustSection {...args} />;
+    case "notifications":
+      return <NotificationsSection {...args} />;
+    case "advanced":
+      return <AdvancedSection {...args} />;
+  }
+}
+
 export function SettingsScreen() {
-  const { base, loading, loadError } = useSettingsConfig();
+  const { base, loading, loadError, source } = useSettingsConfig();
   const [open, setOpen] = useState<OpenMap>(() => buildClosedMap());
   const [query, setQuery] = useState<string>("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -121,11 +151,6 @@ export function SettingsScreen() {
   const setOpenFor = (id: SectionId) => (v: boolean) =>
     setOpen((prev) => ({ ...prev, [id]: v }));
 
-  // While a query is active, force-open every section the parent
-  // chooses to render so the user can scan content without expanding
-  // each one. When the query is cleared this layer becomes the
-  // identity transform and the user's previous open/closed state is
-  // visible again.
   const queryActive = query.trim() !== "";
   const effectiveOpen = useMemo<OpenMap>(() => {
     if (queryActive === false) return open;
@@ -149,6 +174,9 @@ export function SettingsScreen() {
     0,
   );
 
+  const anyOpen = SECTION_IDS.some((id) => effectiveOpen[id] === true);
+  const allOpen = SECTION_IDS.every((id) => effectiveOpen[id] === true);
+
   if (loadError !== null) {
     return (
       <main aria-label="settings" className="flex flex-col px-2 py-2">
@@ -168,104 +196,87 @@ export function SettingsScreen() {
 
   return (
     <TooltipProvider>
-      <main aria-label="settings" className="flex flex-col">
-        <ScreenContainer>
-          <SettingsSearch
-            ref={searchRef}
-            value={query}
-            onChange={setQuery}
-          />
+      <main aria-label="settings" className="flex flex-col w-full">
+        <SettingsHeader
+          ref={searchRef}
+          query={query}
+          onQueryChange={setQuery}
+          visibleCount={visibleCount}
+          totalCount={SECTION_IDS.length}
+          onCollapseAll={() => setOpen(buildClosedMap())}
+          onExpandAll={() => setOpen(buildOpenMap())}
+          anyOpen={anyOpen}
+          allOpen={allOpen}
+          source={source}
+        />
 
-          {queryActive === true && visibleCount === 0 ? (
-            <p className="font-mono text-sm text-muted-foreground px-2 py-4">
+        {queryActive === true && visibleCount === 0 ? (
+          <div className="flex flex-col items-start gap-2 mt-8 px-2">
+            <pre
+              aria-hidden
+              className="font-code text-muted-foreground text-[11px] leading-tight m-0"
+            >
+{`     ┌──────────────────┐
+     │  no match found  │
+     └──────────────────┘`}
+            </pre>
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               no sections match &quot;{query}&quot;
             </p>
-          ) : null}
-
-          {visible.identity === true ? (
-            <IdentitySection
-              open={effectiveOpen.identity}
-              onOpenChange={setOpenFor("identity")}
+            <p className="font-code text-xs text-text-secondary">
+              try a wire key like{" "}
+              <span className="text-foreground">discovery.port</span> or a
+              section name like{" "}
+              <span className="text-foreground">routing</span>
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-x-8 gap-y-4 mt-5">
+            <SettingsNav
+              clusters={SETTINGS_CLUSTERS}
+              visible={visible}
+              className="hidden lg:block sticky top-2 self-start"
             />
-          ) : null}
 
-          {visible.interface === true ? (
-            <InterfaceSection
-              open={effectiveOpen.interface}
-              onOpenChange={setOpenFor("interface")}
-            />
-          ) : null}
-
-          {visible.discovery === true ? (
-            <DiscoverySection
-              open={effectiveOpen.discovery}
-              onOpenChange={setOpenFor("discovery")}
-            />
-          ) : null}
-
-          {visible.bluetooth === true ? (
-            <BluetoothSection
-              open={effectiveOpen.bluetooth}
-              onOpenChange={setOpenFor("bluetooth")}
-            />
-          ) : null}
-
-          {visible.wifi_direct === true ? (
-            <WifiDirectSection
-              open={effectiveOpen.wifi_direct}
-              onOpenChange={setOpenFor("wifi_direct")}
-            />
-          ) : null}
-
-          {visible.transport === true ? (
-            <TransportSection
-              open={effectiveOpen.transport}
-              onOpenChange={setOpenFor("transport")}
-            />
-          ) : null}
-
-          {visible.routing === true ? (
-            <RoutingSection
-              open={effectiveOpen.routing}
-              onOpenChange={setOpenFor("routing")}
-            />
-          ) : null}
-
-          {visible.relay === true ? (
-            <RelaySection
-              open={effectiveOpen.relay}
-              onOpenChange={setOpenFor("relay")}
-            />
-          ) : null}
-
-          {visible.gateway === true ? (
-            <GatewaySection
-              open={effectiveOpen.gateway}
-              onOpenChange={setOpenFor("gateway")}
-            />
-          ) : null}
-
-          {visible.trust === true ? (
-            <TrustSection
-              open={effectiveOpen.trust}
-              onOpenChange={setOpenFor("trust")}
-            />
-          ) : null}
-
-          {visible.notifications === true ? (
-            <NotificationsSection
-              open={effectiveOpen.notifications}
-              onOpenChange={setOpenFor("notifications")}
-            />
-          ) : null}
-
-          {visible.advanced === true ? (
-            <AdvancedSection
-              open={effectiveOpen.advanced}
-              onOpenChange={setOpenFor("advanced")}
-            />
-          ) : null}
-        </ScreenContainer>
+            <div className="flex flex-col gap-3 min-w-0">
+              {SETTINGS_CLUSTERS.map((cluster) => {
+                const visibleInCluster = cluster.sections.filter(
+                  (id) => visible[id] === true,
+                );
+                if (visibleInCluster.length === 0) return null;
+                return (
+                  <section
+                    key={cluster.id}
+                    aria-labelledby={`cluster-${cluster.id}-title`}
+                    className="flex flex-col gap-3"
+                  >
+                    <SettingsClusterDivider
+                      title={cluster.title}
+                      tagline={cluster.tagline}
+                      anchor={`cluster-${cluster.id}`}
+                      matchCount={
+                        queryActive === true
+                          ? {
+                              matched: visibleInCluster.length,
+                              total: cluster.sections.length,
+                            }
+                          : undefined
+                      }
+                    />
+                    {visibleInCluster.map((id) => (
+                      <div key={id}>
+                        {renderSection(id, {
+                          open: effectiveOpen[id],
+                          onOpenChange: setOpenFor(id),
+                        })}
+                      </div>
+                    ))}
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
     </TooltipProvider>
   );

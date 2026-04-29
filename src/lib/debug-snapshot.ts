@@ -1,5 +1,5 @@
 /**
- * Debug snapshot builder + downloader (OBS-03 / D-23 / D-24).
+ * Debug snapshot builder + saver (OBS-03 / D-23 / D-24).
  *
  * Schema: snake_case verbatim so pasting the JSON into a kernel-repo
  * bug report diffs cleanly against `pim status --json` +
@@ -10,13 +10,18 @@
  * colons in the captured_at ISO string are replaced with hyphens so
  * Windows can save the file (Windows reserves `:` in filenames).
  *
- * Download mechanism: Blob + `<a download>` click — works in both
- * the Tauri webview and a future mobile WebView, no Tauri FS API
- * required (D-23). The temporary `<a>` is appended to the document,
- * clicked, and removed; the object URL is revoked on a microtask so
- * the browser has time to start the download.
+ * Save mechanism — runtime-detected:
+ *   - Tauri shell:  `dialog.save()` → user picks path → `save_text_file`
+ *     Rust command writes the JSON → caller toasts `Saved to <path>`
+ *     with a `[ Reveal ]` action that calls `reveal_in_file_manager`.
+ *   - Plain webview: legacy Blob + `<a download>` so a browser-served
+ *     dev build (vite at :1420 with no Tauri shell) still produces
+ *     something usable. The browser's downloads folder receives the
+ *     file silently — the toast falls back to `Saved as <filename>`.
  */
 
+import { invoke } from "@tauri-apps/api/core";
+import { save as openSaveDialog } from "@tauri-apps/plugin-dialog";
 import type {
   LogEvent,
   LogLevel,
@@ -88,26 +93,87 @@ export function snapshotFilename(capturedAt: string): string {
 }
 
 /**
- * Serialize the snapshot to JSON, wrap in a Blob, and trigger a
- * download via a temporary `<a download>`. Revokes the object URL on
- * a microtask so the browser has time to start the download but the
- * URL doesn't leak.
- *
- * Throws if `document` is unavailable (e.g. in a Node test runner) —
- * the test suite for this module is compile-only and never invokes
- * downloadSnapshot, so the throw never fires in CI.
+ * Result returned by `saveSnapshot()`. Lets the caller render an
+ * appropriate toast — when the user cancels the save dialog we want
+ * NO toast (cancellation is silent), when the file actually lands we
+ * want a path-bearing success toast with a `[ Reveal ]` action.
  */
-export function downloadSnapshot(snapshot: DebugSnapshot): void {
+export type SaveSnapshotResult =
+  | { kind: "saved"; path: string; revealable: boolean }
+  | { kind: "saved-fallback"; filename: string }
+  | { kind: "cancelled" };
+
+function isTauriRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  // Tauri 2 marks the shell with __TAURI_INTERNALS__. Plain Vite dev
+  // server has neither, so the fallback path runs there.
+  return "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * Show a native save dialog (Tauri) or fall back to a Blob download
+ * (plain webview), and write the snapshot JSON to the chosen location.
+ *
+ * Returns:
+ *   - { kind: "saved", path } when the Tauri path-write succeeded
+ *   - { kind: "saved-fallback", filename } when the browser download
+ *     fired (the user agent decides where it lands, typically Downloads)
+ *   - { kind: "cancelled" } when the user dismissed the save dialog
+ *
+ * Throws if the underlying write rejects (e.g. permissions denied) —
+ * the caller (DebugSnapshotButton) catches and routes to a destructive
+ * toast.
+ */
+export async function saveSnapshot(
+  snapshot: DebugSnapshot,
+): Promise<SaveSnapshotResult> {
   const json = JSON.stringify(snapshot, null, 2);
+  const filename = snapshotFilename(snapshot.captured_at);
+
+  if (isTauriRuntime() === true) {
+    const picked = await openSaveDialog({
+      title: "Export debug snapshot",
+      defaultPath: filename,
+      filters: [{ name: "JSON snapshot", extensions: ["json"] }],
+    });
+    if (picked === null) return { kind: "cancelled" };
+    const path = await invoke<string>("save_text_file", {
+      path: picked,
+      content: json,
+    });
+    return { kind: "saved", path, revealable: true };
+  }
+
+  // Plain webview fallback — Blob + temporary anchor.
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = snapshotFilename(snapshot.captured_at);
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke on microtask — browser has begun the download but the URL
-  // is still valid until the next tick.
   queueMicrotask(() => URL.revokeObjectURL(url));
+  return { kind: "saved-fallback", filename };
+}
+
+/**
+ * Open the OS file manager focused on the saved snapshot. macOS opens
+ * Finder with the file selected; Windows opens Explorer with the file
+ * highlighted; Linux opens the parent folder via xdg-open. Silent
+ * no-op outside Tauri (the plain-webview fallback can't reach the OS
+ * file manager).
+ */
+export async function revealSnapshotInFileManager(path: string): Promise<void> {
+  if (isTauriRuntime() === false) return;
+  await invoke<void>("reveal_in_file_manager", { path });
+}
+
+/**
+ * @deprecated Kept for backwards-compat with any caller still importing
+ * the old name. New callers should use `saveSnapshot()` which returns
+ * the chosen path so the toast can confirm where the file landed.
+ */
+export function downloadSnapshot(snapshot: DebugSnapshot): void {
+  void saveSnapshot(snapshot);
 }

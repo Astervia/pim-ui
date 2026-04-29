@@ -9,6 +9,7 @@
     "log:default",
     "notification:default",
     "positioner:default",
+    "dialog:default",
     {
       "identifier": "shell:allow-execute",
       "allow": [

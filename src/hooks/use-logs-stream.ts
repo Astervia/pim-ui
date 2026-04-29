@@ -249,12 +249,12 @@ export function setSourceAtom(next: string | null): void {
 
 // ─── Module-level subscription lifecycle ───────────────────────────────
 //
-// Reference-counted: the daemon-side logs.subscribe runs once on the
-// first hook mount (or first non-hook call to acquireSubscription) and
-// tears down on the last unmount. This lets multiple components mount
-// useLogsStream simultaneously without spawning duplicate subscriptions.
+// App-lifetime singletons: the subscription is created once when the
+// daemon enters the "running" state (driven by useLogsSubscription-
+// Lifecycle, mounted at AppShell level) and survives every consumer
+// hook mount/unmount. Opening / closing the Logs tab incurs no extra
+// daemon round-trips.
 
-let mountCount = 0;
 let subscriptionId: string | null = null;
 let fanOutSub: DaemonSubscription | null = null;
 let streamStatus: StreamStatus = "idle";
@@ -292,6 +292,27 @@ function setError(message: string | null, stream: "logs" | null): void {
   notifyStatus();
 }
 
+/**
+ * Best-effort error stringification. RpcError travels across the Tauri
+ * invoke bridge as a plain `{code, message, data}` object — `String(e)`
+ * on that produces "[object Object]", which is exactly the user-facing
+ * gibberish we want to avoid. Prefer `.message` when present.
+ */
+function describeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e !== null && typeof e === "object") {
+    const obj = e as Record<string, unknown>;
+    const msg = obj.message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+    try {
+      return JSON.stringify(e);
+    } catch {
+      // fall through to String(e) below
+    }
+  }
+  return String(e);
+}
+
 function pushEvent(evt: LogEvent): void {
   buffer.unshift(evt);
   if (buffer.length > MAX_ENTRIES) buffer.length = MAX_ENTRIES;
@@ -311,17 +332,19 @@ function pushEvent(evt: LogEvent): void {
  * with the broadest possible filter (`min_level: "trace"`, `sources: []`)
  * so the client sees EVERY event the daemon emits. All user-facing
  * filtering — multi-select levels, multi-select crates, peer, search,
- * time range — is then applied client-side on the buffer. This trades
- * a small amount of bandwidth for two big wins:
+ * time range — is then applied client-side on the buffer. Trade-offs:
  *
  *   1. Filter changes are instant — no daemon round-trip, no
  *      subscription churn, no momentary blank list.
  *   2. The history-replay buffer (daemon's last 2048 events) is read
- *      ONCE, on first mount. Subsequent re-mounts share the same
- *      subscription via the mountCount ref-count.
+ *      ONCE, the first time the daemon enters the running state. While
+ *      the daemon stays up, this function is called only on the first
+ *      stop→running transition; opening / closing the Logs tab does
+ *      not re-fire it (subscription is owned at AppShell level).
  *
  * On first failure waits 500 ms and retries. On second failure stores
- * errorMessage + status="idle" on the module atoms.
+ * errorMessage + status="idle" on the module atoms so the LogsScreen
+ * empty state can route the user to the dashboard.
  */
 async function subscribeOnce(): Promise<void> {
   setStatus("reconnecting");
@@ -336,46 +359,120 @@ async function subscribeOnce(): Promise<void> {
 
   try {
     await attempt();
-    if (mountCount === 0) {
-      const id = subscriptionId;
-      subscriptionId = null;
-      if (id !== null) {
-        callDaemon("logs.unsubscribe", { subscription_id: id }).catch((e) =>
-          console.warn("logs.unsubscribe (late) failed:", e),
-        );
-      }
-      return;
-    }
     setStatus("streaming");
     setError(null, null);
   } catch {
     await new Promise((r) => setTimeout(r, 500));
-    if (mountCount === 0) return;
     try {
       await attempt();
-      if (mountCount === 0) {
-        const id = subscriptionId;
-        subscriptionId = null;
-        if (id !== null) {
-          callDaemon("logs.unsubscribe", { subscription_id: id }).catch((e) =>
-            console.warn("logs.unsubscribe (late) failed:", e),
-          );
-        }
-        return;
-      }
       setStatus("streaming");
       setError(null, null);
     } catch (e2) {
       setStatus("idle");
-      setError(e2 instanceof Error ? e2.message : String(e2), "logs");
+      setError(describeError(e2), "logs");
     }
   }
 }
 
-// ─── Hook ──────────────────────────────────────────────────────────────
+// ─── App-level subscription lifecycle ─────────────────────────────────
+//
+// `useLogsSubscriptionLifecycle()` mounts ONCE at AppShell level and
+// owns the JSON-RPC `logs.subscribe` + fan-out lifecycle. It is no
+// longer driven by the LogsScreen mount — opening / closing the Logs
+// tab now incurs zero round-trips to the daemon. The buffer keeps
+// filling in the background regardless of which tab is active, so
+// crash diagnostics survive even if the user never opens Logs.
+//
+// Daemon-state coupling (D-25 honesty): the subscription only makes
+// sense while `daemon.state === "running"`. Transitions:
+//
+//   stopped     → no subscription. status = "idle".
+//   starting    → wait — daemon-state will flip to "running" or "error".
+//   running     → ensureSubscribed() — replays buffer once, then live.
+//   reconnecting→ leave the existing subscription as-is; daemon-state
+//                  manages the underlying socket retry.
+//   error       → drop subscription markers, status = "idle".
+
+let isLifecycleAttached = false;
+
+export function useLogsSubscriptionLifecycle(): void {
+  const { actions, snapshot } = useDaemonState();
+  const daemonState = snapshot.state;
+
+  useEffect(() => {
+    // Single-instance guard — paranoia. AppShell mounts this hook once,
+    // but if a future change accidentally remounts it, we don't want
+    // duplicate subscriptions piling up. The lifecycle is global state.
+    if (isLifecycleAttached === true) return;
+    isLifecycleAttached = true;
+    return () => {
+      isLifecycleAttached = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (daemonState !== "running") {
+      // Daemon is not in a state where logs.subscribe makes sense. Try
+      // to be polite about server-side cleanup if the socket is still
+      // reachable (state === "reconnecting" can briefly co-exist with
+      // a live socket); when the daemon is fully gone, the call simply
+      // fails silently. Then drop refs so the next "running" transition
+      // triggers a fresh subscribeOnce + fan-out attach.
+      const staleFan = fanOutSub;
+      const staleId = subscriptionId;
+      fanOutSub = null;
+      subscriptionId = null;
+      if (staleFan !== null) {
+        staleFan.unsubscribe().catch(() => {});
+      }
+      if (staleId !== null) {
+        callDaemon("logs.unsubscribe", { subscription_id: staleId }).catch(() => {});
+      }
+      setStatus("idle");
+      return;
+    }
+
+    // Daemon is running — ensure subscribe + fan-out attach. We use a
+    // local cancelled flag so an awaiting attach call doesn't write to
+    // module state if the daemon flips away from "running" mid-flight.
+    const cancelled = { current: false };
+    void subscribeOnce();
+    (async () => {
+      try {
+        const sub = await actions.subscribe("logs.event", pushEvent);
+        if (cancelled.current === true) {
+          await sub.unsubscribe().catch(() => {});
+          return;
+        }
+        fanOutSub = sub;
+      } catch (e) {
+        if (cancelled.current === true) return;
+        console.warn("logs.event fan-out subscribe failed:", e);
+        setStatus("idle");
+        setError(describeError(e), "logs");
+      }
+    })().catch((e) => {
+      console.warn("useLogsSubscriptionLifecycle attach failed:", e);
+    });
+
+    return () => {
+      // Daemon state changed away from "running" — flip the cancelled
+      // flag so any in-flight subscribe-attach noops. The teardown of
+      // the existing subscription happens in the daemonState !== "running"
+      // branch above when the next effect runs with the new state.
+      cancelled.current = true;
+    };
+  }, [daemonState, actions]);
+}
+
+// ─── Hook (consumer-only) ─────────────────────────────────────────────
+//
+// LogsScreen + any other consumer reads filters + buffer + status from
+// here. Mount/unmount NO LONGER drives the daemon subscription — that
+// lives in `useLogsSubscriptionLifecycle()` above. Opening or closing
+// the Logs tab is now free.
 
 export function useLogsStream(): UseLogsStreamResult {
-  const { actions } = useDaemonState();
   const levels = useSyncExternalStore(
     subscribeFilters,
     getLevelsAtom,
@@ -431,64 +528,11 @@ export function useLogsStream(): UseLogsStreamResult {
     () => buffer.length,
   );
 
-  // Mount/unmount: reference-count the daemon subscription. First mount
-  // subscribes daemon-side, registers fan-out handler on "logs.event",
-  // and starts the level watcher. Last unmount tears everything down.
-  useEffect(() => {
-    mountCount += 1;
-    let didMount = true;
+  // Subscription lifecycle no longer lives here — it moved to
+  // `useLogsSubscriptionLifecycle()` (mounted once at AppShell level)
+  // so opening / closing the Logs tab is a zero-cost transition.
 
-    if (mountCount === 1) {
-      void subscribeOnce();
-      (async () => {
-        try {
-          fanOutSub = await actions.subscribe("logs.event", pushEvent);
-          // mountCount is mutated by other hook instances' cleanup
-          // callbacks while this async closure awaits — read it through
-          // a cast so TS doesn't narrow it to the literal `1` from the
-          // enclosing branch.
-          const liveCount = mountCount as number;
-          if (liveCount === 0 && fanOutSub !== null) {
-            const sub = fanOutSub;
-            fanOutSub = null;
-            sub.unsubscribe().catch(() => {});
-          }
-        } catch (e) {
-          console.warn("logs.event fan-out subscribe failed:", e);
-          setStatus("idle");
-          setError(e instanceof Error ? e.message : String(e), "logs");
-        }
-      })().catch((e) => {
-        console.warn("useLogsStream mount failed:", e);
-      });
-    }
-
-    return () => {
-      if (didMount === false) return;
-      didMount = false;
-      mountCount -= 1;
-      if (mountCount === 0) {
-        const fan = fanOutSub;
-        fanOutSub = null;
-        if (fan !== null) {
-          fan.unsubscribe().catch((e) =>
-            console.warn("logs fan-out unsubscribe failed:", e),
-          );
-        }
-        const id = subscriptionId;
-        subscriptionId = null;
-        if (id !== null) {
-          callDaemon("logs.unsubscribe", { subscription_id: id }).catch((e) =>
-            console.warn("logs.unsubscribe (unmount) failed:", e),
-          );
-        }
-        setStatus("idle");
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // All filters are client-side now — the daemon receives ALL events
+  // All filters are client-side — the daemon receives ALL events
   // (subscribed with min_level=trace + sources=[]) and the UI narrows
   // on render. This makes filter changes instant and avoids re-subscribe
   // churn that would otherwise replay the daemon history buffer on

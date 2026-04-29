@@ -201,6 +201,142 @@ pub async fn config_exists() -> Result<ConfigExistsResult, String> {
     })
 }
 
+/// Write arbitrary text to an absolute filesystem path the frontend
+/// already obtained from a save dialog (e.g. via the dialog plugin).
+///
+/// The path is chosen by the user through a native picker, so the Rust
+/// side accepts it as-is — there is no allow-list scope. We avoid
+/// using the `tauri-plugin-fs` JS API on the frontend specifically so
+/// we don't have to ship a permissive `fs:scope` in capabilities; this
+/// dedicated command is the narrow seam.
+///
+/// Used by `lib/debug-snapshot.ts` to persist the OBS-03 debug snapshot
+/// at the path the user picks in `dialog.save()`. The frontend renders
+/// a confirmation toast with the saved path on success and a destructive
+/// toast on error.
+#[tauri::command]
+pub async fn save_text_file(path: String, content: String) -> Result<String, String> {
+    let p = std::path::PathBuf::from(&path);
+    if let Some(parent) = p.parent() {
+        if parent.exists() == false {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("create parent dir failed: {e}"))?;
+        }
+    }
+    std::fs::write(&p, content).map_err(|e| format!("write failed: {e}"))?;
+    Ok(p.to_string_lossy().to_string())
+}
+
+/// Read the canonical `pim.toml` from disk and return its raw text
+/// + resolved path. Used by the Settings tab as a fallback when the
+/// daemon is stopped — `config.get` RPC requires a live JSON-RPC
+/// connection, but the TOML file lives in the user's config dir and
+/// is readable any time. Returns an empty string + the resolved path
+/// when the file does not exist (first-run case); the frontend then
+/// decides whether to render the bootstrap flow.
+#[tauri::command]
+pub async fn read_pim_config_text() -> Result<ReadConfigResult, String> {
+    let path = resolve_config_path();
+    let path_str = path.to_string_lossy().to_string();
+    if path.try_exists().unwrap_or(false) == false {
+        return Ok(ReadConfigResult {
+            raw: String::new(),
+            path: path_str,
+            last_modified: String::new(),
+        });
+    }
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| format!("read pim.toml at {}: {e}", path.display()))?;
+    let last_modified = std::fs::metadata(&path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| {
+            t.duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .map(|d| d.as_secs())
+        })
+        .map(|secs| {
+            // RFC-3339-ish — only the seconds component, sufficient for
+            // change-detection on the frontend.
+            chrono_secs_to_rfc3339(secs)
+        })
+        .unwrap_or_default();
+    Ok(ReadConfigResult {
+        raw,
+        path: path_str,
+        last_modified,
+    })
+}
+
+#[derive(Serialize)]
+pub struct ReadConfigResult {
+    pub raw: String,
+    pub path: String,
+    pub last_modified: String,
+}
+
+/// Tiny ad-hoc UNIX-seconds → RFC-3339 (UTC) formatter — avoids pulling
+/// `chrono` for one date-stamp. Format: `YYYY-MM-DDTHH:MM:SSZ`.
+fn chrono_secs_to_rfc3339(secs: u64) -> String {
+    // days since unix epoch
+    let days = (secs / 86_400) as i64;
+    let mut secs_today = (secs % 86_400) as u32;
+    let h = secs_today / 3_600;
+    secs_today %= 3_600;
+    let m = secs_today / 60;
+    let s = secs_today % 60;
+
+    // Howard Hinnant's days-from-epoch → civil-date algorithm.
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = (yoe as i64) + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m_civil = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = y + if m_civil <= 2 { 1 } else { 0 };
+    format!("{y:04}-{m_civil:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
+}
+
+/// Reveal a saved file in the OS file explorer (Finder on macOS,
+/// Explorer on Windows, the default file manager on Linux). Selects
+/// the file when possible so the user immediately sees what they just
+/// exported. Falls back to opening the parent directory.
+#[tauri::command]
+pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
+    use std::process::Command;
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| format!("open -R failed: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| format!("explorer /select failed: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let parent = std::path::Path::new(&path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string());
+        Command::new("xdg-open")
+            .arg(&parent)
+            .spawn()
+            .map_err(|e| format!("xdg-open failed: {e}"))?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 // Tests below intentionally hold a `std::sync::Mutex` guard across
 // `.await` points to serialize access to `PIM_CONFIG_PATH` across the

@@ -111,12 +111,22 @@ import { CommandPalette } from "@/components/command-palette";
 // to status.event + peers.event + gateway.event via the W1 fan-out and
 // dispatches per-event to toast / system / both per the policy table.
 import { GatewayNotificationsListener } from "@/hooks/use-gateway-notifications";
+// Persistent logs subscription — owns the daemon-side `logs.subscribe`
+// for the app's lifetime so opening / closing the Logs tab is free
+// (no reconnect, no history-replay storm). The hook is daemon-state
+// aware: it subscribes on the first stop→running transition and cleans
+// up only when the daemon leaves the running state.
+import { useLogsSubscriptionLifecycle } from "@/hooks/use-logs-stream";
+// Simple ↔ advanced mode — global ⌘\ shortcut flips the persisted atom.
+import { useAppMode } from "@/hooks/use-app-mode";
 
 export function AppShell() {
   const { active, setActive } = useActiveScreen();
+  useLogsSubscriptionLifecycle();
   // Phase 5 Plan 05-01 D-03: ⌘K binding calls togglePalette(). Stub
   // implementation is a no-op until Plan 05-05 ships the real atom.
   const { toggle: togglePalette } = useCommandPalette();
+  const { setMode } = useAppMode();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -177,6 +187,13 @@ export function AppShell() {
           e.preventDefault();
           togglePalette();
           break;
+        case "\\":
+          // Switch to simple mode — global shortcut mirroring SimpleShell's
+          // ⌘\. AppRoot remounts the appropriate shell when the atom
+          // changes; no manual unmount here.
+          e.preventDefault();
+          setMode("simple");
+          break;
         case "ArrowUp":
           // D-06: ⌘↑ collapses all settings sections — no-op on other
           // tabs. Plan 03-04 SettingsScreen binds the handler for
@@ -214,7 +231,7 @@ export function AppShell() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, setActive, togglePalette]);
+  }, [active, setActive, togglePalette, setMode]);
 
   // Plan 05-06 + TBD-PHASE-4-G: subscribe to the custom Tauri event
   // pim://open-add-peer emitted by Plan 05-04's tray popover Add-peer
@@ -270,8 +287,11 @@ export function AppShell() {
             "px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8",
           )}
         >
-          {/* Phase 1 Task 1.3: BannerStack consolidates banners. */}
-          <BannerStack />
+          {/* BannerStack (limited mode + kill switch) only on the
+              Dashboard. Other tabs already self-handle limited mode
+              via the per-panel `limitedMode` prop, so the global
+              banner becomes noise everywhere except home. */}
+          {active === "dashboard" ? <BannerStack /> : null}
           <ActiveScreen />
         </div>
       </main>
