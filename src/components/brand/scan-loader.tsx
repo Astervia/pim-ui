@@ -1,18 +1,17 @@
 /**
- * <ScanLoader /> — terminal-native loading affordance.
+ * <ScanLoader /> — sine-wave loading indicator.
  *
- * Renders an ASCII track with a phosphor-green sweep that runs
- * left-to-right at 1.6s per cycle. Replaces the previous "Loading X…"
- * plain-text loaders, which were honest but joyless.
+ * Renders a row of `█` block-glyph cells, each bouncing vertically
+ * with a phase-shifted delay so the row reads as a smooth sine wave
+ * travelling left-to-right. Cycle is 2.4s with ease-in-out timing —
+ * slow and soft enough not to nag the user during loading branches.
  *
- * The track itself is rendered as 10 monospace cells (`──────────`)
- * so the box-drawing aesthetic stays consistent with the rest of the
- * brand. The sweep is the only intentional gradient in the codebase —
- * it lives strictly inside the `.scan-loader-track::before` pseudo
- * element and is documented as the single brand-allowed exception.
+ * Honors prefers-reduced-motion: cells freeze at a partial scale so
+ * the loader is still visible as "something is loading" without any
+ * motion firing.
  *
- * Honors prefers-reduced-motion: the sweep degrades to a static full
- * track (signalling "loading" via presence rather than motion).
+ * Brand: monospace, signal-green, no SVG, no gradients beyond the
+ * implied vertical scale of the block character itself.
  */
 
 import { cn } from "@/lib/utils";
@@ -20,19 +19,19 @@ import { cn } from "@/lib/utils";
 export interface ScanLoaderProps {
   /** Optional inline label, e.g. "Loading status…". */
   label?: string;
-  /** Number of monospace cells in the track. Default 10. */
+  /** Number of cells in the wave. Default 14. */
   cells?: number;
   /** Optional className for the wrapper. */
   className?: string;
 }
 
-export function ScanLoader({
-  label,
-  cells = 10,
-  className,
-}: ScanLoaderProps) {
-  // Build a track of `cells` U+2500 BOX DRAWINGS LIGHT HORIZONTAL.
-  const track = "─".repeat(cells);
+const CYCLE_MS = 2400;
+
+export function ScanLoader({ label, cells = 14, className }: ScanLoaderProps) {
+  // Stagger each cell by an even fraction of the full cycle so the
+  // peaks chase across the row at constant speed.
+  const step = CYCLE_MS / cells;
+  const indices = Array.from({ length: cells }, (_, i) => i);
 
   return (
     <span
@@ -40,16 +39,21 @@ export function ScanLoader({
       aria-live="polite"
       aria-label={label ?? "loading"}
       className={cn(
-        "inline-flex items-center gap-3 font-code text-sm text-muted-foreground",
+        "inline-flex items-center gap-3",
+        "font-code text-sm text-text-secondary",
         className,
       )}
     >
-      <span
-        className="scan-loader-track"
-        style={{ ["--scan-loader-cells" as never]: String(cells) }}
-        aria-hidden="true"
-      >
-        {track}
+      <span className="sine-loader" aria-hidden>
+        {indices.map((i) => (
+          <span
+            key={i}
+            className="sine-loader-cell text-primary"
+            style={{ animationDelay: `${i * step}ms` }}
+          >
+            █
+          </span>
+        ))}
       </span>
       {label === undefined ? null : <span>{label}</span>}
     </span>
