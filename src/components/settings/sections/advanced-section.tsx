@@ -21,6 +21,7 @@
  */
 
 import { CollapsibleCliPanel } from "@/components/settings/collapsible-cli-panel";
+import { ConfigFilePanel } from "@/components/settings/config-file-panel";
 import { RawTomlEditor } from "@/components/settings/raw-toml-editor";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 
@@ -66,12 +67,11 @@ export function AdvancedSection({ open, onOpenChange }: AdvancedSectionProps) {
       open={open}
       onOpenChange={onOpenChange}
     >
-      {/* The CollapsibleCliPanel's outer <section> already carries
-          id="settings-section-advanced" — RawWinsBanner.openAdvanced
-          targets that anchor. The inner div below is a redundant
-          target so smoothScroll resolves even if the outer panel
-          implementation later changes its anchor strategy. */}
-      <div id="settings-section-advanced-anchor">
+      {/* Config file management surface — path display + Reveal /
+          Import / Export. Sits above the raw editor so the user sees
+          WHERE the config lives before editing its contents. */}
+      <div id="settings-section-advanced-anchor" className="flex flex-col gap-5">
+        <ConfigFilePanel />
         <RawTomlEditor />
       </div>
     </CollapsibleCliPanel>

@@ -74,6 +74,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             "placeholder:text-muted-foreground",
             "caret-primary",
             "disabled:cursor-not-allowed",
+            // Suppress the global :focus-visible outline (declared in
+            // globals.css). The wrapper already lights up via
+            // focus-within:border-primary; without this rule the inner
+            // input would draw a second 1px ring offset 2px → reads as
+            // a double-border on any focused field.
+            "focus-visible:outline-none",
           )}
           {...props}
         />
