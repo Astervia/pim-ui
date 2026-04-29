@@ -132,6 +132,35 @@ Remote invite RPC: planned for v0.6.
 - Known gateways empty: `no gateways known · pair with a gateway-capable peer or run pim on a Linux device`
 - Refresh button: `[ refresh ]`
 
+### FirstRunScreen role descriptions (Phase 6 Plan 06-01)
+
+The role picker labels make the capability bitfield explicit so users
+know whether their device will forward traffic for nearby peers. The
+default is `client + relay (0x03)`; gateway implies relay.
+
+- Option 1 primary: `Join + relay (recommended)`
+- Option 1 description: `client + relay (0x03) — your device forwards traffic for nearby peers · the mesh needs relays to work`
+- Option 2 primary: `Share my internet`
+- Option 2 description (Linux): `client + relay + gateway (0x07) — Linux only · NAT egress for mesh peers (CAP_NET_ADMIN + iptables)`
+- Option 2 description (non-Linux, disabled): `Gateway mode is Linux-only today. Your device can still join a mesh as a client or relay.`
+
+### RelaySection — RelayOffConfirmAlertDialog (Phase 6 Plan 06-01)
+
+Destructive confirm gate when the user flips `[relay].enabled` from
+true to false. Surfaces the trade-off explicitly: a mesh full of
+client-only nodes loses paths to gateways.
+
+- Title: `Run as client only?`
+- Body: `Without relay, this device only consumes the mesh — it stops forwarding traffic for nearby peers. The mesh weakens with every client-only node, so other peers may lose paths to a gateway. Recommended: leave relay on.`
+- Primary (destructive): `[ Run client only ]`
+- Secondary (autofocus, safe): `[ Keep relay on ]`
+
+### RelaySection — body copy (Phase 6 Plan 06-01)
+
+The form-field helper text below the Switch:
+
+- `Recommended: leave this on. When on, this node accepts inbound connections from other peers and forwards mesh frames on their behalf — the mesh needs relays to reach gateways. When off, you run as a client-only node (0x01) and other peers won't initiate connections to you.`
+
 ### Phase 3 — TeachingEmptyState microcopy (overhaul Phase 3)
 
 Each panel below renders `<TeachingEmptyState />` with a verbatim

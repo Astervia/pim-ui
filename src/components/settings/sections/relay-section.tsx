@@ -13,12 +13,18 @@
  *
  * Gateway nodes are implicitly also relays (0x07) regardless of this
  * setting — when `[gateway].enabled = true`, this toggle is moot.
+ *
+ * Phase 6 Plan 06-01: flipping the switch from true → false opens
+ * <RelayOffConfirmAlertDialog />; the form value only changes after the
+ * user confirms. This prevents accidental client-only opt-out — the
+ * mesh degenerates fast when most peers stop forwarding traffic.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { CollapsibleCliPanel } from "@/components/settings/collapsible-cli-panel";
 import { RawWinsBanner } from "@/components/settings/raw-wins-banner";
+import { RelayOffConfirmAlertDialog } from "@/components/settings/relay-off-confirm-alert-dialog";
 import { SectionSaveFooter } from "@/components/settings/section-save-footer";
 import { WireNameTooltip } from "@/components/settings/wire-name-tooltip";
 import {
@@ -65,6 +71,12 @@ export function RelaySection({ open, onOpenChange }: RelaySectionProps) {
     "relay",
     form,
   );
+
+  // Plan 06-01: confirm gate for true → false flips. Open + onConfirm
+  // come from the Switch's intercepted onCheckedChange; the actual
+  // form mutation happens here so the form stays at `enabled = true`
+  // until the user accepts the trade-off.
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const msg = fieldErrors["relay.enabled"];
@@ -116,17 +128,37 @@ export function RelaySection({ open, onOpenChange }: RelaySectionProps) {
                 <FormControl>
                   <Switch
                     checked={field.value}
-                    onCheckedChange={field.onChange}
+                    onCheckedChange={(next) => {
+                      // Plan 06-01: turning ON skips the gate; turning
+                      // OFF opens the destructive confirm dialog and
+                      // defers the form mutation until onConfirm.
+                      if (next === true) {
+                        field.onChange(true);
+                        return;
+                      }
+                      setConfirmOpen(true);
+                    }}
                     aria-label="Relay enabled"
                   />
                 </FormControl>
                 <p className="font-mono text-xs text-muted-foreground">
-                  When on, this node accepts inbound connections from
-                  other peers and forwards mesh frames on their behalf.
-                  When off, you run as a client-only node — other peers
-                  won&apos;t initiate connections to you.
+                  Recommended: leave this on. When on, this node accepts
+                  inbound connections from other peers and forwards mesh
+                  frames on their behalf — the mesh needs relays to
+                  reach gateways. When off, you run as a client-only
+                  node (0x01) and other peers won&apos;t initiate
+                  connections to you.
                 </p>
                 <FormMessage />
+                <RelayOffConfirmAlertDialog
+                  open={confirmOpen}
+                  onOpenChange={setConfirmOpen}
+                  onConfirm={() => {
+                    field.onChange(false);
+                    setConfirmOpen(false);
+                  }}
+                  onCancel={() => setConfirmOpen(false)}
+                />
               </FormItem>
             )}
           />

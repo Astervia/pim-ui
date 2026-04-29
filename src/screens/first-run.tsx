@@ -91,15 +91,16 @@ function buildRoleOptions(platform: Platform): readonly [RoleOption, RoleOption]
   return [
     {
       value: "join_the_mesh",
-      primary: "Join the mesh",
-      description: "just be a node; relays happen automatically",
+      primary: "Join + relay (recommended)",
+      description:
+        "client + relay (0x03) — your device forwards traffic for nearby peers · the mesh needs relays to work",
       disabled: false,
     },
     {
       value: "share_my_internet",
       primary: "Share my internet",
       description: isLinux === true
-        ? "gateway mode — Linux only. CAP_NET_ADMIN + iptables."
+        ? "client + relay + gateway (0x07) — Linux only · NAT egress for mesh peers (CAP_NET_ADMIN + iptables)"
         : "Gateway mode is Linux-only today. Your device can still join a mesh as a client or relay.",
       disabled: isLinux === false,
     },
