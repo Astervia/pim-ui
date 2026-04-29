@@ -23,10 +23,24 @@ import { formatDuration } from "@/lib/format";
 import { KEYBOARD_SHORTCUTS } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
-const KERNEL_REPO_URL = "https://github.com/Astervia/proximity-internet-mesh";
-const KERNEL_REPO_LABEL = "github.com/Astervia/proximity-internet-mesh";
-const MANIFESTO =
-  "Infrastructure you can read is infrastructure you can trust.";
+interface RepoEntry {
+  label: string;
+  url: string;
+  caption: string;
+}
+
+const REPOS: readonly RepoEntry[] = [
+  {
+    label: "github.com/Astervia/proximity-internet-mesh",
+    url: "https://github.com/Astervia/proximity-internet-mesh",
+    caption: "kernel · pim-daemon",
+  },
+  {
+    label: "github.com/Astervia/pim-ui",
+    url: "https://github.com/Astervia/pim-ui",
+    caption: "ui · this app",
+  },
+];
 
 interface CreditEntry {
   name: string;
@@ -104,29 +118,26 @@ export function AboutScreen() {
     }
   };
 
-  const onOpenRepo = async (): Promise<void> => {
+  const onOpenRepo = async (url: string): Promise<void> => {
     try {
-      await shellOpen(KERNEL_REPO_URL);
+      await shellOpen(url);
     } catch {
-      toast.error("Couldn't open kernel repo.");
+      toast.error("Couldn't open the repo.");
     }
   };
 
   return (
     <ScreenContainer className="gap-4">
-      {/* Hero — wordmark + manifesto */}
+      {/* Hero — wordmark + brief */}
       <CliPanel title="pim" density="spacious" revealDelay={0}>
         <div className="flex flex-col gap-4">
           <h1 className="font-mono text-3xl sm:text-4xl tracking-tight leading-[1.1]">
             <span className="phosphor">█ pim</span>
           </h1>
           <p className="font-code text-sm sm:text-base text-foreground leading-[1.55] max-w-[60ch]">
-            {MANIFESTO}
-          </p>
-          <p className="font-code text-xs text-text-secondary leading-[1.55] max-w-[60ch]">
-            A Rust IP-level proximity mesh overlay. Auditable protocol, legible
-            crypto, real routing — built to keep transmitting when the
-            backbone goes quiet.
+            A Rust IP-level proximity mesh overlay. Auditable protocol,
+            legible crypto, real routing — built to keep transmitting when
+            the backbone goes quiet.
           </p>
         </div>
       </CliPanel>
@@ -191,23 +202,36 @@ export function AboutScreen() {
         </ul>
       </CliPanel>
 
-      {/* Repo link */}
-      <CliPanel title="source" density="compact" revealDelay={220}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <code className="font-code text-sm text-foreground break-all">
-            {KERNEL_REPO_LABEL}
-          </code>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={() => {
-              void onOpenRepo();
-            }}
-          >
-            [ Open ↗ ]
-          </Button>
-        </div>
+      {/* Repo links — kernel + ui */}
+      <CliPanel title="source" density="default" revealDelay={220}>
+        <ul className="flex flex-col divide-y divide-border/40">
+          {REPOS.map((r) => (
+            <li
+              key={r.url}
+              className="flex flex-wrap items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+            >
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <code className="font-code text-sm text-foreground break-all">
+                  {r.label}
+                </code>
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
+                  {r.caption}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void onOpenRepo(r.url);
+                }}
+                aria-label={`open ${r.label}`}
+              >
+                [ Open ↗ ]
+              </Button>
+            </li>
+          ))}
+        </ul>
       </CliPanel>
 
       {/* Keyboard shortcuts */}
