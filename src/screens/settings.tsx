@@ -22,8 +22,17 @@
  *  13.  ABOUT
  *
  * Keyboard shortcuts (CustomEvent dispatched by app-shell.tsx):
- *   - `pim:settings-collapse-all` → collapse every section
- *   - `pim:settings-expand-all`   → expand every section
+ *   - `pim:settings-collapse-all`     → collapse every section
+ *   - `pim:settings-expand-all`       → expand every section
+ *   - `pim:settings-focus-search`     → focus the section search input (⌘F)
+ *
+ * Phase 7 (UI/UX overhaul plan): a top-of-screen <SettingsSearch />
+ * filters the visible section list by title or by tomlKey synonyms
+ * declared in src/lib/config/section-schemas.ts. While a query is
+ * active, every matching section is force-opened so the user can
+ * scan its content without expanding it manually; clearing the query
+ * restores the user's open/closed state because the force-open layer
+ * is a derived view, not a write to `open`.
  *
  * Discard flow lives at shell level (active-screen.tsx) so it can
  * intercept tab-away navigation AND the Stop daemon path.
@@ -31,12 +40,17 @@
  * W1 contract: NO listen(...) calls — only window.addEventListener.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SECTION_IDS, type SectionId } from "@/lib/config/section-schemas";
+import {
+  SECTION_IDS,
+  SECTION_SCHEMAS,
+  type SectionId,
+} from "@/lib/config/section-schemas";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 import { ScreenRefresh } from "@/components/brand/screen-refresh";
 import { ScreenContainer } from "@/components/shell/screen-container";
+import { SettingsSearch } from "@/components/settings/settings-search";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -61,23 +75,81 @@ function buildOpenMap(): OpenMap {
   return Object.fromEntries(SECTION_IDS.map((id) => [id, true])) as OpenMap;
 }
 
+/**
+ * Filter predicate — true if the section should be visible for the
+ * given query. Empty query is treated as "show everything".
+ *
+ * Match policy:
+ *   - case-insensitive
+ *   - substring match on the section's title
+ *   - substring match on any of the section's wire tomlKeys
+ */
+function matchesQuery(id: SectionId, query: string): boolean {
+  if (query === "") return true;
+  const q = query.toLowerCase().trim();
+  if (q === "") return true;
+  const schema = SECTION_SCHEMAS[id];
+  if (schema.title.toLowerCase().includes(q) === true) return true;
+  for (const key of schema.tomlKeys) {
+    if (key.toLowerCase().includes(q) === true) return true;
+  }
+  return false;
+}
+
 export function SettingsScreen() {
   const { base, loading, loadError, refetch } = useSettingsConfig();
   const [open, setOpen] = useState<OpenMap>(() => buildClosedMap());
+  const [query, setQuery] = useState<string>("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const collapseAll = () => setOpen(buildClosedMap());
     const expandAll = () => setOpen(buildOpenMap());
+    const focusSearch = () => {
+      if (searchRef.current === null) return;
+      searchRef.current.focus();
+      searchRef.current.select();
+    };
     window.addEventListener("pim:settings-collapse-all", collapseAll);
     window.addEventListener("pim:settings-expand-all", expandAll);
+    window.addEventListener("pim:settings-focus-search", focusSearch);
     return () => {
       window.removeEventListener("pim:settings-collapse-all", collapseAll);
       window.removeEventListener("pim:settings-expand-all", expandAll);
+      window.removeEventListener("pim:settings-focus-search", focusSearch);
     };
   }, []);
 
   const setOpenFor = (id: SectionId) => (v: boolean) =>
     setOpen((prev) => ({ ...prev, [id]: v }));
+
+  // While a query is active, force-open every section the parent
+  // chooses to render so the user can scan content without expanding
+  // each one. When the query is cleared this layer becomes the
+  // identity transform and the user's previous open/closed state is
+  // visible again.
+  const queryActive = query.trim() !== "";
+  const effectiveOpen = useMemo<OpenMap>(() => {
+    if (queryActive === false) return open;
+    const next = { ...open };
+    for (const id of SECTION_IDS) {
+      if (matchesQuery(id, query) === true) next[id] = true;
+    }
+    return next;
+  }, [open, query, queryActive]);
+
+  const visible = useMemo(() => {
+    const set = {} as Record<SectionId, boolean>;
+    for (const id of SECTION_IDS) {
+      set[id] = matchesQuery(id, query);
+    }
+    return set;
+  }, [query]);
+
+  const visibleCount = SECTION_IDS.reduce(
+    (acc, id) => (visible[id] === true ? acc + 1 : acc),
+    0,
+  );
 
   if (loadError !== null) {
     return (
@@ -104,70 +176,108 @@ export function SettingsScreen() {
             onRefresh={refetch}
             ariaLabel="refresh settings (re-fetch config from daemon)"
           />
-          <IdentitySection
-            open={open.identity}
-            onOpenChange={setOpenFor("identity")}
+          <SettingsSearch
+            ref={searchRef}
+            value={query}
+            onChange={setQuery}
           />
 
-          <InterfaceSection
-            open={open.interface}
-            onOpenChange={setOpenFor("interface")}
-          />
+          {queryActive === true && visibleCount === 0 ? (
+            <p className="font-mono text-sm text-muted-foreground px-2 py-4">
+              no sections match &quot;{query}&quot;
+            </p>
+          ) : null}
 
-          <DiscoverySection
-            open={open.discovery}
-            onOpenChange={setOpenFor("discovery")}
-          />
+          {visible.identity === true ? (
+            <IdentitySection
+              open={effectiveOpen.identity}
+              onOpenChange={setOpenFor("identity")}
+            />
+          ) : null}
 
-          <BluetoothSection
-            open={open.bluetooth}
-            onOpenChange={setOpenFor("bluetooth")}
-          />
+          {visible.interface === true ? (
+            <InterfaceSection
+              open={effectiveOpen.interface}
+              onOpenChange={setOpenFor("interface")}
+            />
+          ) : null}
 
-          <WifiDirectSection
-            open={open.wifi_direct}
-            onOpenChange={setOpenFor("wifi_direct")}
-          />
+          {visible.discovery === true ? (
+            <DiscoverySection
+              open={effectiveOpen.discovery}
+              onOpenChange={setOpenFor("discovery")}
+            />
+          ) : null}
 
-          <TransportSection
-            open={open.transport}
-            onOpenChange={setOpenFor("transport")}
-          />
+          {visible.bluetooth === true ? (
+            <BluetoothSection
+              open={effectiveOpen.bluetooth}
+              onOpenChange={setOpenFor("bluetooth")}
+            />
+          ) : null}
 
-          <RoutingSection
-            open={open.routing}
-            onOpenChange={setOpenFor("routing")}
-          />
+          {visible.wifi_direct === true ? (
+            <WifiDirectSection
+              open={effectiveOpen.wifi_direct}
+              onOpenChange={setOpenFor("wifi_direct")}
+            />
+          ) : null}
 
-          <RelaySection
-            open={open.relay}
-            onOpenChange={setOpenFor("relay")}
-          />
+          {visible.transport === true ? (
+            <TransportSection
+              open={effectiveOpen.transport}
+              onOpenChange={setOpenFor("transport")}
+            />
+          ) : null}
 
-          <GatewaySection
-            open={open.gateway}
-            onOpenChange={setOpenFor("gateway")}
-          />
+          {visible.routing === true ? (
+            <RoutingSection
+              open={effectiveOpen.routing}
+              onOpenChange={setOpenFor("routing")}
+            />
+          ) : null}
 
-          <TrustSection
-            open={open.trust}
-            onOpenChange={setOpenFor("trust")}
-          />
+          {visible.relay === true ? (
+            <RelaySection
+              open={effectiveOpen.relay}
+              onOpenChange={setOpenFor("relay")}
+            />
+          ) : null}
 
-          <NotificationsSection
-            open={open.notifications}
-            onOpenChange={setOpenFor("notifications")}
-          />
+          {visible.gateway === true ? (
+            <GatewaySection
+              open={effectiveOpen.gateway}
+              onOpenChange={setOpenFor("gateway")}
+            />
+          ) : null}
 
-          <AdvancedSection
-            open={open.advanced}
-            onOpenChange={setOpenFor("advanced")}
-          />
+          {visible.trust === true ? (
+            <TrustSection
+              open={effectiveOpen.trust}
+              onOpenChange={setOpenFor("trust")}
+            />
+          ) : null}
 
-          <AboutSection
-            open={open.about}
-            onOpenChange={setOpenFor("about")}
-          />
+          {visible.notifications === true ? (
+            <NotificationsSection
+              open={effectiveOpen.notifications}
+              onOpenChange={setOpenFor("notifications")}
+            />
+          ) : null}
+
+          {visible.advanced === true ? (
+            <AdvancedSection
+              open={effectiveOpen.advanced}
+              onOpenChange={setOpenFor("advanced")}
+            />
+          ) : null}
+
+          {visible.about === true ? (
+            <AboutSection
+              open={effectiveOpen.about}
+              onOpenChange={setOpenFor("about")}
+            />
+          ) : null}
         </ScreenContainer>
       </main>
     </TooltipProvider>

@@ -186,6 +186,19 @@ export function AppShell() {
             window.dispatchEvent(new CustomEvent("pim:settings-expand-all"));
           }
           break;
+        case "f":
+        case "F":
+          // Phase 7 (UI/UX overhaul): ⌘F focuses the Settings section
+          // search input. No-op on other tabs so the browser's native
+          // find-in-page is left untouched on Logs, etc. SettingsScreen
+          // owns the focus action via window.addEventListener — same
+          // browser-CustomEvent pattern as collapse/expand-all (W1
+          // preserved).
+          if (active === "settings") {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("pim:settings-focus-search"));
+          }
+          break;
         default:
           return;
       }
