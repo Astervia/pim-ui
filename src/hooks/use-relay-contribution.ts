@@ -20,6 +20,7 @@
  * `useDaemonState().actions.subscribe`. No new `listen()` is added.
  */
 
+import type { RouteTableResult, Status } from "@/lib/rpc-types";
 import { useStatus } from "@/hooks/use-status";
 import { useRouteTable } from "@/hooks/use-route-table";
 
@@ -36,10 +37,16 @@ export interface RelayContribution {
   loading: boolean;
 }
 
-export function useRelayContribution(): RelayContribution {
-  const status = useStatus();
-  const { table } = useRouteTable();
-
+/**
+ * Pure derivation of `RelayContribution` from the two RPC slices.
+ * Exported so tests can pin the behaviour without spinning up the React
+ * renderer / atom plumbing. The component path goes through the hook
+ * below, which is just a thin selector over `useStatus + useRouteTable`.
+ */
+export function computeRelayContribution(
+  status: Status | null,
+  table: RouteTableResult | null,
+): RelayContribution {
   if (status === null) {
     return {
       active: false,
@@ -68,4 +75,10 @@ export function useRelayContribution(): RelayContribution {
     bytesForwarded: status.stats.forwarded_bytes,
     loading: false,
   };
+}
+
+export function useRelayContribution(): RelayContribution {
+  const status = useStatus();
+  const { table } = useRouteTable();
+  return computeRelayContribution(status, table);
 }
