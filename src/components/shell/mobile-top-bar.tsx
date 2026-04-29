@@ -135,20 +135,23 @@ export function MobileTopBar() {
       </button>
 
       {/* Centre — hero wordmark + state caption. text-3xl makes the
-          mark unmistakable on phone screens; the caption gets generous
-          0.25em tracking so the daemon-state word reads as a banner
-          rather than a subtitle whisper. */}
-      <div className="flex flex-col items-start gap-1 flex-1 min-w-0">
-        <div className="flex items-baseline gap-[0.4ch] font-mono text-3xl leading-none tracking-tight">
+          mark unmistakable on phone screens; the block glyph and "pim"
+          letters get a full character of breathing space (gap-[1ch])
+          so the wordmark reads as a confident logotype rather than a
+          collapsed glyph string. The caption sits below with a generous
+          gap-2 + 0.3em tracking so the daemon-state word reads as a
+          banner. */}
+      <div className="flex flex-col items-start gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-[1ch] font-mono text-3xl leading-none tracking-tight">
           <span className={tokens.block} aria-hidden="true">
             █
           </span>
-          <span className="text-foreground">pim</span>
+          <span className="text-foreground tracking-tight">pim</span>
         </div>
         <div
           key={caption}
           className={cn(
-            "font-mono text-xs uppercase tracking-[0.25em] leading-none",
+            "font-mono text-xs uppercase tracking-[0.3em] leading-none pl-[0.1ch]",
             tokens.caption,
           )}
         >
