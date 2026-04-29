@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { getPath } from "@/lib/config/assemble-toml";
+import { useBtNapPreflight } from "@/hooks/use-bt-nap-preflight";
 import { useSectionRawWins } from "@/hooks/use-section-raw-wins";
 import { useSectionSave } from "@/hooks/use-section-save";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
@@ -170,6 +171,15 @@ export function BluetoothSection({ open, onOpenChange }: BluetoothSectionProps) 
   }, [fieldErrors, form]);
 
   const watched = form.watch();
+
+  // Plan 06-03: NAP-server preflight runs only when bluetooth is on
+  // (cheap, but no point probing PATH on every Settings open). The
+  // result lights up the [ Serve a local NAP ] switch with platform
+  // capability + missing-tool detail.
+  const napPreflight = useBtNapPreflight(watched.enabled === true);
+  const napSupported =
+    napPreflight.result === null ? null : napPreflight.result.supported;
+
   const summary = (
     <span className="font-mono text-xs text-muted-foreground">
       {watched.enabled ? "on" : "off"} · radio{" "}
@@ -497,7 +507,18 @@ export function BluetoothSection({ open, onOpenChange }: BluetoothSectionProps) 
                   <FormControl>
                     <Switch
                       checked={field.value}
-                      onCheckedChange={field.onChange}
+                      onCheckedChange={(next) => {
+                        // Plan 06-03: refuse to flip the switch on when
+                        // preflight has decisively reported unsupported.
+                        // null means "not yet known" (loading / bluetooth
+                        // off) — let the user proceed and surface the
+                        // failure on the next preflight refresh.
+                        if (next === true && napSupported === false) {
+                          return;
+                        }
+                        field.onChange(next);
+                      }}
+                      disabled={napSupported === false}
                       aria-label="Serve NAP"
                     />
                   </FormControl>
@@ -510,6 +531,60 @@ export function BluetoothSection({ open, onOpenChange }: BluetoothSectionProps) 
                 </FormItem>
               )}
             />
+
+            {/* Plan 06-03: preflight checklist — visible whenever bluetooth
+                is on. Shows fail/pass per check (bt-network, dnsmasq,
+                bridge tools, bnep module on Linux; an honest "Linux-only"
+                line on macOS / Windows / other). */}
+            {watched.enabled === true && napPreflight.result !== null ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    NAP-server preflight ({napPreflight.result.platform})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void napPreflight.refresh()}
+                    className="font-mono text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                    disabled={napPreflight.loading}
+                  >
+                    {napPreflight.loading ? "[ checking… ]" : "[ recheck ]"}
+                  </button>
+                </div>
+                <ul className="flex flex-col gap-1 font-code text-xs">
+                  {napPreflight.result.checks.map((c) => (
+                    <li
+                      key={c.name}
+                      className="flex items-baseline gap-2"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={
+                          c.ok === true
+                            ? "text-primary"
+                            : "text-destructive"
+                        }
+                      >
+                        {c.ok === true ? "◆" : "✗"}
+                      </span>
+                      <span className="text-foreground font-mono">{c.name}</span>
+                      <span className="text-muted-foreground">— {c.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+                {napPreflight.result.supported === false ? (
+                  <p className="font-mono text-xs text-muted-foreground leading-relaxed">
+                    NAP-server toggle is locked until every check above
+                    passes.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {napPreflight.error !== null ? (
+              <p className="font-mono text-xs text-destructive">
+                preflight failed: {napPreflight.error}
+              </p>
+            ) : null}
 
             <FormField
               control={form.control}

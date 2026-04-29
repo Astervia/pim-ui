@@ -40,6 +40,9 @@ pub fn run() {
             // Settings tab — read pim.toml from disk when the daemon
             // is stopped so the form can populate without a live RPC.
             rpc::commands::read_pim_config_text,
+            // Phase 6 Plan 06-03: BT NAP-server preflight (Linux-only,
+            // honest unsupported answer on macOS/Windows).
+            rpc::bt_nap::bt_nap_preflight,
         ])
         .setup(|app| {
             log::info!(
