@@ -35,6 +35,9 @@ export interface PaletteContext {
 export interface PaletteAction {
   id: string;
   group: "navigate" | "routing" | "peers" | "gateway" | "logs";
+  // NB. The "peers" group is preserved as a search/grouping label — the
+  // dedicated peers screen has been removed and every peers.* action
+  // now routes to the Dashboard, where peer management lives inline.
   label: string;
   shortcut?: string;
   keywords?: string[];
@@ -57,9 +60,10 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     id: "nav.peers",
     group: "navigate",
     label: "go to peers",
-    shortcut: "⌘2",
+    shortcut: "⌘1",
     run: (ctx) => {
-      ctx.setActive("peers");
+      // Peers tab removed — peer management lives on the Dashboard.
+      ctx.setActive("dashboard");
       ctx.closePalette();
     },
   },
@@ -156,7 +160,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     label: "peers list",
     keywords: ["peers", "list"],
     run: (ctx) => {
-      ctx.setActive("peers");
+      ctx.setActive("dashboard");
       ctx.closePalette();
     },
   },
@@ -169,7 +173,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
       // TBD-PHASE-4-G: emit the same Tauri event Plan 05-04's tray
       // emits, so a single listener can route the user to the existing
       // Phase 2 Nearby panel — Phase 4 PEER-05/06 may extend the flow.
-      ctx.setActive("peers");
+      ctx.setActive("dashboard");
       ctx.closePalette();
       void emit("pim://open-add-peer", {}).catch(() => {});
     },
@@ -182,7 +186,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => {
       // Phase 4 owns the invite flow; for now navigate to peers where
       // Plan 04-05 mounted the InvitePeerSheet trigger.
-      ctx.setActive("peers");
+      ctx.setActive("dashboard");
       ctx.closePalette();
     },
   },

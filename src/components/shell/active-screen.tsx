@@ -33,7 +33,6 @@
 import { useActiveScreen, type ActiveScreenId } from "@/hooks/use-active-screen";
 import { Dashboard } from "@/screens/dashboard";
 import { LogsScreen } from "@/screens/logs";
-import { PeersScreen } from "@/screens/peers";
 import { SettingsScreen } from "@/screens/settings";
 import { RouteScreen } from "@/screens/routing";
 import { GatewayScreen } from "@/screens/gateway";
@@ -41,6 +40,11 @@ import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
 import { PeerDetailSheet } from "@/components/peers/peer-detail-sheet";
 import { PairApprovalModal } from "@/components/peers/pair-approval-modal";
+// Peer-management overlays mounted at shell level so the Add Peer
+// affordance on the Dashboard's PeerListPanel can open them without
+// the (now-removed) Peers screen.
+import { AddPeerSheet } from "@/components/peers/add-peer-sheet";
+import { RemovePeerAlertDialog } from "@/components/peers/remove-peer-alert-dialog";
 // Plan 03-04 §Part H.3 (checker Blocker 1) — D-13 nav-away interception.
 // `getDirtySections` is read by `requestActive` (use-gated-navigation.ts)
 // before any setActive; this file mounts the matching dialog so the
@@ -97,6 +101,11 @@ export function ActiveScreen() {
           tab switches. */}
       <PeerDetailSheet />
       <PairApprovalModal />
+      {/* Peers-tab overlays now live at shell level so the Dashboard's
+          inline [ + add peer ] affordance can drive them without a
+          dedicated screen. */}
+      <AddPeerSheet />
+      <RemovePeerAlertDialog />
       {/* D-13 discard-unsaved-changes dialog — opens whenever a gated
           navigation request lands while sections are dirty. Verbatim
           copy lives in the dialog component itself. */}
@@ -124,13 +133,6 @@ function renderScreen(
       return (
         <Dashboard onPeerSelect={onPeerSelect} onNearbyPair={onNearbyPair} />
       );
-    case "peers":
-      // Plan 03-02: dedicated PeersScreen — composes PeersPanel +
-      // NearbyPanel + AddPeerSheet (PEER-02) and (Task 2)
-      // RemovePeerAlertDialog (PEER-03). The Phase-2 D-01 alias to
-      // Dashboard is gone for good — this route owns its own peer-list
-      // chrome and add/remove affordances per 03-CONTEXT D-02.
-      return <PeersScreen />;
     case "routing":
       // Phase 4 Plan 04-03 D-16/D-17: ⌘3 Routing tab. Three-panel stack
       // — RouteTogglePanel (D-15 same instance as Dashboard) +

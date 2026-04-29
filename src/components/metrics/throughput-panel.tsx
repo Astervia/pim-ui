@@ -30,7 +30,10 @@ export interface ThroughputPanelProps {
   revealDelay?: number | null;
 }
 
-const SAMPLE_WINDOW = 60;
+// Sparkline width fits comfortably inside the dashboard's 2-column
+// insights grid (~36ch per cell). Larger windows triggered horizontal
+// scroll on the CliPanel body — kept the trend window legible without it.
+const SAMPLE_WINDOW = 24;
 
 export function ThroughputPanel({
   limitedMode = false,
@@ -55,7 +58,7 @@ export function ThroughputPanel({
 
   const badge = limitedMode === true
     ? { label: "STALE", variant: "muted" as const }
-    : { label: `${rates.length}/${SAMPLE_WINDOW}s`, variant: "muted" as const };
+    : { label: `${SAMPLE_WINDOW}s`, variant: "muted" as const };
 
   const rateLabel =
     limitedMode === true ? "—" : `${formatBytes(Math.round(latestBytesPerSec))}/s`;

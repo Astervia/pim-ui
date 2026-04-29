@@ -62,9 +62,12 @@ interface ActiveRow {
 // reads in numerical-shortcut order. RESERVED is now empty — the
 // reserved-row type + array were dropped together when the last
 // reserved entry shipped.
+// Peers tab removed — peer management is consolidated into the
+// Dashboard's PeerListPanel (with `[ + add peer ]` and `[ Invite peer ]`
+// actions inline). ⌘2 binding stays unused so existing muscle memory
+// doesn't trip into a stale screen.
 const NAV: readonly ActiveRow[] = [
   { id: "dashboard", label: "dashboard", shortcut: "⌘1" },
-  { id: "peers", label: "peers", shortcut: "⌘2" },
   { id: "routing", label: "routing", shortcut: "⌘3" },
   { id: "gateway", label: "gateway", shortcut: "⌘4" },
   { id: "logs", label: "logs", shortcut: "⌘5" },
@@ -99,11 +102,11 @@ export function Sidebar() {
     ) : null;
 
   // Map nav-row id → optional badge. Missing entries render no badge.
-  // `logs` is intentionally omitted — Phase 8 owns the error-backlog
-  // counter; adding a stub here would lock in semantics the later phase
-  // hasn't yet committed to.
+  // The peers tab is gone (peer management lives on the Dashboard now)
+  // so the failed/nearby badges that used to live on the peers row
+  // surface on the Dashboard row instead — same signal, fewer clicks.
   const rowBadge: Partial<Record<ActiveScreenId, ReactNode>> = {
-    peers: peersBadge,
+    dashboard: peersBadge,
     gateway: gatewayBadge,
   };
 

@@ -92,7 +92,7 @@ export function CliPanel({
         <span>┌─── {title.toUpperCase()} ───┐</span>
         {status && <Badge variant={status.variant ?? "default"}>[{status.label}]</Badge>}
       </header>
-      <div className={cn(bodyPadding, "overflow-x-auto")}>{children}</div>
+      <div className={cn(bodyPadding, "overflow-hidden")}>{children}</div>
     </section>
   );
 }

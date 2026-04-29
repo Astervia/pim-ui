@@ -24,7 +24,6 @@ import { useCallback, useSyncExternalStore } from "react";
 // in active-screen.tsx forces a matching case branch for the new id.
 export type ActiveScreenId =
   | "dashboard"
-  | "peers"
   | "logs"
   | "settings"
   | "routing"

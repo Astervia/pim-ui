@@ -129,10 +129,10 @@ export function AppShell() {
           requestActive("dashboard", setActive);
           break;
         case "2":
-          // Plan 03-01 D-02: peers is now a dedicated route (no longer
-          // aliased to Dashboard).
+          // Peers tab removed (peer management consolidated into the
+          // Dashboard). ⌘2 is intentionally a no-op so muscle-memory
+          // presses don't surface a stale route or reinstate the tab.
           e.preventDefault();
-          requestActive("peers", setActive);
           break;
         case "3":
           // Plan 04-03 D-16: ⌘3 routes to the Routing tab.
@@ -220,7 +220,10 @@ export function AppShell() {
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     void listen<unknown>("pim://open-add-peer", () => {
-      requestActive("peers", setActive);
+      // Peers tab is gone — route the tray/palette add-peer signal to
+      // the Dashboard. The dashboard's PeerListPanel exposes the same
+      // [ + add peer ] action inline, so both entry points converge.
+      requestActive("dashboard", setActive);
     })
       .then((fn) => {
         unlisten = fn;

@@ -31,6 +31,7 @@ import { CliPanel } from "@/components/brand/cli-panel";
 import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
 import { Button } from "@/components/ui/button";
 import { PeerRow } from "./peer-row";
+import { useAddPeer } from "@/hooks/use-add-peer";
 import { EMPTY_PEERS_HEADLINE, EMPTY_PEERS_NEXT } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export function PeerListPanel({
   limitedMode = false,
   revealDelay = 0,
 }: PeerListPanelProps) {
+  const { openSheet: openAddPeer } = useAddPeer();
   const connectedCount = peers.filter(
     (p) => p.state === "active" || p.state === "relayed",
   ).length;
@@ -107,13 +109,25 @@ export function PeerListPanel({
         </ul>
       )}
 
-      {/* ActionRow — only [ Invite peer ] remains. The previous
-          [ + Add peer nearby ] button merely scrolled to the NearbyPanel
-          rendered directly below; redundant on dashboards where both
-          panels are visible at once, so it has been removed. */}
-      <div className="mt-4 pt-3 border-t border-border flex gap-4 px-4">
+      {/*
+        ActionRow — `[ + add peer ]` (manual static peer via TOML
+        fragment) sits next to `[ invite peer ]` (remote pim:// link).
+        With the dedicated Peers tab gone, this is the only entry
+        point for both flows; the AddPeerSheet itself is mounted at
+        shell level so it overlays every screen.
+      */}
+      <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-3 px-4">
         <Button
           variant="default"
+          aria-label="add static peer"
+          disabled={limitedMode}
+          title={limitedMode === true ? "Reconnect to add peers." : undefined}
+          onClick={openAddPeer}
+        >
+          [ + Add peer ]
+        </Button>
+        <Button
+          variant="secondary"
           aria-label="invite peer"
           onClick={() => {
             if (onInvitePeer !== undefined) onInvitePeer();
