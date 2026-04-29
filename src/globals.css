@@ -207,11 +207,204 @@ h2 {
   .logo-hero .logo-typed {
     width: 3ch;
   }
+  /* Phase 2 — every motion primitive degrades to its end state. */
+  .type-reveal {
+    animation: none;
+    width: calc(var(--type-reveal-ch, 20) * 1ch);
+  }
+  .crt-on,
+  .crt-on-stagger {
+    animation: none;
+  }
+  .phosphor-pulse {
+    animation: none;
+    opacity: 1;
+  }
+  .scan-loader-track::before {
+    animation: none;
+    left: 0;
+    width: 100%;
+  }
+  .cursor-blink {
+    animation: none;
+  }
 }
 
 /* Cursor blink utility — for prompt inputs, inline cursors */
 .cursor-blink {
   animation: blink 1.1s step-end infinite;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Phase 2 motion primitives — every brand-declared motion vocabulary
+ * piece (`pim.yml` interaction-vocabulary) reified as a CSS utility
+ * so any component can opt in without re-implementing the timing.
+ *
+ * All effects honor prefers-reduced-motion (see the @media block
+ * further down in this file — it disables every keyframe-driven
+ * animation declared here).
+ * ─────────────────────────────────────────────────────────────────── */
+
+/* type-reveal — generic version of .logo-typed. Apply to a span
+ * whose width should reveal character-by-character via steps().
+ * The container must declare --type-reveal-ch (target character
+ * count) inline, e.g.: style={{ "--type-reveal-ch": "12" }}.
+ *
+ * Used for hero-line strings (route line, badge transitions) where
+ * the brand wants a typewriter feel without the splash logo's
+ * cursor-block partner.
+ */
+.type-reveal {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 0;
+  animation: type-reveal-keyframe 0.6s steps(var(--type-reveal-ch, 20), end)
+    forwards;
+}
+@keyframes type-reveal-keyframe {
+  to {
+    width: calc(var(--type-reveal-ch, 20) * 1ch);
+  }
+}
+
+/* crt-on — first-paint phosphor warm-up for any element. Mimics
+ * a CRT firing up: a 200ms brightness ramp from 0 to 1 plus a
+ * subtle scanline density bump. Apply once on mount; do not
+ * re-trigger on subsequent re-renders (consumer responsibility).
+ */
+.crt-on {
+  animation: crt-on-keyframe 220ms ease-out forwards;
+  transform-origin: center center;
+}
+@keyframes crt-on-keyframe {
+  0% {
+    opacity: 0;
+    filter: brightness(0.4) contrast(1.6);
+    transform: scaleY(0.96);
+  }
+  60% {
+    opacity: 1;
+    filter: brightness(1.05) contrast(1.05);
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: scaleY(1);
+  }
+}
+
+/* crt-on-stagger — used to chain panel reveals on screen entry.
+ * Set --crt-on-delay inline on each child to stagger by 60ms etc.
+ */
+.crt-on-stagger {
+  animation: crt-on-keyframe 220ms ease-out var(--crt-on-delay, 0ms) backwards;
+}
+
+/* video-invert-hover — the brand's signature button hover (background
+ * and foreground swap). Reusable so non-button surfaces (peer rows on
+ * activate, sidebar nav rows on press) can opt in.
+ *
+ * Default behaviour: hover swaps text color to primary; active
+ * snaps a 1px translate-y for tactile feedback. The 100ms linear
+ * transition matches the brand motion contract (no curves, no easing).
+ */
+.video-invert-hover {
+  transition-property: color, background-color, border-color;
+  transition-duration: 100ms;
+  transition-timing-function: linear;
+}
+.video-invert-hover:hover {
+  color: var(--color-primary);
+}
+.video-invert-hover:active {
+  transform: translateY(1px);
+}
+
+/* prompt-prefix — animates a `> ` prefix that appears on hover. The
+ * prefix lives as a ::before pseudo so consumers don't need to
+ * restructure markup. Width transitions from 0 to 2ch.
+ */
+.prompt-prefix {
+  position: relative;
+}
+.prompt-prefix::before {
+  content: "> ";
+  display: inline-block;
+  overflow: hidden;
+  width: 0;
+  color: var(--color-primary);
+  transition: width 100ms linear;
+  vertical-align: baseline;
+  white-space: pre;
+}
+.prompt-prefix:hover::before,
+.prompt-prefix:focus-visible::before {
+  width: 2ch;
+}
+
+/* phosphor-pulse — for the peer-state "connecting" glyph and the
+ * sidebar daemon-state block when starting/reconnecting. Subtle
+ * 2-stage opacity dip rather than a hard blink (which is reserved
+ * for the cursor-blink). Easier on the eye, distinct semantics.
+ */
+.phosphor-pulse {
+  animation: phosphor-pulse-keyframe 1.6s ease-in-out infinite;
+}
+@keyframes phosphor-pulse-keyframe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* scan-loader — left-to-right ASCII progress sweep. Used by the
+ * <ScanLoader /> component for loading branches. The element should
+ * carry inline style `--scan-loader-cells: <n>` and the ::before
+ * pseudo handles the visual.
+ */
+.scan-loader {
+  font-family: var(--font-code);
+  letter-spacing: 0.15em;
+  color: var(--color-primary);
+}
+.scan-loader-track {
+  display: inline-block;
+  width: calc(var(--scan-loader-cells, 10) * 1ch);
+  position: relative;
+  color: var(--color-muted-foreground);
+  font-family: var(--font-code);
+}
+.scan-loader-track::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary) 50%,
+    transparent 100%
+  );
+  /* The brand bans gradients on backgrounds; the scan-loader is the
+   * single intentional exception — it's a motion artefact, not a
+   * static decoration. The bar paints a phosphor sweep across the
+   * underlying track and is masked by the track's own characters. */
+  width: 30%;
+  animation: scan-loader-sweep 1.6s linear infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+@keyframes scan-loader-sweep {
+  0% {
+    left: -30%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 
 /* Scrollbar — keep it out of the way, in palette */

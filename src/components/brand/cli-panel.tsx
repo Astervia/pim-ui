@@ -5,6 +5,11 @@
  * Box-drawing header with ASCII title bar. Monospace code content.
  * This is the visual hero of the pim UI — every status view should feel
  * like reading a well-designed CLI output, not a SaaS dashboard.
+ *
+ * Phase 2 motion: every panel applies the .crt-on-stagger animation on
+ * first paint. Consumers can control the per-panel delay by passing
+ * `revealDelay` (ms). The animation honors prefers-reduced-motion via
+ * the global rule in globals.css.
  */
 
 import type { ReactNode } from "react";
@@ -32,6 +37,14 @@ export interface CliPanelProps {
    * panels. Used for the Dashboard `[ ON ]` route-toggle state.
    */
   emphasis?: boolean;
+  /**
+   * Phase 2 motion: per-panel reveal delay in milliseconds, fed into
+   * the CSS variable that drives .crt-on-stagger. Default 0 — set per
+   * panel by consumers (Dashboard staggers panels at 0/60/120/180ms).
+   * When omitted, the panel still animates but with no delay; pass
+   * `revealDelay={null}` to opt out of the animation entirely.
+   */
+  revealDelay?: number | null;
 }
 
 export function CliPanel({
@@ -41,6 +54,7 @@ export function CliPanel({
   className,
   density = "default",
   emphasis = false,
+  revealDelay = 0,
 }: CliPanelProps) {
   const bodyPadding =
     density === "compact"
@@ -49,12 +63,20 @@ export function CliPanel({
         ? "px-5 py-6"
         : "px-5 py-4";
 
+  const revealClass = revealDelay === null ? "" : "crt-on-stagger";
+  const revealStyle =
+    revealDelay === null
+      ? undefined
+      : ({ ["--crt-on-delay" as never]: `${revealDelay}ms` } as React.CSSProperties);
+
   return (
     <section
+      style={revealStyle}
       className={cn(
         "bg-popover border border-border text-foreground",
         "font-code text-sm leading-[1.7]",
         emphasis === true && "border-l-2 border-l-primary",
+        revealClass,
         className,
       )}
     >
