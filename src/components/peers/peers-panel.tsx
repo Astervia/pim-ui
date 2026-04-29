@@ -10,8 +10,10 @@
  *     - Task 2 (PEER-03): peers with `peer.static === true` get a
  *       trailing <PeerRemoveButton peer={peer} />, right-aligned. Rows
  *       with `peer.static === false` do NOT render Remove (D-20).
- *   - Empty state copy verbatim per 03-UI-SPEC §Empty states:
- *       `no static peers · discovered peers appear above`
+ *   - Empty state renders <TeachingEmptyState /> with the
+ *     EMPTY_STATIC_PEERS_HEADLINE / EMPTY_STATIC_PEERS_NEXT locked
+ *     copy from src/lib/copy.ts (no cycling indicator — there is no
+ *     scanning concept on the static-peer surface).
  *
  * Why a NEW panel instead of reusing PeerListPanel verbatim:
  *   - PeerListPanel renders two disabled "phase 4" action rows (Add peer
@@ -33,9 +35,14 @@
 
 import type { PeerSummary } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
 import { PeerRow } from "./peer-row";
 import { AddPeerActionRow } from "./add-peer-action-row";
 import { PeerRemoveButton } from "./peer-remove-button";
+import {
+  EMPTY_STATIC_PEERS_HEADLINE,
+  EMPTY_STATIC_PEERS_NEXT,
+} from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 export interface PeersPanelProps {
@@ -85,9 +92,10 @@ export function PeersPanel({
       </div>
 
       {peers.length === 0 ? (
-        <p className="px-4 py-2 text-muted-foreground">
-          no static peers · discovered peers appear above
-        </p>
+        <TeachingEmptyState
+          headline={EMPTY_STATIC_PEERS_HEADLINE}
+          next={EMPTY_STATIC_PEERS_NEXT}
+        />
       ) : (
         <ul role="list" className="divide-y divide-border/30">
           {peers.map((peer) => (

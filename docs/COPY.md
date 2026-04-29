@@ -131,3 +131,20 @@ Remote invite RPC: planned for v0.6.
 - Routing table empty: `no routes yet · waiting for advertisements`
 - Known gateways empty: `no gateways known · pair with a gateway-capable peer or run pim on a Linux device`
 - Refresh button: `[ refresh ]`
+
+### Phase 3 — TeachingEmptyState microcopy (overhaul Phase 3)
+
+Each panel below renders `<TeachingEmptyState />` with a verbatim
+`headline` and an optional teaching `next` line. Both must come from
+`src/lib/copy.ts` — no inline string literals in JSX.
+
+- PeerListPanel headline: `no peers connected`
+- PeerListPanel next: `discovery is listening · invite a peer to join your mesh`
+- NearbyPanel headline: `no devices discovered yet`
+- NearbyPanel next: `scanning local networks · auto-pair will surface peers here`
+- PeersPanel headline: `no static peers`
+- PeersPanel next: `discovered peers appear above · use [ + add peer ] for a manual pin`
+- RouteTablePanel headline: reuses `ROUTE_TABLE_EMPTY` above.
+- RouteTablePanel next: `routes appear here as soon as a peer announces a destination`
+- KnownGatewaysPanel headline: reuses `KNOWN_GATEWAYS_EMPTY` above.
+- KnownGatewaysPanel next: `gateways are peers offering internet egress · none yet`

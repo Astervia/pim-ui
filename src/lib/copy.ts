@@ -94,6 +94,31 @@ export const KNOWN_GATEWAYS_EMPTY =
   "no gateways known · pair with a gateway-capable peer or run pim on a Linux device";
 export const ROUTE_TABLE_REFRESH = "[ refresh ]";
 
+// ─── Phase 3 — empty-state teaching microcopy (UX-PLAN P5) ──────────
+//
+// Headlines mirror the previously-inline verbatim copy each panel used
+// before Phase 3. The `_NEXT` lines are the new teaching microcopy that
+// renders as a second line under the headline inside <TeachingEmptyState />.
+// Same voice rules apply — present tense, no hedges, no exclamation marks.
+
+export const EMPTY_PEERS_HEADLINE = "no peers connected";
+export const EMPTY_PEERS_NEXT =
+  "discovery is listening · invite a peer to join your mesh";
+
+export const EMPTY_NEARBY_HEADLINE = "no devices discovered yet";
+export const EMPTY_NEARBY_NEXT =
+  "scanning local networks · auto-pair will surface peers here";
+
+export const EMPTY_STATIC_PEERS_HEADLINE = "no static peers";
+export const EMPTY_STATIC_PEERS_NEXT =
+  "discovered peers appear above · use [ + add peer ] for a manual pin";
+
+export const EMPTY_ROUTES_NEXT =
+  "routes appear here as soon as a peer announces a destination";
+
+export const EMPTY_GATEWAYS_NEXT =
+  "gateways are peers offering internet egress · none yet";
+
 // ─── Toasts (D-31) ───────────────────────────────────────────────────
 
 export const KILL_SWITCH_TOAST = "kill-switch active · routing blocked";

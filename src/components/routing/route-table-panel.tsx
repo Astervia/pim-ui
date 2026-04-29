@@ -36,9 +36,14 @@
 
 import type { RouteEntry } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/format";
-import { ROUTE_TABLE_EMPTY, ROUTE_TABLE_REFRESH } from "@/lib/copy";
+import {
+  EMPTY_ROUTES_NEXT,
+  ROUTE_TABLE_EMPTY,
+  ROUTE_TABLE_REFRESH,
+} from "@/lib/copy";
 import { useSelectedGateway } from "@/hooks/use-routing";
 import { cn } from "@/lib/utils";
 
@@ -101,9 +106,10 @@ export function RouteTablePanel({
       </div>
 
       {routes.length === 0 ? (
-        <p className="px-4 py-2 text-muted-foreground font-code text-sm">
-          {ROUTE_TABLE_EMPTY}
-        </p>
+        <TeachingEmptyState
+          headline={ROUTE_TABLE_EMPTY}
+          next={EMPTY_ROUTES_NEXT}
+        />
       ) : (
         <ul role="list" className="divide-y divide-border/30">
           {routes.map((r, i) => {

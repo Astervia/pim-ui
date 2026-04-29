@@ -5,9 +5,11 @@
  * Wraps the D-13-sorted peer list (via usePeers from Plan 02-01) with:
  *   - A muted column-header row matching the UI-SPEC layout.
  *   - One PeerRow per peer.
- *   - Empty-state copy D-14 VERBATIM: `no peers connected · discovery is
- *     active`. Never the chipper onboarding-style exhortation we refuse
- *     by contract (P5 solo-mode, STYLE.md §Voice).
+ *   - Empty state renders <TeachingEmptyState /> with the
+ *     EMPTY_PEERS_HEADLINE / EMPTY_PEERS_NEXT locked copy from
+ *     src/lib/copy.ts and a cycling [udp · ble · wfd] discovery
+ *     indicator. Never the chipper onboarding-style exhortation we
+ *     refuse by contract (P5 solo-mode, STYLE.md §Voice).
  *   - Two enabled ActionRow buttons below the list, visible regardless
  *     of whether the list is empty: `[ + Add peer nearby ]` and
  *     `[ Invite peer ]`. Click handlers come from the parent (Dashboard)
@@ -26,9 +28,13 @@
 
 import type { PeerSummary } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
 import { Button } from "@/components/ui/button";
 import { PeerRow } from "./peer-row";
+import { EMPTY_PEERS_HEADLINE, EMPTY_PEERS_NEXT } from "@/lib/copy";
 import { cn } from "@/lib/utils";
+
+const EMPTY_PEERS_CYCLE = ["udp", "ble", "wfd"] as const;
 
 export interface PeerListPanelProps {
   peers: PeerSummary[];
@@ -78,9 +84,11 @@ export function PeerListPanel({
       </div>
 
       {peers.length === 0 ? (
-        <p className="px-4 py-2 text-muted-foreground">
-          no peers connected · discovery is active
-        </p>
+        <TeachingEmptyState
+          headline={EMPTY_PEERS_HEADLINE}
+          next={EMPTY_PEERS_NEXT}
+          cycle={EMPTY_PEERS_CYCLE}
+        />
       ) : (
         <ul role="list" className="divide-y divide-border/30">
           {peers.map((peer) => (

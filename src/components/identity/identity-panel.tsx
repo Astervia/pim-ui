@@ -15,8 +15,10 @@
  *     snapshot's baselineTimestamp.
  *   - Status badge: `[LIVE]` in normal operation, `[STALE]` in limited
  *     mode (UI-SPEC §Identity panel).
- *   - Loading (status === null, D-07): a single muted "Loading status…"
- *     line inside the panel body — no placeholder zeros.
+ *   - Loading (status === null, D-07): a <ScanLoader /> with the
+ *     "loading status" label inside the panel body — no placeholder
+ *     zeros, no plain-text "Loading…" line (Phase 3 of the UI/UX
+ *     overhaul).
  *
  * Copy rules (enforced by checker):
  *   - `█ pim` verbatim — block character U+2588 + ASCII space + "pim".
@@ -28,6 +30,7 @@
 
 import type { Status } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { ScanLoader } from "@/components/brand/scan-loader";
 import { StatusIndicator } from "@/components/brand/status-indicator";
 import { formatDuration } from "@/lib/format";
 import { useActiveScreen } from "@/hooks/use-active-screen";
@@ -58,7 +61,7 @@ export function IdentityPanel({
         density="spacious"
         className={cn(limitedMode === true && "opacity-60")}
       >
-        <p className="text-muted-foreground">Loading status…</p>
+        <ScanLoader label="loading status" />
       </CliPanel>
     );
   }

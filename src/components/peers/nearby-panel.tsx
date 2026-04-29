@@ -5,8 +5,10 @@
  * Honesty contract:
  *   - Panel is ALWAYS visible even when the discovered list is empty —
  *     the UI must preserve the user's mental model of "the app is
- *     listening for peers" (D-19). Empty state renders the D-19 verbatim
- *     copy: `no devices discovered yet · discovery is active`.
+ *     listening for peers" (D-19). Empty state renders
+ *     <TeachingEmptyState /> with EMPTY_NEARBY_HEADLINE /
+ *     EMPTY_NEARBY_NEXT locked copy plus a cycling [udp · ble · wfd]
+ *     discovery indicator.
  *   - Panel title (CliPanel uppercases internally): `nearby — not paired`
  *     (em-dash U+2014, NOT double hyphen) — renders as
  *     `NEARBY — NOT PAIRED`.
@@ -21,8 +23,12 @@
 
 import type { PeerDiscovered } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
 import { NearbyRow } from "./nearby-row";
+import { EMPTY_NEARBY_HEADLINE, EMPTY_NEARBY_NEXT } from "@/lib/copy";
 import { cn } from "@/lib/utils";
+
+const EMPTY_NEARBY_CYCLE = ["udp", "ble", "wfd"] as const;
 
 export interface NearbyPanelProps {
   discovered: PeerDiscovered[];
@@ -48,9 +54,11 @@ export function NearbyPanel({
       className={cn(limitedMode === true && "opacity-60")}
     >
       {isEmpty === true ? (
-        <p className="px-4 py-2 text-muted-foreground">
-          no devices discovered yet · discovery is active
-        </p>
+        <TeachingEmptyState
+          headline={EMPTY_NEARBY_HEADLINE}
+          next={EMPTY_NEARBY_NEXT}
+          cycle={EMPTY_NEARBY_CYCLE}
+        />
       ) : (
         <ul role="list" className="divide-y divide-border/30">
           {discovered.map((d) => (

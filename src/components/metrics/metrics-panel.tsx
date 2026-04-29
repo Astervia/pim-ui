@@ -17,12 +17,14 @@
  *
  * D-30 limited mode: panel dims to opacity-60; badge flips to `[STALE]`.
  *
- * Loading (status === null, D-07): single muted "Loading metrics…" line —
- * no placeholder zeros.
+ * Loading (status === null, D-07): <ScanLoader /> with the
+ * "loading metrics" label — no placeholder zeros, no plain-text
+ * "Loading…" line (Phase 3 of the UI/UX overhaul).
  */
 
 import type { Status } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
+import { ScanLoader } from "@/components/brand/scan-loader";
 import { formatBytes, formatCount, formatShortId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +44,7 @@ export function MetricsPanel({ status, limitedMode = false }: MetricsPanelProps)
         density="compact"
         className={cn(limitedMode === true && "opacity-60")}
       >
-        <p className="text-muted-foreground">Loading metrics…</p>
+        <ScanLoader label="loading metrics" />
       </CliPanel>
     );
   }

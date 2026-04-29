@@ -30,7 +30,8 @@
 
 import type { KnownGateway } from "@/lib/rpc-types";
 import { CliPanel } from "@/components/brand/cli-panel";
-import { KNOWN_GATEWAYS_EMPTY } from "@/lib/copy";
+import { TeachingEmptyState } from "@/components/brand/teaching-empty-state";
+import { EMPTY_GATEWAYS_NEXT, KNOWN_GATEWAYS_EMPTY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 export interface KnownGatewaysPanelProps {
@@ -81,9 +82,10 @@ export function KnownGatewaysPanel({
       </div>
 
       {gateways.length === 0 ? (
-        <p className="px-4 py-2 text-muted-foreground font-code text-sm">
-          {KNOWN_GATEWAYS_EMPTY}
-        </p>
+        <TeachingEmptyState
+          headline={KNOWN_GATEWAYS_EMPTY}
+          next={EMPTY_GATEWAYS_NEXT}
+        />
       ) : (
         <ul role="list" className="divide-y divide-border/30">
           {gateways.map((g) => (

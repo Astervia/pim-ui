@@ -59,6 +59,14 @@ import {
   ROUTE_TABLE_EMPTY,
   KNOWN_GATEWAYS_EMPTY,
   ROUTE_TABLE_REFRESH,
+  EMPTY_PEERS_HEADLINE,
+  EMPTY_PEERS_NEXT,
+  EMPTY_NEARBY_HEADLINE,
+  EMPTY_NEARBY_NEXT,
+  EMPTY_STATIC_PEERS_HEADLINE,
+  EMPTY_STATIC_PEERS_NEXT,
+  EMPTY_ROUTES_NEXT,
+  EMPTY_GATEWAYS_NEXT,
   KILL_SWITCH_TOAST,
 } from "./copy";
 
@@ -99,6 +107,14 @@ const _securityUrl: string = SECURITY_DOCS_URL;
 const _routeTableEmpty: string = ROUTE_TABLE_EMPTY;
 const _knownGatewaysEmpty: string = KNOWN_GATEWAYS_EMPTY;
 const _routeTableRefresh: string = ROUTE_TABLE_REFRESH;
+const _emptyPeersHeadline: string = EMPTY_PEERS_HEADLINE;
+const _emptyPeersNext: string = EMPTY_PEERS_NEXT;
+const _emptyNearbyHeadline: string = EMPTY_NEARBY_HEADLINE;
+const _emptyNearbyNext: string = EMPTY_NEARBY_NEXT;
+const _emptyStaticPeersHeadline: string = EMPTY_STATIC_PEERS_HEADLINE;
+const _emptyStaticPeersNext: string = EMPTY_STATIC_PEERS_NEXT;
+const _emptyRoutesNext: string = EMPTY_ROUTES_NEXT;
+const _emptyGatewaysNext: string = EMPTY_GATEWAYS_NEXT;
 const _killSwitchToast: string = KILL_SWITCH_TOAST;
 
 /**
@@ -156,5 +172,13 @@ void _securityUrl;
 void _routeTableEmpty;
 void _knownGatewaysEmpty;
 void _routeTableRefresh;
+void _emptyPeersHeadline;
+void _emptyPeersNext;
+void _emptyNearbyHeadline;
+void _emptyNearbyNext;
+void _emptyStaticPeersHeadline;
+void _emptyStaticPeersNext;
+void _emptyRoutesNext;
+void _emptyGatewaysNext;
 void _killSwitchToast;
 void _runtimeChecks;
