@@ -1,60 +1,34 @@
 /**
- * <PeerRow /> — a single connected-peer row on the Dashboard Peers
- * panel (02-UI-SPEC §Peers panel, 02-CONTEXT D-11/D-12).
+ * <PeerRow /> — single connected-peer row on the Dashboard.
  *
  * Honesty contract (ROADMAP §Phase 2 success criterion 3 — non-negotiable):
- *   - state === "active"     → ◆ glyph + word; word stays text-foreground,
- *                              glyph is the signal-green + phosphor via
- *                              StatusIndicator.
- *   - state === "relayed"    → ◈ glyph + word; BOTH render text-accent.
- *                              Never the signal-green primary token, never ◆.
- *   - state === "connecting" → ○ glyph + word; both text-muted-foreground.
- *   - state === "failed"     → ✗ glyph + word; both text-destructive.
+ *   - active     → ◆ + green + "active"     (text-foreground word)
+ *   - relayed    → ◈ + amber + "relayed"    (text-accent word)
+ *   - connecting → ○ + muted + "connecting" (text-muted-foreground word)
+ *   - failed     → ✗ + red   + "failed"     (text-destructive word)
  *
- * Row shape (UI-SPEC verbatim):
- *   {short_id}  {label ?? "—"}  {mesh_ip}  via {transport}
- *   {glyph} {state}  {hops>1 ? "(N hops)" : ""}
- *   {latency_ms ? "{n}ms" : ""}  {last_seen_s}s
+ * Layout (post-redesign — 4 logical zones, single line, no column header):
  *
- * Interaction:
- *   - Entire row is a real <button> (role="button", tabIndex=0, aria-label)
- *     so keyboard users can open the Peer Detail slide-over from the
- *     Peers panel (Plan 02-04 wires the onSelect callback).
- *   - Enter/Space trigger the click path.
- *   - Hover adds a subtle left-edge border and bumps the short_id to
- *     the signal-green token (UI-SPEC §Interaction §Peer row).
- *   - Focus-visible ring is inset 2px signal-green (UI-SPEC §Focus-ring
- *     policy for large click targets).
+ *   ◆ active   9efa1720…  static       tcp · 192.168.0.137:9100   7ms · 0s
+ *   ◈ relayed  abc12345…  client-c     via relay-b · 2 hops      12ms · 4s
+ *   ○ connect… d4f5…                   tcp · 10.77.0.5             — · 1s
+ *   ✗ failed   def56789…  pair_failed                              — · 8s
  *
- * Phase 4 D-24: when peer.state === "failed", a second sub-line appears
- * below the standard row. Sub-line content is the verbatim
- * HANDSHAKE_FAIL_SUBLINE constant rendered as a single nested <button>
- * that calls the Tauri shell.open with SECURITY_DOCS_URL. The nested
- * button stops event propagation so the row's primary click (open
- * Peer Detail) does not fire when the user clicks the docs link. The
- * outer element is a <div className="flex flex-col"> so the primary
- * row <button> + the sub-line <button> stack vertically without
- * breaking the primary row's CSS grid.
+ * Zones:
+ *   1. State badge   — glyph + word, ~14ch
+ *   2. Identity      — short_id + label or static/unpaired tag, ~24ch
+ *   3. Route         — transport + address OR `via {relay} · {n} hops`
+ *   4. Metrics       — latency (or `—`) · last_seen (right-aligned)
  *
- * Phase 6 (UI/UX P1.8 + P2.14): touch-target lift + hover progressive
- * disclosure.
- *   - Padding bumped from `px-4 py-1` to `px-4 py-2.5` so the primary
- *     row clears the ≥44px tap target threshold for pointer + touch.
- *   - On hover OR focus-visible, a secondary line slides into view
- *     below the primary content showing transport detail
- *     `via {transport} · {mesh_ip} · last seen {n}s ago`.
- *   - Per brand motion rule, height transitions go through
- *     `grid-template-rows` (collapsed `[grid-template-rows:1fr_0fr]`
- *     → expanded `[grid-template-rows:1fr_1fr]`), 100ms linear. The
- *     secondary cell uses `overflow-hidden` so its content is clipped
- *     while the row is collapsed.
- *   - The hover sub-line coexists with the existing failed-peer
- *     handshake sub-line (D-24): they carry different content
- *     (transport detail vs error guidance) and the failed sub-line
- *     stays unconditionally visible while the hover line is
- *     progressively disclosed.
+ * Hover progressive disclosure is preserved — a secondary line slides
+ * down with the full mesh_ip + node_id when the row is hovered or
+ * focused. Failed peers ALSO render the unconditional D-24 sub-line
+ * with a docs link (handshake-fail guidance).
  *
- * NO border-radius, NO gradients, NO literal Tailwind palette colors.
+ * Click anywhere on the primary row → opens the Peer Detail slide-over
+ * via onSelect.
+ *
+ * Brand absolutes preserved: zero radius, tokens only, no shadows.
  */
 
 import type { PeerSummary } from "@/lib/rpc-types";
@@ -65,17 +39,9 @@ import { cn } from "@/lib/utils";
 
 export interface PeerRowProps {
   peer: PeerSummary;
-  /** Wired by Plan 02-04 to open the Peer Detail slide-over; default no-op. */
   onSelect?: (peer: PeerSummary) => void;
 }
 
-// Honesty-contract colour mapping for the state word.
-// Mirrors the glyph colours encoded inside <StatusIndicator />.
-// `connecting` stays text-muted-foreground deliberately so the word
-// matches the glyph rendered by <StatusIndicator state="connecting" />
-// (which uses --color-muted-foreground). The honesty contract takes
-// precedence over the Phase-9 body-text token rule for this single
-// glyph-word pair.
 const STATE_WORD_CLASS: Record<PeerSummary["state"], string> = {
   active: "text-foreground",
   relayed: "text-accent",
@@ -83,11 +49,32 @@ const STATE_WORD_CLASS: Record<PeerSummary["state"], string> = {
   failed: "text-destructive",
 };
 
+/** Best-effort label resolver. Static peers without a label render as
+ *  `[ static ]` so they're visually anchored without inventing identity. */
+function resolveTag(peer: PeerSummary): { kind: "label" | "static" | "tag"; value: string } {
+  if (peer.label !== null && peer.label.length > 0) {
+    return { kind: "label", value: peer.label };
+  }
+  if (peer.static === true) return { kind: "static", value: "static" };
+  if (peer.state === "failed") return { kind: "tag", value: "pair_failed" };
+  if (peer.state === "connecting") return { kind: "tag", value: "pairing…" };
+  return { kind: "tag", value: "" };
+}
+
+/** Route summary — direct path vs via-relay. */
+function resolveRoute(peer: PeerSummary): string {
+  if (peer.state === "failed") return "";
+  if (peer.route_hops > 1) {
+    return `via relay · ${peer.route_hops} hops`;
+  }
+  return `${peer.transport} · ${peer.mesh_ip}`;
+}
+
 export function PeerRow({ peer, onSelect }: PeerRowProps) {
-  const label = peer.label === null ? "—" : peer.label;
-  const hopsText = peer.route_hops > 1 ? `(${peer.route_hops} hops)` : "";
-  const latencyText =
-    peer.latency_ms === null ? "" : `${peer.latency_ms}ms`;
+  const tag = resolveTag(peer);
+  const route = resolveRoute(peer);
+  const latencyText = peer.latency_ms === null ? "—" : `${peer.latency_ms}ms`;
+  const lastSeenText = `${peer.last_seen_s}s`;
 
   const handleActivate = () => {
     if (onSelect === undefined) return;
@@ -96,15 +83,6 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
 
   return (
     <div className="flex flex-col">
-      {/*
-        Phase 6 — hover/focus progressive-disclosure wrapper.
-        Two-row CSS grid where the second row collapses to 0fr by
-        default and expands to 1fr on hover/focus-within. Per brand
-        motion rule the height change is driven by grid-template-rows
-        (not max-height / height), 100ms linear. The `group` lets the
-        primary <button> and the disclosure cell share state via
-        group-hover / group-focus-within.
-      */}
       <div
         className={cn(
           "group grid grid-cols-1 [grid-template-rows:1fr_0fr]",
@@ -126,68 +104,85 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
           }}
           aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
           className={cn(
-            "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
-            // Phase 9 — at narrow CliPanel widths the 8-column layout
-            // collapses to short-id + label/state + last-seen so peer
-            // rows stay legible. Overflow columns hide individually.
-            "@max-[64ch]/cli-panel:grid-cols-[8ch_1fr_auto] @max-[64ch]/cli-panel:gap-y-1",
-            "items-center gap-x-2 px-4 py-2.5",
-            "font-code text-sm leading-[1.5] text-left",
+            "w-full grid items-center gap-x-4 px-4 py-2.5 text-left",
+            // 4-zone grid: state · identity · route · metrics
+            "grid-cols-[14ch_minmax(18ch,24ch)_minmax(0,1fr)_auto]",
+            "@max-[64ch]/cli-panel:grid-cols-[14ch_minmax(0,1fr)_auto]",
+            "font-code text-sm leading-[1.4]",
             "text-foreground",
-            "hover:bg-popover/60 hover:border-l-2 hover:border-border-active",
+            "border-l-2 border-transparent",
+            "hover:bg-popover/60 hover:border-l-border-active",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
             "active:translate-y-[1px]",
             "transition-colors duration-100 ease-linear",
           )}
         >
-          {/* short_id — signal-green per UI-SPEC §Interaction §Peer row */}
-          <span className="text-primary">{peer.node_id_short}</span>
-
-          <span>{label}</span>
-          <span className="@max-[64ch]/cli-panel:hidden">{peer.mesh_ip}</span>
-          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">via {peer.transport}</span>
-
-          {/* state glyph + word — honesty contract lives here */}
-          <span className="flex items-center gap-1">
+          {/* Zone 1 — state glyph + word */}
+          <span className="flex items-center gap-2">
             <StatusIndicator state={peer.state} />
             <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
           </span>
 
-          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">{hopsText}</span>
-          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">{latencyText}</span>
-          <span className="text-text-secondary">{peer.last_seen_s}s</span>
+          {/* Zone 2 — identity (short_id + label/tag) */}
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="text-primary truncate">{peer.node_id_short}</span>
+            {tag.value === "" ? null : (
+              <span
+                className={cn(
+                  "truncate",
+                  tag.kind === "label" && "text-foreground",
+                  tag.kind === "static" &&
+                    "font-mono text-[10px] uppercase tracking-wider text-text-secondary border border-border px-1 py-px",
+                  tag.kind === "tag" && "text-text-secondary italic",
+                )}
+              >
+                {tag.value}
+              </span>
+            )}
+            {peer.is_gateway === true ? (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-primary border border-primary/60 px-1 py-px shrink-0">
+                gateway
+              </span>
+            ) : null}
+          </span>
+
+          {/* Zone 3 — route (collapsed at narrow CliPanel width) */}
+          <span className="text-text-secondary truncate @max-[64ch]/cli-panel:hidden">
+            {route}
+          </span>
+
+          {/* Zone 4 — metrics, right-aligned */}
+          <span className="flex items-baseline gap-2 justify-end text-text-secondary tabular-nums">
+            <span>{latencyText}</span>
+            <span>·</span>
+            <span>{lastSeenText}</span>
+          </span>
         </button>
-        {/*
-          Hover-disclosure cell — collapsed at 0fr until the wrapper is
-          hovered or contains focus. overflow-hidden clips the content
-          while collapsed; the inner padding ramps in once expanded.
-          Content uses real PeerSummary fields (no invented data):
-          transport, mesh_ip, last_seen_s.
-        */}
+
+        {/* Hover-disclosure cell — full address + node_id reveal. */}
         <div
           aria-hidden="true"
           className={cn(
             "overflow-hidden",
             "font-code text-xs text-text-secondary",
-            "px-4",
+            "px-4 pl-[16px]",
             "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
             "transition-opacity duration-100 ease-linear",
           )}
         >
-          <span>via {peer.transport}</span>
-          <span> · </span>
-          <span>{peer.mesh_ip}</span>
-          <span> · </span>
-          <span>last seen {peer.last_seen_s}s ago</span>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 pb-1">
+            <span>node_id {peer.node_id}</span>
+            {peer.route_hops > 1 ? (
+              <>
+                <span>·</span>
+                <span>address {peer.mesh_ip}</span>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
-      {/* Phase 4 D-24: handshake-fail sub-line. Single implementation
-          pattern — when state==="failed" the row gets a second nested
-          <button> below it carrying HANDSHAKE_FAIL_SUBLINE and opening
-          SECURITY_DOCS_URL via Tauri shell.open. event.stopPropagation
-          on click + keydown so the row's primary onClick (open Peer
-          Detail) does not fire when the user clicks the docs link. Tab
-          order: primary row button THEN docs-link button. */}
+
+      {/* Phase 4 D-24 — handshake-fail sub-line for failed peers. */}
       {peer.state === "failed" ? (
         <button
           type="button"
@@ -203,7 +198,7 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
             }
           }}
           className={cn(
-            "px-4 pb-1 text-left",
+            "px-4 pb-1.5 text-left",
             "font-code text-xs text-destructive",
             "hover:text-foreground",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",

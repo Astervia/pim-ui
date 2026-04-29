@@ -1,29 +1,24 @@
 /**
- * <PeerListPanel /> — the Peers CliPanel on the Dashboard (02-UI-SPEC §Peers
- * panel, 02-CONTEXT D-08/D-11/D-13/D-14).
+ * <PeerListPanel /> — Dashboard's peer list.
  *
- * Wraps the D-13-sorted peer list (via usePeers from Plan 02-01) with:
- *   - A muted column-header row matching the UI-SPEC layout.
- *   - One PeerRow per peer.
- *   - Empty state renders <TeachingEmptyState /> with the
- *     EMPTY_PEERS_HEADLINE / EMPTY_PEERS_NEXT locked copy from
- *     src/lib/copy.ts and a cycling [udp · ble · wfd] discovery
- *     indicator. Never the chipper onboarding-style exhortation we
- *     refuse by contract (P5 solo-mode, STYLE.md §Voice).
- *   - Two enabled ActionRow buttons below the list, visible regardless
- *     of whether the list is empty: `[ + Add peer nearby ]` and
- *     `[ Invite peer ]`. Click handlers come from the parent (Dashboard)
- *     via onAddPeerNearby / onInvitePeer props (Phase 4 D-06). The
- *     Phase-2 placeholder tooltip is gone now that Phase 4 ships the
- *     pairing affordances; aria-label replaces title=.
+ * Post-redesign: column header dropped (rows are self-describing — each
+ * peer's row tells its own story via the 4-zone grid in PeerRow). The
+ * panel is now structured as:
  *
- * D-30 limited mode: dims to opacity-60 and flips the connected-count
- * badge variant to muted.
+ *   ┌─── PEERS ─────────────────────────────[N connected]┐
+ *   │ ◆ active    9efa1720…  static    tcp · …  7ms · 0s │
+ *   │ ◈ relayed   abc1…  client-c      via …   12ms · 4s │
+ *   │                                                     │
+ *   │ ────                                                 │
+ *   │ [ + Add peer ]   [ Invite peer ]                    │
+ *   └─────────────────────────────────────────────────────┘
  *
- * The panel emits `onPeerSelect(peer)` upward; Plan 02-04 wires this
- * callback to open the Peer Detail slide-over. Default behaviour is a
- * no-op (callback absent) so the component renders cleanly in Phase 2
- * without the slide-over plumbing yet.
+ * Empty state (zero peers connected) renders the locked-copy
+ * <TeachingEmptyState /> with the cycling discovery indicator —
+ * teaches what the daemon is doing without violating P5 solo-mode.
+ *
+ * D-30 limited mode: panel dims to opacity-60 and the count badge
+ * variant flips to muted.
  */
 
 import type { PeerSummary } from "@/lib/rpc-types";
@@ -40,10 +35,8 @@ const EMPTY_PEERS_CYCLE = ["udp", "ble", "wfd"] as const;
 export interface PeerListPanelProps {
   peers: PeerSummary[];
   onPeerSelect?: (peer: PeerSummary) => void;
-  /** Phase 4 D-06/D-08: open the InvitePeerSheet. */
   onInvitePeer?: () => void;
   limitedMode?: boolean;
-  /** Phase 2/5 — staggered reveal delay forwarded to CliPanel. */
   revealDelay?: number | null;
 }
 
@@ -59,9 +52,17 @@ export function PeerListPanel({
     (p) => p.state === "active" || p.state === "relayed",
   ).length;
 
+  const totalPeers = peers.length;
+  const labelText =
+    totalPeers === 0
+      ? "0 connected"
+      : connectedCount === totalPeers
+        ? `${connectedCount} connected`
+        : `${connectedCount}/${totalPeers} connected`;
+
   const badge = limitedMode === true
-    ? { label: `${connectedCount} CONNECTED`, variant: "muted" as const }
-    : { label: `${connectedCount} CONNECTED`, variant: "default" as const };
+    ? { label: labelText.toUpperCase(), variant: "muted" as const }
+    : { label: labelText.toUpperCase(), variant: "default" as const };
 
   return (
     <CliPanel
@@ -70,29 +71,6 @@ export function PeerListPanel({
       revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
-      {/* Column header — muted, uppercase (UI-SPEC §Peers panel). Hidden
-          when the CliPanel container collapses below 64ch (Phase 9 — peer
-          rows fold to a 3-column layout at narrow widths so the table
-          stays legible at 1024×600 and future mobile viewports). */}
-      <div
-        role="presentation"
-        className={cn(
-          "grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
-          "gap-x-2 px-4 pb-2 mb-1 border-b border-border",
-          "font-mono text-xs uppercase tracking-widest text-muted-foreground",
-          "@max-[64ch]/cli-panel:hidden",
-        )}
-      >
-        <span>short id</span>
-        <span>label</span>
-        <span>mesh ip</span>
-        <span>transport</span>
-        <span>state</span>
-        <span>hops</span>
-        <span>latency</span>
-        <span>last seen</span>
-      </div>
-
       {peers.length === 0 ? (
         <TeachingEmptyState
           headline={EMPTY_PEERS_HEADLINE}
@@ -100,7 +78,7 @@ export function PeerListPanel({
           cycle={EMPTY_PEERS_CYCLE}
         />
       ) : (
-        <ul role="list" className="divide-y divide-border/30">
+        <ul role="list" className="flex flex-col divide-y divide-border/30">
           {peers.map((peer) => (
             <li key={peer.node_id}>
               <PeerRow peer={peer} onSelect={onPeerSelect} />
@@ -110,11 +88,12 @@ export function PeerListPanel({
       )}
 
       {/*
-        ActionRow — `[ + add peer ]` (manual static peer via TOML
+        Action row — `[ + add peer ]` (manual static peer via TOML
         fragment) sits next to `[ invite peer ]` (remote pim:// link).
-        With the dedicated Peers tab gone, this is the only entry
-        point for both flows; the AddPeerSheet itself is mounted at
-        shell level so it overlays every screen.
+        Add is the primary path on a dashboard with zero or few peers;
+        Invite is the secondary path. Both stay reachable in limited
+        mode but the Add button itself disables (the daemon can't
+        write to TOML while it's not running).
       */}
       <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-3 px-4">
         <Button
