@@ -129,7 +129,6 @@ export function LimitedModeBanner({
 }: LimitedModeBannerProps) {
   const { snapshot, actions } = useDaemonState();
   const { requestPermission } = useTunPermission();
-  if (snapshot.state === "running") return null;
 
   // Phase 01.1: pass the full DaemonLastError union — variantFor() now
   // owns the message-extraction AND the D-20 crash-on-boot branch
@@ -137,11 +136,20 @@ export function LimitedModeBanner({
   // when the rpc_error variant carries a `data.kind === "crash_on_boot"`
   // discriminator). The local message-narrowing that used to live here
   // was a Phase 1 workaround obsoleted by the union extension.
+  //
+  // Rules-of-Hooks: this useMemo MUST run on every render, including the
+  // `running` render that ultimately returns null. Previously a `state ===
+  // "running"` early return sat above this hook, so the daemon transition
+  // stopped→starting→running flipped the hook count and React threw
+  // "Rendered fewer hooks than expected." Order is now: all hooks first,
+  // then the conditional null return.
   const lastError = snapshot.lastError;
   const v = useMemo(
     () => variantFor(snapshot.state, lastError),
     [snapshot.state, lastError],
   );
+
+  if (snapshot.state === "running") return null;
 
   const isDestructive = v.accentClass === "destructive";
   const leftBorderClass = isDestructive
