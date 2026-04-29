@@ -18,9 +18,9 @@ jobs:
     name: frontend (typecheck + build)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -32,7 +32,7 @@ jobs:
     name: rust quality (fmt + clippy + audit)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -94,11 +94,11 @@ jobs:
           - label: macos-x86_64
             runner: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
