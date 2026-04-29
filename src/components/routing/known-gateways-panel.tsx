@@ -115,12 +115,12 @@ export function KnownGatewaysPanel({
               >
                 {shortId(g.node_id)}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-text-secondary">
                 {g.via === "" ? "(direct)" : g.via}
               </span>
-              <span className="text-muted-foreground">{g.hops}</span>
-              <span className="text-muted-foreground">{g.score.toFixed(2)}</span>
-              <span className="text-muted-foreground">
+              <span className="text-text-secondary">{g.hops}</span>
+              <span className="text-text-secondary">{g.score.toFixed(2)}</span>
+              <span className="text-text-secondary">
                 {g.selected === true ? "selected" : ""}
               </span>
             </li>

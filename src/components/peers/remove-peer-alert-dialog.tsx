@@ -89,7 +89,7 @@ export function RemovePeerAlertDialog() {
         </AlertDialogHeader>
 
         {limited === true ? (
-          <p className="font-mono text-sm text-muted-foreground">
+          <p className="font-mono text-sm text-text-secondary">
             Reconnect to remove peers.
           </p>
         ) : null}

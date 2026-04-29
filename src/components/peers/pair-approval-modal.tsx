@@ -130,10 +130,10 @@ export function PairApprovalModal() {
                 </button>
               </p>
               {isInbound === true ? (
-                <p className="text-muted-foreground">↳ via {d.mechanism}</p>
+                <p className="text-text-secondary">↳ via {d.mechanism}</p>
               ) : null}
               {showFull === true && d.node_id === null ? (
-                <p className="text-muted-foreground">
+                <p className="text-text-secondary">
                   full node id unavailable
                 </p>
               ) : null}

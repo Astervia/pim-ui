@@ -68,13 +68,17 @@ export function PeerListPanel({
       revealDelay={revealDelay}
       className={cn(limitedMode === true && "opacity-60")}
     >
-      {/* Column header — muted, uppercase (UI-SPEC §Peers panel). */}
+      {/* Column header — muted, uppercase (UI-SPEC §Peers panel). Hidden
+          when the CliPanel container collapses below 64ch (Phase 9 — peer
+          rows fold to a 3-column layout at narrow widths so the table
+          stays legible at 1024×600 and future mobile viewports). */}
       <div
         role="presentation"
         className={cn(
           "grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
           "gap-x-2 px-4 pb-2 mb-1 border-b border-border",
           "font-mono text-xs uppercase tracking-widest text-muted-foreground",
+          "@max-[64ch]/cli-panel:hidden",
         )}
       >
         <span>short id</span>

@@ -59,6 +59,14 @@
   --color-muted: #2a2e2c;
   --color-muted-foreground: #7a807c;
 
+  /* Phase 9: AA-compliant body-text secondary. Use for inline body
+   * separators (e.g. "·"), prefix labels, secondary line text in
+   * peer rows, kv-row values. The pre-existing --color-muted-foreground
+   * stays reserved for AA-large only — column headers, tracking-widest
+   * labels, glyph-only tokens (e.g. icon hints).
+   */
+  --color-text-secondary: #9aa09c;
+
   --color-destructive: #ff5555;
   --color-destructive-foreground: #ffffff;
 

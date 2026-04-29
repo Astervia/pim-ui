@@ -90,14 +90,14 @@ export function MetricsPanel({
     >
       <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm">
         <span>peers {connectedCount}</span>
-        <span className="text-muted-foreground">·</span>
+        <span className="text-text-secondary">·</span>
         <span>
           forwarded {formatBytes(stats.forwarded_bytes)} /{" "}
           {formatCount(stats.forwarded_packets)} pkts
         </span>
-        <span className="text-muted-foreground">·</span>
+        <span className="text-text-secondary">·</span>
         <span>{droppedSegment}</span>
-        <span className="text-muted-foreground">·</span>
+        <span className="text-text-secondary">·</span>
         <span>egress {egress}</span>
       </div>
     </CliPanel>

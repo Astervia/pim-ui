@@ -141,12 +141,12 @@ export function RouteTablePanel({
                 >
                   {r.destination}
                 </span>
-                <span className="text-muted-foreground">{r.via}</span>
-                <span className="text-muted-foreground">{r.hops}</span>
-                <span className="text-muted-foreground">
+                <span className="text-text-secondary">{r.via}</span>
+                <span className="text-text-secondary">{r.hops}</span>
+                <span className="text-text-secondary">
                   {r.learned_from === "" ? "—" : r.learned_from}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="text-text-secondary">
                   {formatDuration(r.age_s)}
                 </span>
               </li>

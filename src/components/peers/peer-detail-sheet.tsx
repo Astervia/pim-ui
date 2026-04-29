@@ -113,7 +113,7 @@ export function PeerDetailSheet() {
           <SheetTitle>
             {peer.label === null ? peer.node_id_short : peer.label}
           </SheetTitle>
-          <div className="font-code text-sm text-muted-foreground flex items-center gap-2">
+          <div className="font-code text-sm text-text-secondary flex items-center gap-2">
             <span>{peer.node_id_short}</span>
             <button
               type="button"
@@ -193,7 +193,7 @@ export function PeerDetailSheet() {
             troubleshoot log
           </h3>
           {log.length === 0 ? (
-            <p className="font-code text-sm text-muted-foreground">
+            <p className="font-code text-sm text-text-secondary">
               No events recorded this session
             </p>
           ) : (
@@ -204,7 +204,7 @@ export function PeerDetailSheet() {
               {failedEvent === undefined ? null : (
                 <li className="pb-2 mb-2 border-b border-border flex flex-col gap-1">
                   <div>
-                    <span className="text-muted-foreground">
+                    <span className="text-text-secondary">
                       {formatTime(failedEvent.at)}
                     </span>{" "}
                     <span className="text-destructive">✗ pair_failed</span>{" "}
@@ -239,12 +239,12 @@ export function PeerDetailSheet() {
                       e.kind === "pair_failed" && "text-destructive",
                     )}
                   >
-                    <span className="text-muted-foreground">
+                    <span className="text-text-secondary">
                       {formatTime(e.at)}
                     </span>
                     <span>{e.kind}</span>
                     {e.reason === undefined || e.reason === "" ? null : (
-                      <span className="text-muted-foreground">{e.reason}</span>
+                      <span className="text-text-secondary">{e.reason}</span>
                     )}
                   </li>
                 ))}

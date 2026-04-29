@@ -107,7 +107,7 @@ export function InvitePeerSheet() {
             </Button>
           </div>
           <p className="text-foreground">{INVITE_PAIRING_LINE}</p>
-          <p className="text-muted-foreground">{INVITE_ROADMAP_LINE}</p>
+          <p className="text-text-secondary">{INVITE_ROADMAP_LINE}</p>
         </section>
       </SheetContent>
     </Sheet>

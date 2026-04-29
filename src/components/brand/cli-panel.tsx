@@ -73,6 +73,7 @@ export function CliPanel({
     <section
       style={revealStyle}
       className={cn(
+        "@container/cli-panel",
         "bg-popover border border-border text-foreground",
         "font-code text-sm leading-[1.7]",
         emphasis === true && "border-l-2 border-l-primary",

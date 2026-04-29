@@ -72,13 +72,16 @@ export function PeersPanel({
     >
       <AddPeerActionRow />
 
-      {/* Column header — matches Dashboard PeerListPanel grammar. */}
+      {/* Column header — matches Dashboard PeerListPanel grammar. Hidden
+          when the CliPanel container collapses below 64ch (Phase 9 — peer
+          rows fold to a 3-column layout at narrow widths). */}
       <div
         role="presentation"
         className={cn(
           "grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
           "gap-x-2 px-4 pb-2 mb-1 border-b border-border",
           "font-mono text-xs uppercase tracking-widest text-muted-foreground",
+          "@max-[64ch]/cli-panel:hidden",
         )}
       >
         <span>short id</span>

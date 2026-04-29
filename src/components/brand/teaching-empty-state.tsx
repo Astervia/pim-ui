@@ -86,7 +86,7 @@ export function TeachingEmptyState({
         className,
       )}
     >
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="flex items-center gap-2 text-text-secondary">
         <span aria-hidden="true" className="phosphor-pulse text-primary">
           {glyph}
         </span>
@@ -98,7 +98,7 @@ export function TeachingEmptyState({
         )}
       </div>
       {next === undefined ? null : (
-        <p className="font-mono text-xs text-muted-foreground pl-7">{next}</p>
+        <p className="font-mono text-xs text-text-secondary pl-7">{next}</p>
       )}
     </div>
   );

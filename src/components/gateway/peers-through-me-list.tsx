@@ -44,7 +44,7 @@ export function PeersThroughMeList({
     >
       <p className="text-foreground">{`peers routing through this node (${headingCount})`}</p>
       {filtered.length === 0 ? (
-        <p className="text-muted-foreground">
+        <p className="text-text-secondary">
           no peers routing through this node yet · advertising 0.0.0.0/0
         </p>
       ) : (

@@ -33,10 +33,10 @@ export function PreflightCheckRow({ check }: PreflightCheckRowProps) {
       <StatusIndicator state={check.ok === true ? "active" : "failed"} />
       <span className="text-foreground">{humanizeCheckName(check.name)}</span>
       {detailText === null ? null : (
-        <span className="text-muted-foreground">{detailText}</span>
+        <span className="text-text-secondary">{detailText}</span>
       )}
       {hint === null ? null : (
-        <span className="text-muted-foreground">{` · ${hint}`}</span>
+        <span className="text-text-secondary">{` · ${hint}`}</span>
       )}
     </div>
   );

@@ -117,25 +117,25 @@ export function IdentityPanel({
       <div className="flex items-start justify-between gap-4">
         <h1 className="font-mono text-2xl tracking-tight leading-[1.3]">
           <span className="phosphor">█ pim</span>
-          <span className="text-muted-foreground"> · </span>
+          <span className="text-text-secondary"> · </span>
           <span className="text-foreground">{status.node}</span>
         </h1>
         <StatusIndicator state={indicatorState} />
       </div>
 
       <p className="mt-1 text-sm text-foreground">
-        <span className="text-muted-foreground">mesh:</span> {status.mesh_ip}
-        <span className="text-muted-foreground"> · </span>
+        <span className="text-text-secondary">mesh:</span> {status.mesh_ip}
+        <span className="text-text-secondary"> · </span>
         interface {status.interface.name}
-        <span className="text-muted-foreground"> · </span>
+        <span className="text-text-secondary"> · </span>
         <span className={ifaceUp === true ? "" : "text-destructive"}>
           {ifaceUp === true ? "up" : "down"}
         </span>
-        <span className="text-muted-foreground"> · </span>
+        <span className="text-text-secondary"> · </span>
         {formatDuration(status.uptime_s)}
         {ifaceUp === false && (
           <>
-            <span className="text-muted-foreground"> · </span>
+            <span className="text-text-secondary"> · </span>
             <button
               type="button"
               className="text-primary underline-offset-2 hover:underline"
@@ -167,7 +167,7 @@ export function IdentityPanel({
           </>
         )}
         {lastSeenLine === null ? null : (
-          <span className="text-muted-foreground">
+          <span className="text-text-secondary">
             {" · "}last seen: {lastSeenLine} ago
           </span>
         )}

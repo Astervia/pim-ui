@@ -226,7 +226,7 @@ export function RouteTogglePanel({
           </span>
           <span className="uppercase tracking-wider">{label}…</span>
         </div>
-        <p className="font-mono text-xs text-muted-foreground pl-7">
+        <p className="font-mono text-xs text-text-secondary pl-7">
           waiting for daemon to confirm
         </p>
       </div>

@@ -44,7 +44,7 @@ export function LinuxOnlyPanel({ platform }: LinuxOnlyPanelProps) {
         support for macOS and Windows depends on the kernel growing
         {" iptables-equivalent NAT — see the kernel repo for status."}
       </p>
-      <div className="flex flex-col gap-1 text-muted-foreground">
+      <div className="flex flex-col gap-1 text-text-secondary">
         <span>{`· platform: ${platform}`}</span>
         <span>{`· supported: false`}</span>
       </div>

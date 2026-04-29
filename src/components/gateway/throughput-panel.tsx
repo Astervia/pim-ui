@@ -35,7 +35,7 @@ export function ThroughputPanel({
       <p className="text-foreground">
         {`in   ${formatBitrate(in_bps)}   out  ${formatBitrate(out_bps)}`}
       </p>
-      <p className="text-muted-foreground">
+      <p className="text-text-secondary">
         {`total ${formatDuration(elapsed_s)}    in   ${formatBytes(in_total_bytes)}    out  ${formatBytes(out_total_bytes)}`}
       </p>
     </section>

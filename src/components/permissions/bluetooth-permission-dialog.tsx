@@ -135,7 +135,7 @@ export function BluetoothPermissionDialog(): React.ReactNode {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 py-2 text-sm text-text-secondary">
           <ol className="flex flex-col gap-2 pl-4 list-decimal">
             <li>
               Make sure the gateway is{" "}

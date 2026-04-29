@@ -62,7 +62,7 @@ export function GatewayActivePanel({
           {`gateway active · ${natIfaceLabel} · ${formatDuration(elapsedSec)}`}
         </span>
       </div>
-      <p className="text-muted-foreground">advertised: 0.0.0.0/0</p>
+      <p className="text-text-secondary">advertised: 0.0.0.0/0</p>
 
       <ConntrackGauge
         used={status.conntrack.used}
@@ -99,7 +99,7 @@ export function GatewayActivePanel({
           [ Turn off gateway mode ]
         </button>
         {advisoryText === "" ? null : (
-          <span className="text-muted-foreground">{advisoryText}</span>
+          <span className="text-text-secondary">{advisoryText}</span>
         )}
       </div>
     </div>

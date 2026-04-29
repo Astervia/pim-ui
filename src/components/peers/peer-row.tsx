@@ -71,6 +71,11 @@ export interface PeerRowProps {
 
 // Honesty-contract colour mapping for the state word.
 // Mirrors the glyph colours encoded inside <StatusIndicator />.
+// `connecting` stays text-muted-foreground deliberately so the word
+// matches the glyph rendered by <StatusIndicator state="connecting" />
+// (which uses --color-muted-foreground). The honesty contract takes
+// precedence over the Phase-9 body-text token rule for this single
+// glyph-word pair.
 const STATE_WORD_CLASS: Record<PeerSummary["state"], string> = {
   active: "text-foreground",
   relayed: "text-accent",
@@ -122,6 +127,10 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
           aria-label={`peer detail: ${peer.label === null ? peer.node_id_short : peer.label}`}
           className={cn(
             "w-full grid grid-cols-[8ch_16ch_18ch_11ch_1fr_auto_auto_auto]",
+            // Phase 9 — at narrow CliPanel widths the 8-column layout
+            // collapses to short-id + label/state + last-seen so peer
+            // rows stay legible. Overflow columns hide individually.
+            "@max-[64ch]/cli-panel:grid-cols-[8ch_1fr_auto] @max-[64ch]/cli-panel:gap-y-1",
             "items-center gap-x-2 px-4 py-2.5",
             "font-code text-sm leading-[1.5] text-left",
             "text-foreground",
@@ -135,8 +144,8 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
           <span className="text-primary">{peer.node_id_short}</span>
 
           <span>{label}</span>
-          <span>{peer.mesh_ip}</span>
-          <span className="text-muted-foreground">via {peer.transport}</span>
+          <span className="@max-[64ch]/cli-panel:hidden">{peer.mesh_ip}</span>
+          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">via {peer.transport}</span>
 
           {/* state glyph + word — honesty contract lives here */}
           <span className="flex items-center gap-1">
@@ -144,9 +153,9 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
             <span className={STATE_WORD_CLASS[peer.state]}>{peer.state}</span>
           </span>
 
-          <span className="text-muted-foreground">{hopsText}</span>
-          <span className="text-muted-foreground">{latencyText}</span>
-          <span className="text-muted-foreground">{peer.last_seen_s}s</span>
+          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">{hopsText}</span>
+          <span className="text-text-secondary @max-[64ch]/cli-panel:hidden">{latencyText}</span>
+          <span className="text-text-secondary">{peer.last_seen_s}s</span>
         </button>
         {/*
           Hover-disclosure cell — collapsed at 0fr until the wrapper is
@@ -159,7 +168,7 @@ export function PeerRow({ peer, onSelect }: PeerRowProps) {
           aria-hidden="true"
           className={cn(
             "overflow-hidden",
-            "font-code text-xs text-muted-foreground",
+            "font-code text-xs text-text-secondary",
             "px-4",
             "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
             "transition-opacity duration-100 ease-linear",

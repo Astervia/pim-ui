@@ -34,7 +34,7 @@ export function PopoverHeader() {
         <StatusIndicator state={dotState} />
         <span className="text-foreground">{`pim · ${nodeName}`}</span>
       </div>
-      <p className="text-muted-foreground">{`mesh: ${meshIp}`}</p>
+      <p className="text-text-secondary">{`mesh: ${meshIp}`}</p>
     </header>
   );
 }

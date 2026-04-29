@@ -64,7 +64,7 @@ export function PreflightSection({ result, loading, onRerun }: PreflightSectionP
       </button>
 
       {allOk === false ? (
-        <p className="font-code text-sm text-muted-foreground mt-2">
+        <p className="font-code text-sm text-text-secondary mt-2">
           Pre-flight failed — fix the items above and re-run.
         </p>
       ) : null}
