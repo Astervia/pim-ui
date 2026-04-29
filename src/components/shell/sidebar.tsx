@@ -140,15 +140,15 @@ export function Sidebar() {
           file just mounts it. */}
       <SidebarWordmark />
 
-      {/* Full-width box-drawing rule — endcaps removed per user feedback;
-          a clean `─` run reads quieter and lets the wordmark above breathe
-          without a visual frame trapping it. */}
+      {/* Plain CSS border instead of a `─` glyph run — at small sizes
+          the box-drawing character's end-caps in Geist Mono render as
+          standalone dots flanking the line, which read as visual noise.
+          A 1px border-t in the brand `border` token is the same visual
+          weight without font-rendering artefacts. */}
       <div
         aria-hidden="true"
-        className="px-5 pb-3 text-muted-foreground select-none font-mono text-xs leading-none tracking-tight"
-      >
-        ──────────────────
-      </div>
+        className="mx-5 mb-3 border-t border-border"
+      />
 
       {/* Active nav list — six rows, each a real <button>. */}
       <ul role="list" className="flex flex-col mt-2 px-1">
