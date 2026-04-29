@@ -45,6 +45,7 @@ import { PeerListPanel } from "@/components/peers/peer-list-panel";
 import { NearbyPanel } from "@/components/peers/nearby-panel";
 import { ThroughputPanel } from "@/components/metrics/throughput-panel";
 import { NetworkInsightsPanel } from "@/components/metrics/network-insights-panel";
+import { RelayContributionPanel } from "@/components/relay/relay-contribution-panel";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
 import { ScreenContainer } from "@/components/shell/screen-container";
 
@@ -129,9 +130,11 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
 
       {/* Periphery — insights row. Two columns at the default 72ch
           width (throughput on the left, KV on the right); collapses
-          to a stack on narrow viewports. The grid is a regular CSS
-          grid rather than container-driven so column widths are
-          predictable across the dashboard's standard width. */}
+          to a stack on narrow viewports. Phase 6 Plan 06-02 adds the
+          RelayContributionPanel below as a third row so the relay
+          role gets its own honest readout (peers via this node,
+          forwarded bytes/packets) instead of being a subset of the
+          generic network KV grid. */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
         <ThroughputPanel limitedMode={limitedMode} revealDelay={280} />
         <NetworkInsightsPanel
@@ -140,6 +143,8 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
           revealDelay={320}
         />
       </div>
+
+      <RelayContributionPanel limitedMode={limitedMode} revealDelay={360} />
     </ScreenContainer>
   );
 }

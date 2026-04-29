@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useDiscovered } from "@/hooks/use-discovered";
 import { usePeers } from "@/hooks/use-peers";
+import { useRelayContribution } from "@/hooks/use-relay-contribution";
 import { useRouteOn } from "@/hooks/use-routing";
 import { callDaemon } from "@/lib/rpc";
 import { useTunPermission } from "@/components/brand/tun-permission-modal";
@@ -97,6 +98,7 @@ export function SimpleModeScreen() {
   const peers = usePeers();
   const discovered = useDiscovered();
   const routeOn = useRouteOn();
+  const relay = useRelayContribution();
 
   const [pairingNodeId, setPairingNodeId] = useState<string | null>(null);
   const [routeAttempted, setRouteAttempted] = useState<boolean>(false);
@@ -275,10 +277,26 @@ export function SimpleModeScreen() {
           onIgnorePeer,
           onDisconnect,
           isTransient,
+          relay,
         })}
       </div>
     </div>
   );
+}
+
+function relayContributionLine(
+  relay: ReturnType<typeof useRelayContribution>,
+): string | null {
+  // Only surface the contribution line when the role actively forwards
+  // traffic. A client-only node ran the RelayOffConfirmAlertDialog
+  // gauntlet in advanced settings; simple-mode does not re-litigate
+  // that decision here.
+  if (relay.active === false) return null;
+  if (relay.peersViaMe > 0) {
+    const noun = relay.peersViaMe === 1 ? "device" : "devices";
+    return `you're a relay · helping ${relay.peersViaMe} ${noun} nearby`;
+  }
+  return "you're a relay · ready to help";
 }
 
 function heroTagline(view: SimpleView): string {
@@ -308,6 +326,8 @@ interface ViewActions {
   onIgnorePeer: () => void;
   onDisconnect: () => void;
   isTransient: boolean;
+  /** Plan 06-02: relay contribution surfaced under the connected card. */
+  relay: ReturnType<typeof useRelayContribution>;
 }
 
 function renderView(view: SimpleView, a: ViewActions) {
@@ -407,7 +427,8 @@ function renderView(view: SimpleView, a: ViewActions) {
         </div>
       );
 
-    case "connected":
+    case "connected": {
+      const relayLine = relayContributionLine(a.relay);
       return (
         <div key="connected" className="flex flex-col items-center gap-6 simple-fade-in">
           <SimplePeerCard
@@ -417,6 +438,14 @@ function renderView(view: SimpleView, a: ViewActions) {
             primaryLabel="disconnect"
             onPrimary={a.onDisconnect}
           />
+          {relayLine === null ? null : (
+            <p
+              className="font-code text-xs text-text-secondary tracking-wider"
+              aria-live="polite"
+            >
+              {relayLine}
+            </p>
+          )}
           <button
             type="button"
             onClick={a.onPower}
@@ -426,6 +455,7 @@ function renderView(view: SimpleView, a: ViewActions) {
           </button>
         </div>
       );
+    }
 
     case "error":
       return (

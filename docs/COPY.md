@@ -161,6 +161,26 @@ The form-field helper text below the Switch:
 
 - `Recommended: leave this on. When on, this node accepts inbound connections from other peers and forwards mesh frames on their behalf — the mesh needs relays to reach gateways. When off, you run as a client-only node (0x01) and other peers won't initiate connections to you.`
 
+### RelayContributionPanel (Phase 6 Plan 06-02)
+
+Periphery panel on the Dashboard. Three states:
+
+- **Loading** — title `relay`, status badge `WAITING`, body via `<ScanLoader label="loading relay role" />`.
+- **Client-only (relay off)** — title `relay`, status badge `OFF`. Body line 1: `client only (0x01)`. Body line 2: `this device does not forward traffic for other peers. turn relay on in Settings to strengthen the mesh.`
+- **Relay active** — title `relay`, status badge `LIVE` (or `STALE` in limited mode). KV grid:
+  - `role` → `relay + client (0x03)` (text-primary)
+  - `peers` → `0 · ready to help` when none route through this node, otherwise `{N} via this node`
+  - `forwarded` → `{bytes} / {pkts} pkts`
+
+### SimpleModeScreen — relay contribution line (Phase 6 Plan 06-02)
+
+Below `<SimplePeerCard variant="connected" />`. Only renders when
+`Status.role` includes `"relay"`; client-only nodes show nothing here
+because the trade-off was already accepted in advanced settings.
+
+- When `peersViaMe > 0`: `you're a relay · helping {N} {device|devices} nearby`
+- When `peersViaMe === 0`: `you're a relay · ready to help`
+
 ### Phase 3 — TeachingEmptyState microcopy (overhaul Phase 3)
 
 Each panel below renders `<TeachingEmptyState />` with a verbatim
