@@ -12,9 +12,11 @@ import {
   type SectionRawWinsMap,
 } from "./schema-diff";
 
-// Assert twelve section ids (exactly) — "about" was promoted to its
-// own ⌘7 screen, no longer a settings collapsible section.
-type AssertTwelveSections = typeof SECTION_IDS extends readonly [
+// Assert thirteen section ids (exactly) — "about" was promoted to its
+// own ⌘7 screen, no longer a settings collapsible section. The
+// thirteenth slot is "bluetooth_rfcomm" added alongside "bluetooth".
+type AssertThirteenSections = typeof SECTION_IDS extends readonly [
+  string,
   string,
   string,
   string,
@@ -30,7 +32,7 @@ type AssertTwelveSections = typeof SECTION_IDS extends readonly [
 ]
   ? true
   : false;
-const _s: AssertTwelveSections = true;
+const _s: AssertThirteenSections = true;
 void _s;
 
 // Assert every SectionId has a schema entry (exhaustive Record<SectionId, …>).

@@ -39,7 +39,7 @@ export const SETTINGS_CLUSTERS: readonly SettingsCluster[] = [
     id: "reach",
     title: "reach",
     tagline: "how nodes find each other on this network",
-    sections: ["discovery", "bluetooth", "wifi_direct"],
+    sections: ["discovery", "bluetooth", "bluetooth_rfcomm", "wifi_direct"],
   },
   {
     id: "traffic",

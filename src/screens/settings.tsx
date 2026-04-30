@@ -1,13 +1,13 @@
 /**
  * <SettingsScreen /> — orchestrator screen for ⌘6.
  *
- * Post-redesign (April 2026): the flat 13-panel scroll-wall is replaced
+ * Post-redesign (April 2026): the flat panel scroll-wall is replaced
  * by a domain-clustered 2-column layout that honours UX-PLAN §1 P2
  * ("organised by what they do, not by Basic vs Advanced").
  *
  * Layout:
  *
- *   ┌─ settings · 13 / 13 sections · backed by pim-daemon ─────────┐
+ *   ┌─ settings · N / N sections · backed by pim-daemon ───────────┐
  *   │ [⌕ filter sections…]            [▸ collapse all] [▾ expand]  │
  *   └──────────────────────────────────────────────────────────────┘
  *   ┌──────────┬──────────────────────────────────────────────────┐
@@ -56,6 +56,7 @@ import { IdentitySection } from "@/components/settings/sections/identity-section
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
 import { BluetoothSection } from "@/components/settings/sections/bluetooth-section";
+import { BluetoothRfcommSection } from "@/components/settings/sections/bluetooth-rfcomm-section";
 import { WifiDirectSection } from "@/components/settings/sections/wifi-direct-section";
 import { TransportSection } from "@/components/settings/sections/transport-section";
 import { RoutingSection } from "@/components/settings/sections/routing-section";
@@ -106,6 +107,8 @@ function renderSection(id: SectionId, args: SectionRendererArgs): ReactNode {
       return <DiscoverySection {...args} />;
     case "bluetooth":
       return <BluetoothSection {...args} />;
+    case "bluetooth_rfcomm":
+      return <BluetoothRfcommSection {...args} />;
     case "wifi_direct":
       return <WifiDirectSection {...args} />;
     case "transport":

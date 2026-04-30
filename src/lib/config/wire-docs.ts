@@ -168,6 +168,35 @@ export const WIRE_DOCS: Readonly<Record<string, WireDoc>> = {
     unit: "ms",
   },
 
+  // ── bluetooth_rfcomm ────────────────────────────────────────────
+  "bluetooth_rfcomm.enabled": {
+    description:
+      "Scan paired Bluetooth devices by name prefix, open RFCOMM channels, and exchange PIM identity frames. Independent from PAN/NAP.",
+    default: "false",
+  },
+  "bluetooth_rfcomm.channel": {
+    description: "RFCOMM channel to bind and dial. 22 avoids common SPP channel conflicts.",
+    default: "22",
+  },
+  "bluetooth_rfcomm.device_name_prefix": {
+    description: "Filter paired Bluetooth devices by name prefix when looking for PIM peers.",
+    default: "PIM-",
+  },
+  "bluetooth_rfcomm.outbound_enabled": {
+    description: "Periodically scan paired devices and dial out over RFCOMM. Disable for inbound-only nodes.",
+    default: "true",
+  },
+  "bluetooth_rfcomm.poll_interval_ms": {
+    description: "How often to poll the paired-device list for outbound RFCOMM dial attempts.",
+    default: "30000",
+    unit: "ms",
+  },
+  "bluetooth_rfcomm.bridge_to_tcp": {
+    description:
+      "Bridge established RFCOMM sessions into 127.0.0.1:<transport.listen_port> so normal PIM handshakes are reused. Disable for discovery-only deployments.",
+    default: "true",
+  },
+
   // ── wifi_direct ─────────────────────────────────────────────────
   "wifi_direct.enabled": {
     description: "Enable Wi-Fi Direct (P2P) peer discovery and pairing.",

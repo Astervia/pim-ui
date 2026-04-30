@@ -18,6 +18,7 @@ export const SECTION_IDS = [
   "interface",
   "discovery",
   "bluetooth",
+  "bluetooth_rfcomm",
   "wifi_direct",
   "transport",
   "routing",
@@ -96,6 +97,18 @@ export const SECTION_SCHEMAS: Readonly<Record<SectionId, SectionSchema>> = {
       "bluetooth.bluetoothctl_timeout_s",
       "bluetooth.discoverable_timeout_s",
       "bluetooth.startup_timeout_ms",
+    ],
+  },
+  bluetooth_rfcomm: {
+    id: "bluetooth_rfcomm",
+    title: "BLUETOOTH RFCOMM",
+    tomlKeys: [
+      "bluetooth_rfcomm.enabled",
+      "bluetooth_rfcomm.channel",
+      "bluetooth_rfcomm.device_name_prefix",
+      "bluetooth_rfcomm.outbound_enabled",
+      "bluetooth_rfcomm.poll_interval_ms",
+      "bluetooth_rfcomm.bridge_to_tcp",
     ],
   },
   wifi_direct: {
