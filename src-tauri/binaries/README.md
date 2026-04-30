@@ -5,11 +5,21 @@ Tauri resolves `sidecar("pim-daemon")` to `binaries/pim-daemon-<target-triple>`.
 ## Option 1 — fetch a published release (fastest)
 
     bash scripts/fetch-daemon.sh
+    bash scripts/fetch-daemon.sh --version v0.1.12
 
 Downloads the pre-built tarball from `Astervia/proximity-internet-mesh`
 release `$PIM_DAEMON_VERSION` (defaults to the latest GitHub release),
 verifies sha256, and drops the binary in this directory under the host
 triple. This is what CI does — same artifact, same sha. ≈ 5 s.
+
+To build from a source branch instead of a release artifact:
+
+    bash scripts/fetch-daemon.sh --branch main
+    PIM_DAEMON_BRANCH=my-feature bash scripts/fetch-daemon.sh
+
+Branch builds use `../kernel` when that checkout contains the requested
+branch; otherwise they download the branch tarball from GitHub and build
+`pim-daemon` from source.
 
 ## Option 2 — build from crates.io (no kernel checkout)
 
