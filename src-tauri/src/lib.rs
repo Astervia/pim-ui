@@ -1,5 +1,7 @@
 //! Tauri shell entrypoint.
 
+#[cfg(target_os = "macos")]
+mod bluetooth_rfcomm;
 mod daemon;
 mod rpc;
 mod tray;
@@ -44,11 +46,48 @@ pub fn run() {
             // Phase 6 Plan 06-03: BT NAP-server preflight (Linux-only,
             // honest unsupported answer on macOS/Windows).
             rpc::bt_nap::bt_nap_preflight,
+            // Phase 7 spike: Mac-side BT RFCOMM auto-discovery.
+            // Spawns the `pim-bt-rfcomm-mac` Swift sidecar which
+            // discovers paired `PIM-*` devices over Bluetooth Classic
+            // RFCOMM, exchanges a Hello/HelloAck handshake, and emits
+            // `discovered`/`lost` events on `bluetooth-rfcomm://event`.
+            #[cfg(target_os = "macos")]
+            bluetooth_rfcomm::bluetooth_rfcomm_start,
+            #[cfg(target_os = "macos")]
+            bluetooth_rfcomm::bluetooth_rfcomm_stop,
         ])
         .setup(|app| {
             log::info!(
                 "pim-ui starting — daemon not yet spawned (awaiting daemon_start from UI)"
             );
+
+            // Phase 7 spike: register BT RFCOMM state and auto-spawn the
+            // Swift sidecar so the Peers panel can show paired BT devices
+            // without the user clicking anything. macOS-only because
+            // IOBluetooth is the only public Classic-BT API on Mac and
+            // there is no Linux/Windows binary in this iteration.
+            #[cfg(target_os = "macos")]
+            {
+                use bluetooth_rfcomm::{
+                    start as start_bt_rfcomm, BluetoothRfcommConfig,
+                    BluetoothRfcommState,
+                };
+                app.manage(BluetoothRfcommState::new());
+                let app_handle_for_bt = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = start_bt_rfcomm(
+                        &app_handle_for_bt,
+                        BluetoothRfcommConfig::default(),
+                    )
+                    .await
+                    {
+                        log::warn!(
+                            target: "pim-bt-rfcomm-mac",
+                            "auto-spawn failed: {e}"
+                        );
+                    }
+                });
+            }
 
             // Plan 05-04: tray + popover construction is desktop-only —
             // mobile builds (iOS/Android) skip the entire block.

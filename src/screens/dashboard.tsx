@@ -47,6 +47,7 @@ import { ThroughputPanel } from "@/components/metrics/throughput-panel";
 import { NetworkInsightsPanel } from "@/components/metrics/network-insights-panel";
 import { RelayContributionPanel } from "@/components/relay/relay-contribution-panel";
 import { RouteTogglePanel } from "@/components/routing/route-toggle-panel";
+import { BluetoothPeersPanel } from "@/components/dashboard/bluetooth-peers-panel";
 import { ScreenContainer } from "@/components/shell/screen-container";
 
 export interface DashboardProps {
@@ -127,6 +128,18 @@ export function Dashboard({ onPeerSelect, onNearbyPair }: DashboardProps = {}) {
           />
         </div>
       ) : null}
+
+      {/* Phase 7 spike: Bluetooth-discovered peers via the
+          `pim-bt-rfcomm-mac` Swift sidecar. Independent from the kernel
+          peer list above — these are devices reached over Bluetooth
+          Classic RFCOMM (no Wi-Fi required). Mac-only in this
+          iteration; renders nothing on Linux/Windows. */}
+      <div className="mt-6">
+        <BluetoothPeersPanel
+          limitedMode={limitedMode}
+          revealDelay={240}
+        />
+      </div>
 
       {/* Periphery — insights row. Two columns at the default 72ch
           width (throughput on the left, KV on the right); collapses
