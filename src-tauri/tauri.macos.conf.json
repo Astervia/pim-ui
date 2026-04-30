@@ -1,0 +1,5 @@
+{
+  "bundle": {
+    "externalBin": ["binaries/pim-daemon", "binaries/pim-bt-rfcomm-mac"]
+  }
+}
