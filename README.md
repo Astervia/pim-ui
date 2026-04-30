@@ -29,13 +29,13 @@ planned but requires platform-native VPN plugins — see `ROADMAP.md`).
 
 ## Stack
 
-| | |
-|---|---|
-| Shell | Tauri 2 |
-| Frontend | React 19 · Vite 6 · TypeScript |
-| Styling | Tailwind v4 · shadcn/ui (new-york) |
-| Type | Geist Mono · Geist · JetBrains Mono |
-| Icons | Lucide · Unicode-first |
+|          |                                     |
+| -------- | ----------------------------------- |
+| Shell    | Tauri 2                             |
+| Frontend | React 19 · Vite 6 · TypeScript      |
+| Styling  | Tailwind v4 · shadcn/ui (new-york)  |
+| Type     | Geist Mono · Geist · JetBrains Mono |
+| Icons    | Lucide · Unicode-first              |
 
 The brand spec is authored in the kernel repo at
 `.design/branding/pim/patterns/` (`pim.yml` source of truth, `STYLE.md` the
@@ -44,15 +44,23 @@ mirrors those tokens — run `pnpm sync-brand` when the brand evolves.
 
 ## Install From GitHub Releases
 
+> **No separate kernel install is required.** The desktop bundle ships
+> with a matching `pim-daemon` baked in as a Tauri sidecar — installing
+> pim-ui is the only step. (`scripts/fetch-daemon.sh` pulls the binary
+> from
+> [Astervia/proximity-internet-mesh](https://github.com/Astervia/proximity-internet-mesh)'s
+> release matching `PIM_DAEMON_VERSION` at build time, and Tauri embeds
+> it via `bundle.externalBin`.)
+
 Published releases include native installer bundles named
 `pim-ui-<tag>-<label>.<ext>` plus a matching `.sha256` next to each:
 
-| Platform           | Label             | Bundles                        |
-| ------------------ | ----------------- | ------------------------------ |
-| Linux x86_64       | `linux-x86_64`    | `.deb`, `.AppImage`, `.rpm`    |
-| macOS Intel        | `macos-x86_64`    | `.dmg`                         |
-| macOS Apple Silicon| `macos-aarch64`   | `.dmg`                         |
-| Windows x86_64     | `windows-x86_64`  | `.msi`, `.exe`                 |
+| Platform            | Label            | Bundles                     |
+| ------------------- | ---------------- | --------------------------- |
+| Linux x86_64        | `linux-x86_64`   | `.deb`, `.AppImage`, `.rpm` |
+| macOS Intel         | `macos-x86_64`   | `.dmg`                      |
+| macOS Apple Silicon | `macos-aarch64`  | `.dmg`                      |
+| Windows x86_64      | `windows-x86_64` | `.msi`, `.exe`              |
 
 Pick the bundle that matches your host:
 
