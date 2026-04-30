@@ -41,3 +41,11 @@ src/lib/bindings.ts
 # Vite config compiled artifacts (vite.config.ts is the source)
 vite.config.js
 vite.config.d.ts
+
+# Personal
+debug/
+tmp/
+
+# Agents
+.codex
+.claude/
