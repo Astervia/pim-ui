@@ -748,9 +748,9 @@ mod tests {
     fn rendered_template_parses_with_pim_core() {
         for role in [Role::JoinTheMesh, Role::ShareMyInternet] {
             let toml = render_default_config("test-node", role, &dd());
-            let cfg: pim_core::Config = toml
-                .parse()
-                .unwrap_or_else(|e| panic!("pim-core failed to parse template for {role:?}: {e}\n---\n{toml}"));
+            let cfg: pim_core::Config = toml.parse().unwrap_or_else(|e| {
+                panic!("pim-core failed to parse template for {role:?}: {e}\n---\n{toml}")
+            });
 
             assert_eq!(cfg.node.name, "test-node");
             assert_eq!(
