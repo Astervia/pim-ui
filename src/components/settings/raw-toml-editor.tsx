@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { RawTomlGutter } from "./raw-toml-gutter";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
 import { useRawTomlSave } from "@/hooks/use-raw-toml-save";
+import { useConfigValidation } from "@/hooks/use-config-validation";
 import { parseToml } from "@/lib/config/parse-toml";
 
 /**
@@ -62,7 +63,7 @@ function offsetOfLineCol(text: string, line: number, column: number): number {
 
 export function RawTomlEditor() {
   const { raw, sourcePath, lastModified } = useSettingsConfig();
-  const { state, errors, save } = useRawTomlSave();
+  const { state, errors: saveErrors, save } = useRawTomlSave();
   const [buffer, setBuffer] = useState<string>(raw);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -72,6 +73,19 @@ export function RawTomlEditor() {
   useEffect(() => {
     setBuffer(raw);
   }, [raw]);
+
+  // Live validation — disabled while a save is in flight so the post-save
+  // error rows aren't visually contested by the live checker.
+  const validationEnabled = state !== "saving" && state !== "saved";
+  // `status` exposed by useConfigValidation drives optional "checking…"
+  // UI; we don't surface it today (the gutter ⚠ is feedback enough), so
+  // pull just the errors.
+  const { errors: liveErrors } = useConfigValidation(buffer, validationEnabled);
+
+  // Save errors win when present (post-Save reject is more authoritative
+  // than client-side schema check); otherwise show whatever the live
+  // validator just decided.
+  const errors = saveErrors.length > 0 ? saveErrors : liveErrors;
 
   const lineCount = useMemo(() => buffer.split("\n").length, [buffer]);
   const errorLines = useMemo(

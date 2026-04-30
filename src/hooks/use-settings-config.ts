@@ -17,9 +17,11 @@
  *                `read_pim_config_text` Tauri command which does a
  *                straight `std::fs::read_to_string` on the resolved
  *                pim.toml path. Lets the Settings tab populate so the
- *                user can inspect/edit while the daemon is stopped;
- *                saves stay disabled (use-section-save's `limited`
- *                guard already enforces that — see section-save-footer).
+ *                user can inspect AND edit while the daemon is stopped.
+ *                In disk mode, save flows route through the
+ *                `write_pim_config_text` Tauri command (atomic write +
+ *                schema validation) instead of the live `config.save`
+ *                RPC; the daemon picks up the new file on next start.
  *
  * The mode is selected per-fetch by the caller; the hook orchestrates
  * which one to invoke based on the live useDaemonState snapshot. When

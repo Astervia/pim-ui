@@ -63,7 +63,7 @@ export const SettingsHeader = forwardRef<HTMLInputElement, SettingsHeaderProps>(
     const filtered = visibleCount !== totalCount;
     const sourceCopy =
       source === "disk"
-        ? "reading pim.toml from disk · daemon stopped · saves apply on next start"
+        ? "reading pim.toml from disk · daemon stopped · saves write straight to the file"
         : source === "rpc"
           ? "backed by pim-daemon · saves are atomic per section"
           : "loading…";

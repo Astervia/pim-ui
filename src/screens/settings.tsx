@@ -51,6 +51,7 @@ import { SETTINGS_CLUSTERS } from "@/components/settings/settings-clusters";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { SettingsClusterDivider } from "@/components/settings/settings-cluster-divider";
+import { SaveAllBar } from "@/components/settings/save-all-bar";
 import { IdentitySection } from "@/components/settings/sections/identity-section";
 import { InterfaceSection } from "@/components/settings/sections/interface-section";
 import { DiscoverySection } from "@/components/settings/sections/discovery-section";
@@ -277,6 +278,8 @@ export function SettingsScreen() {
             </div>
           </div>
         )}
+
+        <SaveAllBar />
       </main>
     </TooltipProvider>
   );

@@ -13,15 +13,16 @@
  *     ◆ 2 unsaved fields           [ DISCARD ]  [ SAVE ]
  *
  * State labels (D-25):
- *   idle   → `[ SAVE ]`     (enabled iff dirty && !limited)
+ *   idle   → `[ SAVE ]`     (enabled iff dirty)
  *   saving → `[ SAVING… ]`  (disabled, aria-busy)
  *   saved  → `[ SAVED ]`    (disabled — caller flips back to idle after 2s)
  *   error  → `[ SAVE ]`     (re-enabled so user can retry)
  *
- * Limited mode renders the verbatim 03-UI-SPEC copy
- * "Daemon stopped — reconnect to save." inline above the button row,
- * and disables Save (Discard stays usable so the user can revert
- * locally even when the daemon is unreachable).
+ * Offline mode (daemon stopped): saves go straight to pim.toml on disk
+ * via the Tauri `write_pim_config_text` command. The status hint
+ * surfaces "writing to disk · daemon offline" so the user understands
+ * where the change is landing; the Save button stays enabled because
+ * the file itself is editable regardless of daemon state.
  */
 
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ export function SectionSaveFooter({
   dirtyFieldCount,
 }: SectionSaveFooterProps) {
   const { snapshot } = useDaemonState();
-  const limited = snapshot.state === "running" ? false : true;
+  const offline = snapshot.state === "running" ? false : true;
 
   const saveLabel =
     state === "saving"
@@ -58,10 +59,7 @@ export function SectionSaveFooter({
         : "[ SAVE ]";
 
   const saveDisabled =
-    limited === true ||
-    dirty === false ||
-    state === "saving" ||
-    state === "saved";
+    dirty === false || state === "saving" || state === "saved";
 
   const discardDisabled =
     dirty === false || state === "saving" || state === "saved";
@@ -74,7 +72,7 @@ export function SectionSaveFooter({
         <span aria-hidden className="phosphor">
           ◆
         </span>
-        <span>saved · daemon reloaded</span>
+        <span>{offline === true ? "saved to disk" : "saved · daemon reloaded"}</span>
       </span>
     );
   } else if (state === "error") {
@@ -84,27 +82,31 @@ export function SectionSaveFooter({
         <span>save failed · review fields above</span>
       </span>
     );
-  } else if (limited === true) {
-    status = (
-      <span className="flex items-center gap-2 text-text-secondary">
-        <span aria-hidden>○</span>
-        <span>daemon stopped — reconnect to save</span>
-      </span>
-    );
   } else if (dirty === true) {
     const count = dirtyFieldCount ?? 0;
-    const label =
+    const fieldsLabel =
       count <= 0
         ? "unsaved changes"
         : count === 1
           ? "1 unsaved field"
           : `${count} unsaved fields`;
+    const suffix = offline === true ? " · will write to disk" : "";
     status = (
       <span className="flex items-center gap-2 text-accent">
         <span aria-hidden className="phosphor-pulse">
           ◆
         </span>
-        <span>{label}</span>
+        <span>
+          {fieldsLabel}
+          {suffix}
+        </span>
+      </span>
+    );
+  } else if (offline === true) {
+    status = (
+      <span className="flex items-center gap-2 text-text-secondary">
+        <span aria-hidden>○</span>
+        <span>daemon offline · edits go to pim.toml on disk</span>
       </span>
     );
   }

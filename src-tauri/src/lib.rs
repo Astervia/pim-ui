@@ -43,6 +43,11 @@ pub fn run() {
             // Settings tab — read pim.toml from disk when the daemon
             // is stopped so the form can populate without a live RPC.
             rpc::commands::read_pim_config_text,
+            // Settings tab — atomically write pim.toml when the daemon
+            // is stopped. Validates against pim_core schema first so a
+            // bad file never lands; mirrors bootstrap_config's atomic
+            // write strategy.
+            rpc::commands::write_pim_config_text,
             // Settings tab — schema-validate edited TOML against
             // `pim_core::Config` before the user triggers a save.
             // Surfaces type/structure errors inline; daemon REJECT

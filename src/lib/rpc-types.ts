@@ -462,12 +462,23 @@ export interface ConfigSaveResult {
   written_to: string;
 }
 
-/** Shape carried in `RpcError.data` when `code === ConfigValidationFailed`. */
+/**
+ * Shape carried in `RpcError.data` when `code === ConfigValidationFailed`,
+ * AND the structured error returned by the Tauri commands `config_validate`
+ * and `write_pim_config_text`.
+ *
+ * `line` / `column` / `path` are optional because schema-level errors
+ * (unknown enum variant, missing required field) and IO failures don't
+ * carry span info. Daemon REJECTs always populate them; the Tauri Rust
+ * command may omit them for non-syntactic errors. Consumers default
+ * `line ?? 0` / `column ?? 0` / `path ?? ""` when threading into
+ * `RawTomlError`.
+ */
 export interface ConfigValidationError {
-  line: number;
-  column: number;
+  line?: number;
+  column?: number;
   /** e.g. "transport.listen_port". */
-  path: string;
+  path?: string;
   message: string;
 }
 

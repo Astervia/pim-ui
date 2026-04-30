@@ -31,6 +31,7 @@ import {
   type ConfigValidationError,
   type RpcError,
 } from "@/lib/rpc-types";
+import { writePimConfigText } from "@/lib/config/disk-save";
 import { useSettingsConfig } from "./use-settings-config";
 import { useDaemonState } from "./use-daemon-state";
 import { useActiveScreen } from "./use-active-screen";
@@ -64,49 +65,77 @@ export function useRawTomlSave(): UseRawTomlSaveReturn {
   const [state, setState] = useState<RawSaveState>("idle");
   const [errors, setErrors] = useState<RawTomlError[]>([]);
   const { refetch } = useSettingsConfig();
-  const { actions } = useDaemonState();
+  const { actions, snapshot: daemon } = useDaemonState();
   const { setActive } = useActiveScreen();
+  const daemonRunning = daemon.state === "running";
 
   const save = useCallback(
     async (buffer: string) => {
       setState("saving");
       setErrors([]);
       try {
-        // 1. dry_run FIRST (D-12) — buffer goes verbatim, no assembleToml.
-        await callDaemon("config.save", {
-          format: "toml",
-          config: buffer,
-          dry_run: true,
-        });
-        // 2. Real save.
-        const real = await callDaemon("config.save", {
-          format: "toml",
-          config: buffer,
-          dry_run: false,
-        });
-        // 3. Refetch authoritative TOML.
-        await refetch();
-        // 4. requires_restart handling (D-25 + checker Warning 3).
-        if (real.requires_restart.length > 0) {
-          toast(
-            `Saved. Restart pim to apply: ${real.requires_restart.join(", ")}`,
-            {
-              duration: 8000,
-              action: {
-                label: "[ Restart ]",
-                onClick: () => {
-                  void restartDaemon(actions);
+        if (daemonRunning === true) {
+          // 1. dry_run FIRST (D-12) — buffer goes verbatim, no assembleToml.
+          await callDaemon("config.save", {
+            format: "toml",
+            config: buffer,
+            dry_run: true,
+          });
+          // 2. Real save.
+          const real = await callDaemon("config.save", {
+            format: "toml",
+            config: buffer,
+            dry_run: false,
+          });
+          // 3. Refetch authoritative TOML.
+          await refetch();
+          // 4. requires_restart handling (D-25 + checker Warning 3).
+          if (real.requires_restart.length > 0) {
+            toast(
+              `Saved. Restart pim to apply: ${real.requires_restart.join(", ")}`,
+              {
+                duration: 8000,
+                action: {
+                  label: "[ Restart ]",
+                  onClick: () => {
+                    void restartDaemon(actions);
+                  },
                 },
               },
-            },
-          );
+            );
+          } else {
+            toast.success("Saved.", { duration: 3000 });
+          }
         } else {
-          toast.success("Saved.", { duration: 3000 });
+          // Daemon stopped — write directly to disk. Validation runs in
+          // Rust against pim_core::Config, mirroring the daemon REJECT
+          // contract. Errors are converted into the same RpcError-shaped
+          // object the running-mode error path consumes.
+          await writePimConfigText(buffer);
+          await refetch();
+          toast.success("Saved to disk · daemon will load on next start.", {
+            duration: 3000,
+          });
         }
         setState("saved");
         setTimeout(() => setState("idle"), 2000);
       } catch (e) {
-        const err = e as RpcError;
+        // Disk-write returns a ConfigValidationError without an RPC code;
+        // synthesize ConfigValidationFailed so the existing line-aware
+        // error path lights the gutter / inline rows.
+        const err: RpcError =
+          typeof e === "object" && e !== null && "code" in e
+            ? (e as RpcError)
+            : {
+                code: RpcErrorCode.ConfigValidationFailed,
+                message:
+                  (e as ConfigValidationError | Error).message ??
+                  "Save failed.",
+                data:
+                  typeof e === "object" && e !== null && "line" in e
+                    ? [e as ConfigValidationError]
+                    : null,
+              };
         if (
           err.code === RpcErrorCode.ConfigValidationFailed ||
           err.code === RpcErrorCode.ConfigSaveRejected
@@ -114,18 +143,23 @@ export function useRawTomlSave(): UseRawTomlSaveReturn {
           const list = extractValidationErrors(err);
           setErrors(
             list.map((entry) => ({
-              line: entry.line,
-              column: entry.column,
-              path: entry.path,
+              // Span fields are optional on the wire — schema-level and
+              // IO errors omit them. Default to 0 / "" so the gutter and
+              // inline rows don't crash on undefined.
+              line: entry.line ?? 0,
+              column: entry.column ?? 0,
+              path: entry.path ?? "",
               message: entry.message,
             })),
           );
           const firstMsg = list[0]?.message ?? err.message ?? "Save failed.";
+          const prefix =
+            daemonRunning === true ? "Daemon rejected settings" : "Couldn't save to disk";
           // Checker Warning 5: wire [Show in Logs →] action handler.
           // The single-line `action: { label: "Show in Logs →", … }`
           // shape satisfies the plan's verify regex
           // `action:.*label.*Show in Logs` — keep this on one line.
-          toast.error(`Daemon rejected settings: ${firstMsg}`, {
+          toast.error(`${prefix}: ${firstMsg}`, {
             duration: 8000,
             action: { label: "Show in Logs →", onClick: () => { setActive("logs"); applyLogsFilter({ source: "config" }); } },
           });
@@ -136,7 +170,7 @@ export function useRawTomlSave(): UseRawTomlSaveReturn {
         setTimeout(() => setState("idle"), 2000);
       }
     },
-    [refetch, actions, setActive],
+    [refetch, actions, setActive, daemonRunning],
   );
 
   return { state, errors, save };

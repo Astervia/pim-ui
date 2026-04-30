@@ -12,18 +12,28 @@ use serde::Serialize;
 
 /// Outcome of a `pim.toml` schema check.
 ///
-/// Field shape mirrors what the frontend already renders for `RpcError`
-/// payloads — `message` is shown verbatim under the editor field, `line`
-/// (when present) drives a syntax-highlight gutter marker.
+/// Shape mirrors the daemon's `ConfigValidationError` (docs/RPC.md §5.5)
+/// so the same frontend mapping (`useRawTomlSave` →
+/// `RawTomlError {line, column, path, message}`) handles both daemon
+/// REJECTs and Tauri-command rejections without branching. Optional
+/// fields (`line`/`column`/`path`) are absent when the underlying error
+/// has no span info — schema-level errors that don't map to a single
+/// source position.
 #[derive(Debug, Clone, Serialize)]
 pub struct ConfigValidationError {
     pub message: String,
     /// 1-indexed line number when the underlying TOML error carries span
     /// information; `None` for schema-level errors that don't map to a
     /// single source line.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
     /// 1-indexed column number when available alongside `line`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub column: Option<usize>,
+    /// Dotted field path of the offending key, e.g. `"transport.listen_port"`.
+    /// `None` for non-schema errors (raw TOML syntax, IO failures).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 /// Validate that `content` parses successfully into `pim_core::Config`.
@@ -43,10 +53,12 @@ pub fn validate_pim_toml(content: &str) -> Result<(), ConfigValidationError> {
         Err(e) => {
             let raw = e.to_string();
             let (line, column) = parse_line_column(&raw);
+            let path = parse_field_path(&raw);
             Err(ConfigValidationError {
                 message: raw,
                 line,
                 column,
+                path,
             })
         }
     }
@@ -75,6 +87,27 @@ fn parse_line_column(s: &str) -> (Option<usize>, Option<usize>) {
 fn parse_leading_digits(s: &str) -> Option<usize> {
     let n: String = s.chars().take_while(|c| c.is_ascii_digit()).collect();
     n.parse().ok()
+}
+
+/// Best-effort extraction of the dotted field path from a `toml`/serde
+/// error. The `toml` crate v1 formats type-mismatch errors as:
+///   `invalid type: ... for key `node.name` ...`
+/// Older or wrapped errors may use `for `path.to.field`` directly. We
+/// scan for any backtick-quoted token containing a `.` (heuristic: real
+/// TOML field paths are always dotted, e.g. `transport.listen_port`).
+fn parse_field_path(s: &str) -> Option<String> {
+    // Pull the first backtick-delimited substring containing a dot.
+    let mut iter = s.split('`');
+    iter.next(); // discard prefix before first backtick
+    while let Some(quoted) = iter.next() {
+        if quoted.contains('.') && !quoted.contains(' ') && !quoted.contains('\n') {
+            return Some(quoted.to_string());
+        }
+        // Skip the run of plain text between this closing backtick and
+        // the next opening one.
+        iter.next();
+    }
+    None
 }
 
 #[cfg(test)]
@@ -131,5 +164,47 @@ name = 123  # wrong type — must be string
     fn parse_line_column_handles_missing_span() {
         let s = "schema mismatch: unknown variant";
         assert_eq!(parse_line_column(s), (None, None));
+    }
+
+    #[test]
+    fn parse_field_path_extracts_dotted_token() {
+        let s = "invalid type: integer 123, expected string for key `node.name`";
+        assert_eq!(parse_field_path(s), Some("node.name".to_string()));
+    }
+
+    #[test]
+    fn parse_field_path_skips_quoted_non_paths() {
+        let s = "expected `[node]` table, found `[wrong]`";
+        // Neither `[node]` nor `[wrong]` contains a dot — no path detected.
+        assert_eq!(parse_field_path(s), None);
+    }
+
+    #[test]
+    fn validation_error_serializes_omits_none_fields() {
+        let err = ConfigValidationError {
+            message: "oops".to_string(),
+            line: None,
+            column: None,
+            path: None,
+        };
+        let json = serde_json::to_string(&err).expect("serialize");
+        // skip_serializing_if = "Option::is_none" elides absent fields,
+        // so the wire payload is just `{"message":"oops"}` — matches the
+        // TS interface where line/column/path are optional.
+        assert_eq!(json, r#"{"message":"oops"}"#);
+    }
+
+    #[test]
+    fn validation_error_serializes_includes_set_fields() {
+        let err = ConfigValidationError {
+            message: "oops".to_string(),
+            line: Some(3),
+            column: Some(5),
+            path: Some("node.name".to_string()),
+        };
+        let json = serde_json::to_string(&err).expect("serialize");
+        assert!(json.contains(r#""line":3"#));
+        assert!(json.contains(r#""column":5"#));
+        assert!(json.contains(r#""path":"node.name""#));
     }
 }

@@ -290,6 +290,108 @@ pub struct ReadConfigResult {
     pub last_modified: String,
 }
 
+/// Returned by `write_pim_config_text` — `{ path, last_modified }`.
+#[derive(Serialize)]
+pub struct WriteConfigResult {
+    pub path: String,
+    pub last_modified: String,
+}
+
+/// Atomically write `pim.toml` to the canonical user-scope path.
+///
+/// Used by the Settings tab when the daemon is stopped so the user can
+/// still edit configuration. Validates the content via the same
+/// `validate_pim_toml` schema check the live editor uses, refusing to
+/// write a file that wouldn't load. Mirrors `bootstrap_config`'s atomic
+/// write strategy: tmp -> fsync -> rename. On success returns the
+/// resolved path + freshly-stamped last_modified so the frontend can
+/// update its local snapshot without re-reading.
+#[tauri::command]
+pub async fn write_pim_config_text(
+    content: String,
+) -> Result<WriteConfigResult, ConfigValidationError> {
+    // Validate first — refuse to land a file the daemon will reject.
+    validate_pim_toml(&content)?;
+
+    let path = resolve_config_path();
+    let path_str = path.to_string_lossy().to_string();
+
+    if let Some(parent) = path.parent() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(parent)
+                .map_err(|e| ConfigValidationError {
+                    message: format!("create parent {}: {e}", parent.display()),
+                    line: None,
+                    column: None,
+                    path: None,
+                })?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::create_dir_all(parent).map_err(|e| ConfigValidationError {
+                message: format!("create parent {}: {e}", parent.display()),
+                line: None,
+                column: None,
+                path: None,
+            })?;
+        }
+    }
+
+    let tmp = path.with_extension("toml.tmp");
+    {
+        use std::io::Write;
+        let mut f = std::fs::File::create(&tmp).map_err(|e| ConfigValidationError {
+            message: format!("open {}: {e}", tmp.display()),
+            line: None,
+            column: None,
+            path: None,
+        })?;
+        f.write_all(content.as_bytes())
+            .map_err(|e| ConfigValidationError {
+                message: format!("write {}: {e}", tmp.display()),
+                line: None,
+                column: None,
+                path: None,
+            })?;
+        f.sync_all().map_err(|e| ConfigValidationError {
+            message: format!("fsync {}: {e}", tmp.display()),
+            line: None,
+            column: None,
+            path: None,
+        })?;
+    }
+    std::fs::rename(&tmp, &path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        ConfigValidationError {
+            message: format!("rename {} -> {}: {e}", tmp.display(), path.display()),
+            line: None,
+            column: None,
+            path: None,
+        }
+    })?;
+
+    let last_modified = std::fs::metadata(&path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| {
+            t.duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .map(|d| d.as_secs())
+        })
+        .map(chrono_secs_to_rfc3339)
+        .unwrap_or_default();
+
+    Ok(WriteConfigResult {
+        path: path_str,
+        last_modified,
+    })
+}
+
 /// Schema-validate a `pim.toml` candidate against the canonical
 /// `pim_core::Config` definition published on crates.io.
 ///

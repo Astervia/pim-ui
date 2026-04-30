@@ -53,7 +53,9 @@ export function mapConfigErrorsToFields(
   let sectionBannerError: string | null = null;
   const keySet = new Set(SECTION_SCHEMAS[sectionId].tomlKeys);
   for (const ve of list) {
-    if (keySet.has(ve.path) === true) {
+    // `path` is optional on the wire — only schema errors carry it.
+    // Errors without a path always fall through to the section banner.
+    if (ve.path !== undefined && keySet.has(ve.path) === true) {
       fieldErrors[ve.path] = ve.message;
     } else {
       sectionBannerError = `Daemon rejected this section: ${ve.message}`;

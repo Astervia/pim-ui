@@ -35,16 +35,21 @@ import { useCallback, useEffect, useState } from "react";
 import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import { callDaemon } from "@/lib/rpc";
-import type { RpcError } from "@/lib/rpc-types";
+import type { ConfigValidationError, RpcError } from "@/lib/rpc-types";
 import { assembleToml } from "@/lib/config/assemble-toml";
 import { parseToml } from "@/lib/config/parse-toml";
 import { diffSectionsAgainstSchema } from "@/lib/config/schema-diff";
 import { type SectionId } from "@/lib/config/section-schemas";
 import { mapConfigErrorsToFields } from "@/lib/config/map-errors";
+import { writePimConfigText } from "@/lib/config/disk-save";
 import { useSettingsConfig } from "./use-settings-config";
 import { setAllSectionRawWins } from "./use-section-raw-wins";
 import { usePendingRestart } from "./use-pending-restart";
 import { setSectionDirty } from "./use-dirty-sections";
+import {
+  registerSectionSave,
+  unregisterSectionSave,
+} from "./use-save-registry";
 import { useDaemonState } from "./use-daemon-state";
 import { useActiveScreen } from "./use-active-screen";
 import { applyLogsFilter } from "./use-log-filters";
@@ -78,8 +83,9 @@ export function useSectionSave<TValues extends FieldValues = FieldValues>(
   );
   const { base, refetch } = useSettingsConfig();
   const { addFields } = usePendingRestart(sectionId);
-  const { actions } = useDaemonState();
+  const { actions, snapshot: daemon } = useDaemonState();
   const { setActive } = useActiveScreen();
+  const daemonRunning = daemon.state === "running";
 
   // Checker Blocker 1: mirror react-hook-form's dirty state into the
   // module atom on every change so nav-interception + stop-confirm
@@ -120,52 +126,87 @@ export function useSectionSave<TValues extends FieldValues = FieldValues>(
 
       const doc = assembleToml(base, { [sectionId]: values });
       try {
-        // 1. Dry-run FIRST (D-11 step 2)
-        await callDaemon("config.save", {
-          format: "toml",
-          config: doc,
-          dry_run: true,
-        });
-        // 2. Real save (D-11 step 3)
-        const real = await callDaemon("config.save", {
-          format: "toml",
-          config: doc,
-          dry_run: false,
-        });
-        // 3. Refetch to get authoritative TOML (D-11 step 5)
-        await refetch();
-        // 4. Re-scan rawWins from the freshly-assembled doc (checker
-        //    Blocker 3 — module-level writer).
-        const freshParsed = parseToml(doc);
-        if (freshParsed.ok === true) {
-          setAllSectionRawWins(diffSectionsAgainstSchema(freshParsed.value));
-        }
-        // 5. requires_restart handling (D-25 + checker Warning 3 —
-        //    shared restartDaemon util).
-        if (real.requires_restart.length > 0) {
-          addFields(sectionId, real.requires_restart);
-          toast(`Saved. Restart pim to apply: ${real.requires_restart.join(", ")}`, {
-            duration: 8000,
-            action: {
-              label: "[ Restart ]",
-              onClick: () => {
-                void restartDaemon(actions);
-              },
-            },
+        if (daemonRunning === true) {
+          // 1. Dry-run FIRST (D-11 step 2)
+          await callDaemon("config.save", {
+            format: "toml",
+            config: doc,
+            dry_run: true,
           });
+          // 2. Real save (D-11 step 3)
+          const real = await callDaemon("config.save", {
+            format: "toml",
+            config: doc,
+            dry_run: false,
+          });
+          // 3. Refetch to get authoritative TOML (D-11 step 5)
+          await refetch();
+          // 4. Re-scan rawWins from the freshly-assembled doc (checker
+          //    Blocker 3 — module-level writer).
+          const freshParsed = parseToml(doc);
+          if (freshParsed.ok === true) {
+            setAllSectionRawWins(diffSectionsAgainstSchema(freshParsed.value));
+          }
+          // 5. requires_restart handling (D-25 + checker Warning 3 —
+          //    shared restartDaemon util).
+          if (real.requires_restart.length > 0) {
+            addFields(sectionId, real.requires_restart);
+            toast(`Saved. Restart pim to apply: ${real.requires_restart.join(", ")}`, {
+              duration: 8000,
+              action: {
+                label: "[ Restart ]",
+                onClick: () => {
+                  void restartDaemon(actions);
+                },
+              },
+            });
+          } else {
+            toast.success("Saved.", { duration: 3000 });
+          }
         } else {
-          toast.success("Saved.", { duration: 3000 });
+          // Daemon stopped — write directly to disk. The Rust command
+          // schema-validates first and atomically replaces pim.toml; the
+          // running daemon (if it ever comes back up) re-reads the file
+          // on next start. Throws a ConfigValidationError-shaped object
+          // on failure that mapConfigErrorsToFields handles.
+          await writePimConfigText(doc);
+          await refetch();
+          const freshParsed = parseToml(doc);
+          if (freshParsed.ok === true) {
+            setAllSectionRawWins(diffSectionsAgainstSchema(freshParsed.value));
+          }
+          toast.success("Saved to disk · daemon will load on next start.", {
+            duration: 3000,
+          });
         }
         setState("saved");
         setTimeout(() => setState("idle"), 2000);
       } catch (e) {
-        const err = e as RpcError;
+        // Disk-mode validation errors come through as
+        // ConfigValidationError (no `code`); RPC errors carry RpcError.
+        // Both are routed through mapConfigErrorsToFields so the same
+        // FormMessage / banner UI lights up regardless of source.
+        const err: RpcError =
+          typeof e === "object" && e !== null && "code" in e
+            ? (e as RpcError)
+            : {
+                code: -32020,
+                message:
+                  (e as ConfigValidationError | Error).message ??
+                  "Save failed.",
+                data:
+                  typeof e === "object" && e !== null && "line" in e
+                    ? [e as ConfigValidationError]
+                    : null,
+              };
         const mapped = mapConfigErrorsToFields(err, sectionId);
         if (mapped !== null) {
           setFieldErrors(mapped.fieldErrors);
           setSectionBannerError(mapped.sectionBannerError);
+          const prefix =
+            daemonRunning === true ? "Daemon rejected settings" : "Couldn't save to disk";
           // Checker Warning 5: wire [Show in Logs →] action handler.
-          toast.error(`Daemon rejected settings: ${mapped.firstMessage}`, {
+          toast.error(`${prefix}: ${mapped.firstMessage}`, {
             duration: 8000,
             action: {
               label: "Show in Logs →",
@@ -182,8 +223,40 @@ export function useSectionSave<TValues extends FieldValues = FieldValues>(
         setTimeout(() => setState("idle"), 2000);
       }
     },
-    [base, sectionId, refetch, addFields, actions, setActive],
+    [base, sectionId, refetch, addFields, actions, setActive, daemonRunning],
   );
+
+  // Register a section-scoped save fn for the Save-All affordance. We
+  // wrap react-hook-form's handleSubmit so the registry callback can be
+  // invoked without a form ref leak — the registered closure resolves
+  // once the section's save settles (success OR error). Skips work if
+  // the section isn't dirty so Save-All can iterate the registry
+  // unconditionally and still no-op clean sections cheaply.
+  useEffect(() => {
+    const fn = (): Promise<void> =>
+      new Promise((resolve) => {
+        if (form.formState.isDirty === false) {
+          resolve();
+          return;
+        }
+        const submit = form.handleSubmit(
+          async (values) => {
+            await save(values as Record<string, unknown>);
+            resolve();
+          },
+          () => {
+            // Validation failure inside react-hook-form: resolve so
+            // Save-All keeps moving. Errors are already surfaced inline.
+            resolve();
+          },
+        );
+        void submit();
+      });
+    registerSectionSave(sectionId, fn);
+    return () => {
+      unregisterSectionSave(sectionId);
+    };
+  }, [sectionId, form, save]);
 
   return { state, save, fieldErrors, sectionBannerError };
 }
