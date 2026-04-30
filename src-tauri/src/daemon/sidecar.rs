@@ -56,13 +56,14 @@
 //! Apple Developer Program prereq we're deferring.
 
 use anyhow::{anyhow, Result};
-// Path / PathBuf and Duration are referenced only by the macOS-gated
-// privileged-spawn helpers below; gate the imports too so non-macOS
-// builds don't trip `unused_imports` under the CI's `-D warnings`.
-#[cfg(target_os = "macos")]
-use std::path::{Path, PathBuf};
+// Path / PathBuf and Duration are used by the privileged-spawn helpers
+// (macOS osascript path + Linux pkexec path). Gate Path to unix so the
+// Windows pipe-only build doesn't trip `unused_imports` under `-D warnings`.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 use std::time::Duration;
 use std::time::Instant;
 use tauri::AppHandle;
@@ -84,18 +85,22 @@ const CRASH_ON_BOOT_THRESHOLD_MS: u64 = 500;
 /// crash-on-boot payload bounded; the UI surfaces only the first line.
 const STDERR_TAIL_BYTES: usize = 2048;
 
-/// macOS PID-liveness window. After spawn, we poll the daemon PID this
-/// long looking for a quick exit. After the window closes, the
-/// `HANDSHAKE_TIMEOUT_SECS` watchdog in `state.rs` (10 s) takes over.
-#[cfg(target_os = "macos")]
+/// PID-liveness window for the privileged-spawn paths. After spawn, we
+/// poll the daemon PID this long looking for a quick exit. After the
+/// window closes, the `HANDSHAKE_TIMEOUT_SECS` watchdog in `state.rs`
+/// (10 s) takes over.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const PID_LIVENESS_WINDOW_MS: u64 = 2_000;
 
-/// macOS PID-liveness poll cadence.
-#[cfg(target_os = "macos")]
+/// PID-liveness poll cadence for the privileged-spawn paths.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const PID_POLL_INTERVAL_MS: u64 = 100;
 
-/// macOS log-tail poll cadence (no inotify on Darwin; we poll the file).
-#[cfg(target_os = "macos")]
+/// Daemon-log tail poll cadence. We poll instead of inotify/kqueue
+/// because the privileged-shell write pattern (open-truncate, append
+/// until daemon exits, file may be removed on respawn) is uniform
+/// across the macOS osascript path and the Linux pkexec path.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const LOG_TAIL_POLL_MS: u64 = 200;
 
 pub struct Sidecar {
@@ -161,7 +166,32 @@ impl Sidecar {
                 .spawn_macos_privileged(app, on_crash_on_boot, on_post_auth)
                 .await;
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            // Linux mirror of the macOS escalation path: the daemon needs
+            // CAP_NET_ADMIN to create the TUN interface, so we route the
+            // spawn through `pkexec` which triggers the user's polkit
+            // authentication agent (polkit-gnome / polkit-kde / lxqt-policykit)
+            // and runs the daemon as root after a graphical password prompt.
+            //
+            // `PIM_NO_PRIVILEGED_SPAWN=1` opts out for users who have already
+            // granted the daemon binary CAP_NET_ADMIN via `setcap`, or who
+            // run it under systemd as a system service (UI then connects
+            // to the existing /run/pim/pim.sock).
+            if std::env::var("PIM_NO_PRIVILEGED_SPAWN").as_deref() == Ok("1") {
+                log::info!(
+                    target: "pim-daemon",
+                    "PIM_NO_PRIVILEGED_SPAWN=1 — skipping pkexec path, using normal Tauri sidecar"
+                );
+                return self
+                    .spawn_default(app, on_crash_on_boot, on_post_auth)
+                    .await;
+            }
+            return self
+                .spawn_linux_privileged(app, on_crash_on_boot, on_post_auth)
+                .await;
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         {
             self.spawn_default(app, on_crash_on_boot, on_post_auth)
                 .await
@@ -177,12 +207,12 @@ impl Sidecar {
     pub async fn kill(&self) -> Result<()> {
         if let Some(child) = self.child.lock().await.take() {
             if let Err(e) = child.kill() {
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
                 log::debug!(
                     target: "pim-daemon",
-                    "child.kill() returned err (osascript wrapper already exited on macOS — expected): {e}"
+                    "child.kill() returned err (privileged wrapper already exited — expected on the privileged paths): {e}"
                 );
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(not(any(target_os = "macos", target_os = "linux")))]
                 log::warn!(target: "pim-daemon", "kill child handle failed: {e}");
             }
         }
@@ -193,7 +223,20 @@ impl Sidecar {
             // as the user uid, so `child.kill()` above already delivered
             // SIGTERM successfully, no auth dialog needed.
             if std::env::var("PIM_NO_PRIVILEGED_SPAWN").as_deref() != Ok("1") {
-                if let Err(e) = kill_privileged().await {
+                if let Err(e) = kill_privileged_macos().await {
+                    log::warn!(
+                        target: "pim-daemon",
+                        "privileged daemon kill failed: {e}; daemon may still be running — operator can `sudo kill -9 $(cat {})`",
+                        pid_file_path().display()
+                    );
+                }
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            if std::env::var("PIM_NO_PRIVILEGED_SPAWN").as_deref() != Ok("1") {
+                if let Err(e) = kill_privileged_linux().await {
                     log::warn!(
                         target: "pim-daemon",
                         "privileged daemon kill failed: {e}; daemon may still be running — operator can `sudo kill -9 $(cat {})`",
@@ -548,6 +591,239 @@ impl Sidecar {
         *self.child.lock().await = Some(child);
         Ok(())
     }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Linux privileged path — pkexec + log tail + PID liveness probe.
+    // ────────────────────────────────────────────────────────────────────
+
+    /// Linux mirror of `spawn_macos_privileged`. The daemon needs
+    /// `CAP_NET_ADMIN` to create the TUN interface; rather than make the
+    /// user pre-grant `setcap` or run the UI under sudo, we route the
+    /// spawn through `pkexec`, which triggers the polkit authentication
+    /// agent (polkit-gnome / polkit-kde / lxqt-policykit) and shows a
+    /// graphical password prompt — the Linux analog of the macOS
+    /// Authorization Services dialog.
+    ///
+    /// Wire-level details:
+    ///   * `pkexec /bin/sh -c '...'` — pkexec requires an absolute
+    ///     program path and sanitizes the environment, so we hand it
+    ///     `/bin/sh` and rebuild the env we need (XDG_RUNTIME_DIR for
+    ///     the socket location) inside the shell command.
+    ///   * Daemonization uses the same `( cmd & )` subshell pattern as
+    ///     the macOS path so pkexec's wrapper exits the moment the
+    ///     daemon is reparented to PID 1.
+    ///   * `umask 000` so the root-owned socket / pid / log files are
+    ///     world-rw and the user-uid UI can read+write them.
+    ///   * Log file at `$XDG_RUNTIME_DIR/pim-daemon.log` is tailed by
+    ///     `tail_log_file` and forwarded to the `pim-daemon` log target,
+    ///     mirroring the macOS observability story.
+    ///   * pkexec exit code 127 = "not authorized" / auth dismissed; any
+    ///     non-zero exit fires `on_crash_on_boot` so the UI surfaces a
+    ///     banner immediately instead of waiting for the 10s rpc.hello
+    ///     watchdog.
+    #[cfg(target_os = "linux")]
+    async fn spawn_linux_privileged<F, G>(
+        &self,
+        app: &AppHandle,
+        on_crash_on_boot: F,
+        on_post_auth: G,
+    ) -> Result<()>
+    where
+        F: Fn(CrashOnBootInfo) + Send + Sync + Clone + 'static,
+        G: FnOnce() + Send + 'static,
+    {
+        let socket_path = crate::daemon::socket_path::resolve_socket_path();
+        let pid_file = pid_file_path();
+        let log_file = log_file_path();
+        let config_path = resolve_config_path();
+
+        // Fast-path: if a daemon is ALREADY serving the socket (systemd
+        // unit, manual `sudo pim-daemon`, or a previous spawn within this
+        // session), skip the privileged spawn entirely. File existence
+        // alone is NOT sufficient — a crashed daemon leaves an orphan
+        // socket file behind that returns ECONNREFUSED. We use connect()
+        // as the liveness probe.
+        if socket_path.exists() {
+            match std::os::unix::net::UnixStream::connect(&socket_path) {
+                Ok(_) => {
+                    log::info!(
+                        target: "pim-daemon",
+                        "socket {} alive — skipping privileged spawn (pre-existing daemon answering)",
+                        socket_path.display()
+                    );
+                    on_post_auth();
+                    return Ok(());
+                }
+                Err(e) => {
+                    log::info!(
+                        target: "pim-daemon",
+                        "socket {} stale ({e}); leaving cleanup to the daemon (root-owned file) and proceeding to spawn",
+                        socket_path.display()
+                    );
+                    // Don't try to remove the stale socket here — when
+                    // the previous daemon ran as root the file is owned
+                    // by root and a user-uid `unlink()` returns EPERM.
+                    // The privileged shell below will overwrite/bind.
+                }
+            }
+        }
+
+        let daemon_bin = resolve_sidecar_binary_path(app)?;
+        log::debug!(
+            target: "pim-daemon",
+            "spawn_linux_privileged: daemon={} cfg={} pid={} log={}",
+            daemon_bin.display(),
+            config_path.display(),
+            pid_file.display(),
+            log_file.display(),
+        );
+
+        // Build the privileged shell command. pkexec strips most of the
+        // environment, so we re-export the bits the daemon and its
+        // socket-path resolver depend on:
+        //   XDG_RUNTIME_DIR  honored by the daemon's resolve_socket_path
+        //                    (mirrors the UI's resolution in socket_path.rs)
+        //   umask 000        baseline so any file the daemon creates
+        //                    without an explicit chmod is world-rw
+        //   rm -f {pid}      drop the previous run's PID file BEFORE
+        //                    spawning. Otherwise liveness_probe reads
+        //                    the dead PID, polls `ps -p` against it,
+        //                    sees nothing, and fires a false
+        //                    crash-on-boot — even though the new daemon
+        //                    is starting up fine.
+        //   ( cmd & )        daemonize subshell so pkexec's wrapper
+        //                    exits as soon as the daemon is backgrounded
+        //   >{log}           truncate-on-open by the privileged shell
+        //                    (root rewriting a root-owned file from a
+        //                    previous run)
+        //   wait + chmod 666 the daemon may set its own umask (we observed
+        //                    socket born as 0660 root:root, pid as 0644)
+        //                    which locks out the user-uid UI with EACCES
+        //                    on connect. After the socket appears we
+        //                    chmod 666 it (plus pid + log) so the UI can
+        //                    read / write. Defense in depth: XDG_RUNTIME_DIR
+        //                    is itself 0700-owned by the user, so 0666
+        //                    inside it is still effectively user-only.
+        let xdg_runtime_dir = dirs::runtime_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "/tmp".to_string());
+        let shell_cmd = format!(
+            "cd /; umask 000; rm -f {pid}; \
+             ( XDG_RUNTIME_DIR={xdg} {daemon} {cfg} {pid} </dev/null >{log} 2>&1 & ); \
+             i=0; while [ $i -lt 30 ]; do \
+               if [ -S {sock} ] && [ -e {pid} ]; then break; fi; \
+               sleep 0.1; i=$((i+1)); \
+             done; \
+             chmod 666 {sock} {pid} {log} 2>/dev/null; true",
+            xdg = shell_quote(&xdg_runtime_dir),
+            daemon = shell_quote(&daemon_bin.to_string_lossy()),
+            cfg = shell_quote(&config_path.to_string_lossy()),
+            pid = shell_quote(&pid_file.to_string_lossy()),
+            log = shell_quote(&log_file.to_string_lossy()),
+            sock = shell_quote(&socket_path.to_string_lossy()),
+        );
+        log::debug!(target: "pim-daemon", "privileged shell: {shell_cmd}");
+
+        let cmd = app
+            .shell()
+            .command("pkexec")
+            .args(["/bin/sh", "-c", &shell_cmd]);
+        let (mut rx, child) = cmd
+            .spawn()
+            .map_err(|e| anyhow!("spawn pkexec wrapper for pim-daemon: {e}"))?;
+
+        let spawned_at = Instant::now();
+        log::info!(
+            target: "pim-daemon",
+            "spawned via pkexec (privileged); daemon log: {}",
+            log_file.display()
+        );
+
+        // Tail the daemon log file → forward each line to the `pim-daemon`
+        // log target so users see daemon output in tauri-plugin-log just
+        // like the macOS path does.
+        let log_file_for_tail = log_file.clone();
+        tokio::spawn(async move {
+            tail_log_file(log_file_for_tail).await;
+        });
+
+        // Pump pkexec wrapper output, route exit code into the right
+        // post-auth path:
+        //   - non-zero exit → user dismissed auth (pkexec exit 127) or
+        //     pkexec itself errored. Fire crash-on-boot so the UI banner
+        //     shows immediately.
+        //   - zero exit → auth succeeded and the privileged shell
+        //     finished launching the daemon subshell. Anchor the
+        //     PID-liveness deadline NOW (post-auth).
+        let on_crash_after_wrapper = on_crash_on_boot.clone();
+        let pid_file_after_wrapper = pid_file.clone();
+        let log_file_after_wrapper = log_file.clone();
+        let config_path_after_wrapper = config_path.clone();
+        let mut on_post_auth_slot: Option<G> = Some(on_post_auth);
+        tokio::spawn(async move {
+            let mut wrapper_stderr_tail: Vec<u8> = Vec::with_capacity(STDERR_TAIL_BYTES);
+            while let Some(event) = rx.recv().await {
+                match event {
+                    CommandEvent::Stdout(bytes) => log::debug!(
+                        target: "pim-daemon",
+                        "pkexec stdout: {}",
+                        String::from_utf8_lossy(&bytes).trim_end()
+                    ),
+                    CommandEvent::Stderr(bytes) => {
+                        log::warn!(
+                            target: "pim-daemon",
+                            "pkexec stderr: {}",
+                            String::from_utf8_lossy(&bytes).trim_end()
+                        );
+                        wrapper_stderr_tail.extend_from_slice(&bytes);
+                        if wrapper_stderr_tail.len() > STDERR_TAIL_BYTES {
+                            let drop = wrapper_stderr_tail.len() - STDERR_TAIL_BYTES;
+                            wrapper_stderr_tail.drain(0..drop);
+                        }
+                    }
+                    CommandEvent::Error(e) => log::error!(target: "pim-daemon", "pkexec: {e}"),
+                    CommandEvent::Terminated(payload) => {
+                        log::info!(
+                            target: "pim-daemon",
+                            "pkexec wrapper exited code={:?} signal={:?} (daemon detached)",
+                            payload.code,
+                            payload.signal,
+                        );
+                        if matches!(payload.code, Some(0)) {
+                            let probe_at = Instant::now();
+                            tokio::spawn(liveness_probe(
+                                pid_file_after_wrapper,
+                                log_file_after_wrapper,
+                                config_path_after_wrapper.to_string_lossy().to_string(),
+                                probe_at,
+                                on_crash_after_wrapper,
+                            ));
+                            if let Some(cb) = on_post_auth_slot.take() {
+                                cb();
+                            }
+                        } else {
+                            let stderr_tail =
+                                String::from_utf8_lossy(&wrapper_stderr_tail).to_string();
+                            (on_crash_after_wrapper)(CrashOnBootInfo {
+                                exit_code: payload.code,
+                                signal: payload.signal,
+                                stderr_tail,
+                                elapsed_ms: spawned_at.elapsed().as_millis() as u64,
+                                config_path: config_path_after_wrapper
+                                    .to_string_lossy()
+                                    .to_string(),
+                            });
+                        }
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        *self.child.lock().await = Some(child);
+        Ok(())
+    }
 }
 
 impl Default for Sidecar {
@@ -565,9 +841,11 @@ impl Default for Sidecar {
 /// In dev mode (`cargo tauri dev`) Tauri places the sidecar alongside
 /// the main binary at `target/<profile>/pim-daemon` (no `-<triple>`
 /// suffix because the dev copy strips it). In bundled production it
-/// lives in `Contents/Resources/binaries/pim-daemon-<triple>` inside
-/// the .app — accessed via `app.path().resource_dir()`.
-#[cfg(target_os = "macos")]
+/// lives next to the resource_dir layout produced for the host:
+///   * macOS: `Contents/Resources/binaries/pim-daemon-<triple>` inside the .app
+///   * Linux: `<resource_dir>/binaries/pim-daemon-<triple>` (e.g. inside the
+///     AppImage / .deb usr/lib/<bundle> tree).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn resolve_sidecar_binary_path(app: &AppHandle) -> Result<PathBuf> {
     use tauri::Manager;
 
@@ -581,12 +859,15 @@ fn resolve_sidecar_binary_path(app: &AppHandle) -> Result<PathBuf> {
         return Ok(dev_path);
     }
 
-    // Production layout — `Contents/Resources/binaries/pim-daemon-<triple>`
-    // resolved through the AppHandle's resource_dir.
+    // Production layout — `<resource_dir>/binaries/pim-daemon-<triple>`.
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
     let triple = "aarch64-apple-darwin";
     #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
     let triple = "x86_64-apple-darwin";
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    let triple = "x86_64-unknown-linux-gnu";
+    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+    let triple = "aarch64-unknown-linux-gnu";
 
     if let Ok(resource_dir) = app.path().resource_dir() {
         let prod_path = resource_dir.join(format!("binaries/pim-daemon-{triple}"));
@@ -606,42 +887,67 @@ fn resolve_sidecar_binary_path(app: &AppHandle) -> Result<PathBuf> {
     Err(anyhow!(
         "pim-daemon binary not found near {} or in resource_dir — \
          expected dev (target/<profile>/pim-daemon) or bundled \
-         (Contents/Resources/binaries/pim-daemon-{triple}) layout",
+         (binaries/pim-daemon-{triple}) layout",
         exe_dir.display()
     ))
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// macOS path helpers.
+// Privileged-path helpers (macOS osascript + Linux pkexec).
 // ────────────────────────────────────────────────────────────────────────
 
-/// `$TMPDIR/pim.pid` — co-located with `$TMPDIR/pim.sock` (per
-/// docs/RPC.md §1.2) so the daemon's three transient files stay in one
-/// place and survive across user sessions only as long as the OS keeps
-/// the per-user `$TMPDIR`.
-#[cfg(target_os = "macos")]
+/// Privileged-path PID file location.
+///
+/// macOS: `$TMPDIR/pim.pid` (per docs/RPC.md §1.2 — $TMPDIR is set by
+/// launchd and survives only across the user session).
+///
+/// Linux: `$XDG_RUNTIME_DIR/pim.pid` (alongside `pim.sock` resolved by
+/// `daemon::socket_path::resolve_socket_path`). XDG_RUNTIME_DIR is the
+/// canonical user-scope tmpfs that systemd-logind manages and tears down
+/// on logout. `dirs::runtime_dir` reads it; we fall back to `/tmp` only
+/// when it's unset (headless / pre-systemd dev shells).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn pid_file_path() -> PathBuf {
-    let tmp = std::env::var_os("TMPDIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp"));
-    tmp.join("pim.pid")
+    #[cfg(target_os = "macos")]
+    {
+        let tmp = std::env::var_os("TMPDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+        tmp.join("pim.pid")
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(xdg) = dirs::runtime_dir() {
+            return xdg.join("pim.pid");
+        }
+        PathBuf::from("/tmp/pim.pid")
+    }
 }
 
-/// `$TMPDIR/pim-daemon.log` — alongside the socket + pid file. Logs
-/// here are transient; persistent debug logs live in `~/Library/Logs/pim/`
-/// once we ship the LaunchDaemon migration.
-#[cfg(target_os = "macos")]
+/// Privileged-path daemon log file. Co-located with the PID file so a
+/// `tail -F` debug session can find both side-by-side.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn log_file_path() -> PathBuf {
-    let tmp = std::env::var_os("TMPDIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp"));
-    tmp.join("pim-daemon.log")
+    #[cfg(target_os = "macos")]
+    {
+        let tmp = std::env::var_os("TMPDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+        tmp.join("pim-daemon.log")
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(xdg) = dirs::runtime_dir() {
+            return xdg.join("pim-daemon.log");
+        }
+        PathBuf::from("/tmp/pim-daemon.log")
+    }
 }
 
 /// POSIX-shell single-quote a string. Single quotes don't interpret
 /// escapes, so the only thing we need to handle is literal `'`, which
 /// becomes `'\''` (close-quote, escaped-quote, reopen-quote).
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -769,7 +1075,7 @@ fn pick_and_apply_free_utun(config_path: &Path) -> Result<()> {
 /// — we cap at 16 MiB to avoid runaway disk reads when a daemon spins
 /// in an error loop. The user can `tail -F` the file directly for raw
 /// access.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn tail_log_file(log_path: PathBuf) {
     use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 
@@ -870,7 +1176,7 @@ async fn tail_log_file(log_path: PathBuf) {
 /// `kill -0` works across the user/root boundary: the kernel checks
 /// existence ONLY (no signal-delivery permission check) when sig=0,
 /// so a user-uid UI can probe a root-uid daemon's liveness.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn liveness_probe<F>(
     pid_file: PathBuf,
     log_file: PathBuf,
@@ -959,12 +1265,14 @@ async fn liveness_probe<F>(
 /// when a non-root caller probes a root-owned process, so `kill -0`
 /// from the user UI against a root daemon reports "dead" even when
 /// the process is very much alive — false-positive crash-on-boot.
+/// Linux `kill -0` is permissive across uids, but `ps -p` is the
+/// portable answer so we use it on both Unixes.
 ///
 /// `ps -p <pid>` reads the kernel proc table directly, no signal
 /// involved, no permission check. Exit 0 if the pid is alive, exit 1
 /// if not. We pipe stdout/stderr to /dev/null so the header line
 /// `ps` always prints doesn't pollute our terminal.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn is_process_alive(pid: i32) -> bool {
     use std::process::Stdio;
     std::process::Command::new("ps")
@@ -979,7 +1287,7 @@ fn is_process_alive(pid: i32) -> bool {
 /// Read the last `STDERR_TAIL_BYTES` bytes from `log_path`. Used by the
 /// liveness probe to give the UI a diagnostic blurb when crash-on-boot
 /// fires. Returns "" if the file can't be read.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn read_log_tail(log_path: &Path) -> String {
     use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 
@@ -1030,7 +1338,7 @@ async fn read_log_tail(log_path: &Path) -> String {
 /// auth dialog is still pending. We accept this for dev-mode parity with
 /// the launchd-managed production path (which has no per-stop auth at all).
 #[cfg(target_os = "macos")]
-async fn kill_privileged() -> Result<()> {
+async fn kill_privileged_macos() -> Result<()> {
     let pid_file = pid_file_path();
     let pid_text = match std::fs::read_to_string(&pid_file) {
         Ok(s) => s.trim().to_string(),
@@ -1073,6 +1381,65 @@ async fn kill_privileged() -> Result<()> {
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| anyhow!("spawn osascript kill: {e}"))?;
+
+    log::info!(
+        target: "pim-daemon",
+        "privileged kill dispatched (detached) for pid {pid_text}; auth dialog will appear independently of UI shutdown"
+    );
+    Ok(())
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Linux privileged kill — pkexec, fire-and-forget.
+// ────────────────────────────────────────────────────────────────────────
+
+/// Kill the daemon via a SECOND `pkexec` invocation, FIRE-AND-FORGET.
+///
+/// Mirrors `kill_privileged_macos` (see its docs for the rationale on
+/// detaching). The Linux analog: pkexec spawns the polkit auth agent
+/// dialog independently of the UI process, so we drop the child handle
+/// and let the auth + kill complete (or get cancelled) on its own
+/// timeline. UI exits in milliseconds either way.
+#[cfg(target_os = "linux")]
+async fn kill_privileged_linux() -> Result<()> {
+    let pid_file = pid_file_path();
+    let pid_text = match std::fs::read_to_string(&pid_file) {
+        Ok(s) => s.trim().to_string(),
+        Err(_) => {
+            log::info!(
+                target: "pim-daemon",
+                "no PID file at {} — assuming daemon already stopped",
+                pid_file.display()
+            );
+            return Ok(());
+        }
+    };
+    if pid_text.is_empty() || pid_text.parse::<u32>().is_err() {
+        return Err(anyhow!(
+            "PID file {} is empty or non-numeric: {pid_text:?}",
+            pid_file.display()
+        ));
+    }
+
+    // TERM, then poll alive 5×200ms, then KILL, then remove PID file —
+    // single privileged invocation = one auth prompt total.
+    let shell_cmd = format!(
+        "kill -TERM {pid} 2>/dev/null; for i in 1 2 3 4 5; do kill -0 {pid} 2>/dev/null || break; sleep 0.2; done; kill -KILL {pid} 2>/dev/null; rm -f {pid_path}; true",
+        pid = pid_text,
+        pid_path = shell_quote(&pid_file.to_string_lossy()),
+    );
+
+    // Spawn detached. `_child` going out of scope is a no-op on
+    // `std::process::Child` — the pkexec process keeps running and
+    // shows its auth dialog independently of UI shutdown.
+    use std::process::Stdio;
+    let _child = std::process::Command::new("pkexec")
+        .args(["/bin/sh", "-c", &shell_cmd])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| anyhow!("spawn pkexec kill: {e}"))?;
 
     log::info!(
         target: "pim-daemon",

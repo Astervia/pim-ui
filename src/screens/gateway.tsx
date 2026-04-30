@@ -109,10 +109,14 @@ export function GatewayScreen() {
   ) {
     const activeStatus = gatewayStatus.status;
     if (activeStatus !== null) {
-      const badge = gaugeBadgeLabel(
-        activeStatus.conntrack.used,
-        activeStatus.conntrack.max,
-      );
+      // gateway.status is the speculative TBD-RPC contract — the
+      // kernel currently only returns { active, nat_interface }; the
+      // gauge / throughput / peers_through_me fields land later. Fall
+      // back to a plain ACTIVE badge when conntrack hasn't been wired
+      // up yet so we never hit the `undefined.used` crash.
+      const ct = activeStatus.conntrack;
+      const badge =
+        ct === undefined ? "ACTIVE" : gaugeBadgeLabel(ct.used, ct.max);
       return (
         <ScreenContainer density="wide">
           <CliPanel title="gateway" status={{ label: badge }}>

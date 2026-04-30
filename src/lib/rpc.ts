@@ -52,6 +52,14 @@ const CMD = {
   startDaemon: "daemon_start",
   /** Kills the sidecar (Plan 02). Resolves when the child exits. */
   stopDaemon: "daemon_stop",
+  /**
+   * Probes the daemon socket and attaches to a pre-existing daemon
+   * WITHOUT spawning. Used by useDaemonState on mount so a reload (or
+   * launch with the daemon already running) re-reflects the live state
+   * instead of showing "stopped" until the user clicks [TURN ON].
+   * Returns true when an attach happened, false when no daemon found.
+   */
+  attachDaemonIfRunning: "daemon_attach_if_running",
   /** Returns the most recent `RpcError` the Rust side raised, or null. */
   getLastError: "daemon_last_error",
   /**
@@ -166,6 +174,21 @@ export async function startDaemon(): Promise<void> {
  */
 export async function stopDaemon(): Promise<void> {
   return invoke(CMD.stopDaemon);
+}
+
+/**
+ * Probe-and-attach: ask Rust to check if a pim-daemon is already
+ * answering on the local socket and, if so, transition the daemon
+ * state machine into Starting → Running without spawning a fresh
+ * sidecar (no privileged auth dialog). Resolves with `true` when an
+ * attach happened, `false` when no live daemon was found.
+ *
+ * Called by `useDaemonState` on listener mount so a webview reload or
+ * a fresh UI launch with the daemon already running re-reflects the
+ * live state immediately.
+ */
+export async function attachDaemonIfRunning(): Promise<boolean> {
+  return invoke(CMD.attachDaemonIfRunning);
 }
 
 /**

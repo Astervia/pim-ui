@@ -43,15 +43,27 @@ export function GatewayActivePanel({
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const enabledMs = new Date(status.enabled_at).getTime();
-  const elapsedSec = Math.max(0, Math.floor((now - enabledMs) / 1000));
+  // The gateway.status payload is speculative (TBD-RPC §5a) — the kernel
+  // currently only returns { active, nat_interface }; conntrack /
+  // throughput / peer-through-me / enabled_at land later. Each
+  // sub-panel renders only when its field is present so the UI degrades
+  // gracefully instead of crashing on undefined.
+  const enabledMs =
+    status.enabled_at === undefined
+      ? null
+      : new Date(status.enabled_at).getTime();
+  const elapsedSec =
+    enabledMs === null ? null : Math.max(0, Math.floor((now - enabledMs) / 1000));
 
+  const peersThroughMe = status.peers_through_me ?? 0;
   const advisoryText =
-    status.peers_through_me > 0
-      ? ` · ${status.peers_through_me} peers will be cut over to another gateway`
+    peersThroughMe > 0
+      ? ` · ${peersThroughMe} peers will be cut over to another gateway`
       : "";
 
   const natIfaceLabel = status.nat_interface === null ? "—" : status.nat_interface;
+  const headerSuffix =
+    elapsedSec === null ? "" : ` · ${formatDuration(elapsedSec)}`;
   const disabled = disabling === true;
 
   return (
@@ -59,27 +71,31 @@ export function GatewayActivePanel({
       <div className="flex flex-wrap items-baseline gap-2">
         <StatusIndicator state="active" />
         <span className="text-foreground">
-          {`gateway active · ${natIfaceLabel} · ${formatDuration(elapsedSec)}`}
+          {`gateway active · ${natIfaceLabel}${headerSuffix}`}
         </span>
       </div>
       <p className="text-text-secondary">advertised: 0.0.0.0/0</p>
 
-      <ConntrackGauge
-        used={status.conntrack.used}
-        max={status.conntrack.max}
-      />
+      {status.conntrack === undefined ? null : (
+        <ConntrackGauge
+          used={status.conntrack.used}
+          max={status.conntrack.max}
+        />
+      )}
 
-      <ThroughputPanel
-        in_bps={status.throughput.in_bps}
-        out_bps={status.throughput.out_bps}
-        in_total_bytes={status.throughput.in_total_bytes}
-        out_total_bytes={status.throughput.out_total_bytes}
-        elapsed_s={elapsedSec}
-      />
+      {status.throughput === undefined || elapsedSec === null ? null : (
+        <ThroughputPanel
+          in_bps={status.throughput.in_bps}
+          out_bps={status.throughput.out_bps}
+          in_total_bytes={status.throughput.in_total_bytes}
+          out_total_bytes={status.throughput.out_total_bytes}
+          elapsed_s={elapsedSec}
+        />
+      )}
 
       <PeersThroughMeList
         peerIds={status.peers_through_me_ids ?? []}
-        countFallback={status.peers_through_me}
+        countFallback={peersThroughMe}
       />
 
       <div className="flex flex-wrap items-center gap-2">

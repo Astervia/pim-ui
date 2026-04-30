@@ -28,6 +28,7 @@ pub fn run() {
             rpc::commands::daemon_unsubscribe,
             rpc::commands::daemon_start,
             rpc::commands::daemon_stop,
+            rpc::commands::daemon_attach_if_running,
             rpc::commands::daemon_last_error,
             // Phase 01.1: first-run config bootstrap.
             rpc::commands::bootstrap_config,

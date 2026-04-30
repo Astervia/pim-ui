@@ -68,10 +68,18 @@ export function useSelectedGateway(): SelectedGatewayResult {
  * `useDaemonState` per D-31) is defensive — it ensures
  * `selected_gateway === null`, so this selector picks up the truth on
  * the same render.
+ *
+ * Self-gateway exception: when this node IS the gateway (role includes
+ * "gateway"), there is no upstream gateway to lose — `selected_gateway`
+ * is null by definition. Showing "BLOCKING INTERNET — gateway
+ * unreachable" in that scenario is incoherent: traffic egresses
+ * through THIS node's NAT, not through a remote peer. Suppress the
+ * banner so the user isn't told their working gateway is down.
  */
 export function useKillSwitch(): boolean {
   const s = useDaemonState().snapshot.status;
   if (s === null) return false;
   if (s.route_on === false) return false;
+  if (s.role.includes("gateway") === true) return false;
   return s.routes.selected_gateway === null;
 }

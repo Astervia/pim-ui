@@ -359,18 +359,23 @@ export interface GatewayDisableResult {
 // TBD-RPC (RESEARCH §5a): gateway.status method shape — speculative
 // pending kernel-repo docs/RPC.md push (BLOCKED per STATE.md). Confirm
 // with kernel maintainer when the RPC contract drafts merge.
+//
+// The kernel daemon today only emits { active, nat_interface,
+// advertised_routes }; everything below is optional so the UI doesn't
+// crash when the rich payload (gauge / throughput / peer-through-me)
+// hasn't been wired up daemon-side yet. Active-panel surfaces gracefully
+// degrade — see <GatewayActivePanel /> for the per-field guards.
 export interface GatewayStatusResult {
   active: boolean;
   /** Echoed nat_interface; null when active === false. */
   nat_interface: string | null;
-  /** Conntrack utilization. Both numerator AND denominator are
-   *  required so the brand-fit gauge can render `[████] n / max (pct%)`
-   *  per RESEARCH §9a. */
-  conntrack: {
+  /** Conntrack utilization. Daemon may omit while wiring up the kernel
+   *  contract; gauge is suppressed when absent. */
+  conntrack?: {
     used: number;
     max: number;
   };
-  throughput: {
+  throughput?: {
     in_bps: number;
     out_bps: number;
     /** Session-cumulative since gateway enabled. */
@@ -378,12 +383,12 @@ export interface GatewayStatusResult {
     out_total_bytes: number;
   };
   /** Count of paired peers whose egress is THIS node. */
-  peers_through_me: number;
+  peers_through_me?: number;
   /** Optional list of node_ids routing through this gateway; may be
    *  empty when count > 0 if the daemon truncates for cardinality. */
   peers_through_me_ids?: string[];
   /** ISO-8601; drives the "4h 12m" uptime line. */
-  enabled_at: string;
+  enabled_at?: string;
 }
 
 // TBD-RPC (RESEARCH §5b): gateway.event notification stream — kinds.

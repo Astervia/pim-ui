@@ -47,6 +47,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import {
   DaemonEvents,
+  attachDaemonIfRunning,
   lastDaemonError,
   startDaemon,
   stopDaemon,
@@ -456,6 +457,19 @@ async function ensureListeners() {
     if (err) setSnapshot({ ...snapshot, lastError: err });
   } catch (e) {
     console.warn("lastDaemonError hydrate failed:", e);
+  }
+
+  // Reload / fresh-launch with daemon already running: probe the socket
+  // and if a daemon is answering, kick the Rust state machine into
+  // Starting → Running without spawning. Listeners are already armed
+  // above, so the resulting state-changed events flow into the snapshot
+  // and the seedAndSubscribe gate fires the moment running lands.
+  // No-op (false) when no daemon is up; the user can still click
+  // [TURN ON] to spawn fresh.
+  try {
+    await attachDaemonIfRunning();
+  } catch (e) {
+    console.warn("attachDaemonIfRunning failed:", e);
   }
 
   // Start the 1s freshness pulse. pollSnapshot self-gates on

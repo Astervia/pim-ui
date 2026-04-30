@@ -24,6 +24,16 @@
           "cmd": "open",
           "args": [{ "validator": "[\\s\\S]+" }],
           "sidecar": false
+        },
+        {
+          "name": "pkexec",
+          "cmd": "pkexec",
+          "args": [
+            { "validator": "/bin/sh" },
+            { "validator": "-c" },
+            { "validator": "[\\s\\S]+" }
+          ],
+          "sidecar": false
         }
       ]
     },

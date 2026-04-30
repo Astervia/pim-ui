@@ -134,6 +134,68 @@ impl DaemonConnection {
         Some(event_name)
     }
 
+    /// Probe the daemon socket and, if alive, transition Stopped → Starting
+    /// and kick off the connect loop without spawning a fresh sidecar.
+    ///
+    /// Used at UI startup (and on any reload of the webview) to re-attach
+    /// to a daemon that survived the previous UI session — e.g. a daemon
+    /// launched manually with `sudo pim-daemon`, a daemon left running by
+    /// a previous UI process that crashed before stop, or a daemon under a
+    /// systemd unit. Returns true when a connect loop was started, false
+    /// when no live socket was found (state stays Stopped).
+    ///
+    /// No auth dialog: this path NEVER spawns. If the socket is missing or
+    /// the connect probe fails (orphan socket file), the call is a no-op
+    /// and the user can still click [TURN ON] to spawn fresh via the
+    /// existing privileged path.
+    pub async fn attach_if_running(self: Arc<Self>, app: AppHandle) -> Result<bool> {
+        // Don't disturb an already-active state machine: if start() ran
+        // already (Starting/Running/Reconnecting) or we're sitting on a
+        // surfaced Error the user hasn't dismissed, leave it alone.
+        let cur = *self.state.lock().await;
+        if !matches!(cur, DaemonState::Stopped) {
+            return Ok(false);
+        }
+
+        let socket = socket_path::resolve_socket_path();
+        if !socket.exists() {
+            return Ok(false);
+        }
+
+        // Liveness probe — file existence alone is not sufficient (orphan
+        // sockets from a crashed daemon return ECONNREFUSED). Mirrors the
+        // fast-path check in sidecar.rs's privileged spawn paths.
+        #[cfg(unix)]
+        let alive = std::os::unix::net::UnixStream::connect(&socket).is_ok();
+        #[cfg(not(unix))]
+        let alive = false;
+
+        if !alive {
+            return Ok(false);
+        }
+
+        log::info!(
+            target: "pim-daemon",
+            "attach_if_running: socket {} alive — connecting without spawn",
+            socket.display()
+        );
+
+        self.set_state(&app, DaemonState::Starting, None, None, None)
+            .await;
+
+        // Same handshake watchdog as the spawn path so a half-running
+        // daemon trips the same timeout → Error transition.
+        self.clone().arm_handshake_watchdog(app.clone()).await;
+
+        let self_ref = self.clone();
+        let app_clone = app.clone();
+        tokio::spawn(async move {
+            self_ref.connect_loop(app_clone).await;
+        });
+
+        Ok(true)
+    }
+
     /// Drive stopped -> starting -> running.
     pub async fn start(self: Arc<Self>, app: AppHandle) -> Result<()> {
         self.set_state(&app, DaemonState::Starting, None, None, None)

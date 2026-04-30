@@ -105,6 +105,20 @@ pub async fn daemon_stop(
     conn.stop(app).await.map_err(|e| e.to_string())
 }
 
+/// Probe the daemon socket and attach to a pre-existing daemon WITHOUT
+/// spawning. Returns true if a connect loop was started, false if no live
+/// daemon was found. Called by the UI on mount so a reload of the webview
+/// (or a fresh app launch with the daemon already up) reflects the live
+/// state instead of waiting for the user to click [TURN ON].
+#[tauri::command]
+pub async fn daemon_attach_if_running(
+    app: AppHandle,
+    conn: State<'_, Arc<DaemonConnection>>,
+) -> Result<bool, String> {
+    let conn = conn.inner().clone();
+    conn.attach_if_running(app).await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn daemon_last_error(
     conn: State<'_, Arc<DaemonConnection>>,

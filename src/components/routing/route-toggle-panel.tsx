@@ -233,10 +233,27 @@ export function RouteTogglePanel({
     );
   } else if (routeOn === true) {
     const line = formatRouteLine(status, routeTable);
+    // line === null means route_on is true but there is no
+    // selected_gateway. Two sub-cases:
+    //   - self-gateway: this node IS the gateway; route_on on top of
+    //     that is a no-op (egress goes through our NAT, not the mesh)
+    //     and ROUTE_OFF_BODY would lie about "uses your normal
+    //     connection".
+    //   - non-gateway: kill-switch state — banner above already tells
+    //     the user pim is blocking internet; the panel here would
+    //     contradict if it said "uses your normal connection".
+    // Pick honest copy for each case so the panel aligns with the
+    // banner instead of denying the kill-switch.
+    const isSelfGateway =
+      status === null ? false : status.role.includes("gateway") === true;
+    const fallbackLine =
+      isSelfGateway === true
+        ? "you are the gateway · routing through the mesh has no effect"
+        : "no upstream gateway · routing blocked until one reconnects";
     body = (
       <div className="flex flex-col gap-3">
         <p className="font-code text-sm text-foreground">
-          {line === null ? ROUTE_OFF_BODY : line}
+          {line === null ? fallbackLine : line}
         </p>
         <div>
           <Button
