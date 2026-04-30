@@ -46,10 +46,19 @@ const DEFAULT_PREFIX: &str = "PIM-";
 /// Default poll interval for the outbound discovery loop, in seconds.
 const DEFAULT_POLL_SECS: u32 = 30;
 
-/// Holds the running child handle so we can kill on drop / app exit.
+/// Maximum number of events kept in the snapshot ring buffer. Events
+/// older than this fall off when the buffer is full. The UI uses the
+/// snapshot to recover state across mount races, so we only need
+/// enough history to reconstruct the current peer set — not a log.
+const SNAPSHOT_CAP: usize = 256;
+
+/// Holds the running child handle so we can kill on drop / app exit,
+/// plus a ring buffer of recent events so the UI can recover state on
+/// mount (the Tauri event bus does not replay missed messages).
 #[derive(Default)]
 pub struct BluetoothRfcommState {
     inner: Arc<Mutex<Option<CommandChild>>>,
+    snapshot: Arc<Mutex<Vec<Value>>>,
 }
 
 impl BluetoothRfcommState {
@@ -66,6 +75,22 @@ impl BluetoothRfcommState {
             let _ = prev.kill();
         }
         *guard = Some(child);
+    }
+
+    /// Append an event to the ring buffer, evicting the oldest entry
+    /// when capacity is reached.
+    async fn record_event(&self, value: Value) {
+        let mut guard = self.snapshot.lock().await;
+        if guard.len() >= SNAPSHOT_CAP {
+            guard.remove(0);
+        }
+        guard.push(value);
+    }
+
+    /// Read a clone of every buffered event in order.
+    async fn snapshot_events(&self) -> Vec<Value> {
+        let guard = self.snapshot.lock().await;
+        guard.clone()
     }
 
     /// Kill the running sidecar if any. Idempotent.
@@ -181,7 +206,7 @@ pub async fn start(app: &AppHandle, cfg: BluetoothRfcommConfig) -> Result<()> {
                         if trimmed.is_empty() {
                             continue;
                         }
-                        forward_event(&app_handle, trimmed);
+                        forward_event(&app_handle, trimmed).await;
                     }
                 }
                 CommandEvent::Stderr(bytes) => {
@@ -206,6 +231,9 @@ pub async fn start(app: &AppHandle, cfg: BluetoothRfcommConfig) -> Result<()> {
                         "code": payload.code,
                         "signal": payload.signal,
                     });
+                    let state: tauri::State<'_, BluetoothRfcommState> =
+                        app_handle.state();
+                    state.record_event(payload.clone()).await;
                     let _ = app_handle.emit(EVENT_CHANNEL, payload);
                     break;
                 }
@@ -217,14 +245,18 @@ pub async fn start(app: &AppHandle, cfg: BluetoothRfcommConfig) -> Result<()> {
     Ok(())
 }
 
-/// Parse a stdout JSON line and re-emit on the Tauri event bus.
-/// Malformed lines are logged at warn but otherwise ignored — the
-/// sidecar is allowed to evolve its event vocabulary without breaking
-/// the UI.
-fn forward_event(app: &AppHandle, line: &str) {
+/// Parse a stdout JSON line, append it to the snapshot ring buffer, and
+/// re-emit on the Tauri event bus. Buffering happens before the emit
+/// so a UI listener that races the sidecar boot can recover the event
+/// via `bluetooth_rfcomm_snapshot`. Malformed lines are logged at warn
+/// but otherwise ignored — the sidecar is allowed to evolve its event
+/// vocabulary without breaking the UI.
+async fn forward_event(app: &AppHandle, line: &str) {
     match serde_json::from_str::<Value>(line) {
         Ok(value) => {
             log::debug!(target: "pim-bt-rfcomm-mac", "{}", value);
+            let state: tauri::State<'_, BluetoothRfcommState> = app.state();
+            state.record_event(value.clone()).await;
             if let Err(e) = app.emit(EVENT_CHANNEL, &value) {
                 log::error!(
                     target: "pim-bt-rfcomm-mac",
@@ -258,4 +290,16 @@ pub async fn bluetooth_rfcomm_stop(app: AppHandle) -> std::result::Result<(), St
     let state: tauri::State<'_, BluetoothRfcommState> = app.state();
     state.shutdown().await;
     Ok(())
+}
+
+/// Tauri command — return every event the sidecar has emitted so far,
+/// in arrival order. Lets the UI rebuild peer state on mount even if
+/// the `boot`/`discovered` events fired before its listener attached
+/// (Tauri's event bus does not replay missed messages).
+#[tauri::command]
+pub async fn bluetooth_rfcomm_snapshot(
+    app: AppHandle,
+) -> std::result::Result<Vec<Value>, String> {
+    let state: tauri::State<'_, BluetoothRfcommState> = app.state();
+    Ok(state.snapshot_events().await)
 }

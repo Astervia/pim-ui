@@ -12,6 +12,7 @@
  */
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 
 /**
@@ -74,26 +75,55 @@ export function useBluetoothRfcomm(): BluetoothRfcommSnapshot {
     let unlisten: UnlistenFn | undefined;
     let cancelled = false;
 
-    listen<RawEvent>("bluetooth-rfcomm://event", (msg) => {
-      if (cancelled) return;
-      handleEvent(msg.payload, {
-        upsert: (p) =>
-          setPeers((prev) => {
-            const next = new Map(prev);
-            next.set(p.bd_addr, p);
-            return next;
-          }),
-        remove: (bd_addr) =>
-          setPeers((prev) => {
-            const next = new Map(prev);
-            next.delete(bd_addr);
-            return next;
-          }),
-        markBoot: () => setSidecarUp(true),
-        markError: (reason) => setLastError(reason),
-        markTerminated: () => setSidecarUp(false),
+    const handlers: Handlers = {
+      upsert: (p) =>
+        setPeers((prev) => {
+          const next = new Map(prev);
+          next.set(p.bd_addr, p);
+          return next;
+        }),
+      remove: (bd_addr) =>
+        setPeers((prev) => {
+          const next = new Map(prev);
+          next.delete(bd_addr);
+          return next;
+        }),
+      markBoot: () => setSidecarUp(true),
+      markError: (reason) => setLastError(reason),
+      markTerminated: () => setSidecarUp(false),
+    };
+
+    // Subscribe FIRST (so any events emitted while we fetch the snapshot
+    // are still captured), THEN replay the snapshot. The handlers are
+    // idempotent on `discovered`/`lost` — replaying a duplicate event
+    // just rewrites the same map entry.
+    const subscribePromise = listen<RawEvent>(
+      "bluetooth-rfcomm://event",
+      (msg) => {
+        if (cancelled) return;
+        handleEvent(msg.payload, handlers);
+      },
+    );
+
+    // Snapshot recovery — Tauri does not buffer events, so the sidecar's
+    // `boot` and first `discovered` events typically fire before this
+    // hook mounts. Replaying the Rust-side ring buffer rebuilds peer
+    // state across that race.
+    invoke<RawEvent[]>("bluetooth_rfcomm_snapshot")
+      .then((events) => {
+        if (cancelled) return;
+        for (const ev of events) handleEvent(ev, handlers);
+      })
+      .catch((e: unknown) => {
+        // Non-macOS targets won't have the command — silent fallback to
+        // live-only mode is fine.
+        if (!cancelled) {
+          // eslint-disable-next-line no-console
+          console.debug("bluetooth_rfcomm_snapshot unavailable:", e);
+        }
       });
-    })
+
+    subscribePromise
       .then((fn) => {
         if (cancelled) {
           fn();

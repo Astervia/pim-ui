@@ -55,6 +55,8 @@ pub fn run() {
             bluetooth_rfcomm::bluetooth_rfcomm_start,
             #[cfg(target_os = "macos")]
             bluetooth_rfcomm::bluetooth_rfcomm_stop,
+            #[cfg(target_os = "macos")]
+            bluetooth_rfcomm::bluetooth_rfcomm_snapshot,
         ])
         .setup(|app| {
             log::info!(
