@@ -320,13 +320,12 @@ fn chrono_secs_to_rfc3339(secs: u64) -> String {
 /// exported. Falls back to opening the parent directory.
 #[tauri::command]
 pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
-    use std::process::Command;
     // Each branch is the LAST expression for its target; the `return`s
     // are gone so clippy::needless_return stays happy under
     // `-D warnings`.
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
+        std::process::Command::new("open")
             .args(["-R", &path])
             .spawn()
             .map_err(|e| format!("open -R failed: {e}"))?;
@@ -334,7 +333,7 @@ pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
     }
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer")
+        std::process::Command::new("explorer")
             .args(["/select,", &path])
             .spawn()
             .map_err(|e| format!("explorer /select failed: {e}"))?;
@@ -342,16 +341,75 @@ pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        let parent = std::path::Path::new(&path)
-            .parent()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| ".".to_string());
-        Command::new("xdg-open")
-            .arg(&parent)
-            .spawn()
-            .map_err(|e| format!("xdg-open failed: {e}"))?;
-        Ok(())
+        reveal_linux(&path).await
     }
+}
+
+/// Linux equivalent of macOS `open -R` / Windows `explorer /select,`.
+///
+/// Tries to SELECT the file in the user's file manager first by
+/// calling `org.freedesktop.FileManager1.ShowItems` over the session
+/// bus — this is the freedesktop spec implemented by Nautilus, Dolphin,
+/// Thunar, Nemo, Caja, PCManFM and most other major Linux file
+/// managers. We shell out to `gdbus` (libglib2 — ships with every
+/// desktop install) so we don't drag a Rust DBus crate into the
+/// dependency graph.
+///
+/// If no `FileManager1` service is registered (headless host, minimal
+/// WM, fresh Wayland session before the file-manager dbus-activation
+/// has fired) we fall back to `xdg-open <parent>`, the previous
+/// behaviour. That always opens *something* — worst case the user
+/// sees the parent folder instead of the selected file, matching the
+/// pre-feature-parity baseline.
+#[cfg(all(unix, not(target_os = "macos")))]
+async fn reveal_linux(path: &str) -> Result<(), String> {
+    // Resolve to an absolute path so the file:// URI is well-formed;
+    // the daemon could pass us a relative path on edge code paths.
+    let abs = std::path::Path::new(path)
+        .canonicalize()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| path.to_string());
+    let uri = format!("file://{abs}");
+
+    // gdbus expects a GVariant tuple literal; embed the URI inside an
+    // array. The URI is a system path, not user-supplied freeform text,
+    // but defensively single-quote-escape it anyway.
+    let uris_arg = format!("['{}']", uri.replace('\'', "'\\''"));
+
+    let dbus_ok = tokio::process::Command::new("gdbus")
+        .args([
+            "call",
+            "--session",
+            "--dest",
+            "org.freedesktop.FileManager1",
+            "--object-path",
+            "/org/freedesktop/FileManager1",
+            "--method",
+            "org.freedesktop.FileManager1.ShowItems",
+            &uris_arg,
+            "",
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if dbus_ok {
+        return Ok(());
+    }
+
+    // Fallback: open the parent directory via xdg-open.
+    let parent = std::path::Path::new(path)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| ".".to_string());
+    std::process::Command::new("xdg-open")
+        .arg(&parent)
+        .spawn()
+        .map_err(|e| format!("xdg-open failed: {e}"))?;
+    Ok(())
 }
 
 #[cfg(test)]

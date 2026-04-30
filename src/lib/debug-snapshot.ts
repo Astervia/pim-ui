@@ -160,9 +160,12 @@ export async function saveSnapshot(
 /**
  * Open the OS file manager focused on the saved snapshot. macOS opens
  * Finder with the file selected; Windows opens Explorer with the file
- * highlighted; Linux opens the parent folder via xdg-open. Silent
- * no-op outside Tauri (the plain-webview fallback can't reach the OS
- * file manager).
+ * highlighted; Linux selects the file via the freedesktop
+ * `FileManager1.ShowItems` DBus call (Nautilus / Dolphin / Thunar /
+ * Nemo / Caja / PCManFM all implement it), falling back to
+ * `xdg-open <parent>` on minimal/headless setups without a registered
+ * FileManager1 service. Silent no-op outside Tauri (the plain-webview
+ * fallback can't reach the OS file manager).
  */
 export async function revealSnapshotInFileManager(path: string): Promise<void> {
   if (isTauriRuntime() === false) return;
