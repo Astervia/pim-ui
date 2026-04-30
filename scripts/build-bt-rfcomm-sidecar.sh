@@ -32,7 +32,16 @@ build_for_triple() {
     local triple_out="$2"
     echo "==> building $triple_out"
     (cd "$PKG_DIR" && swift build -c release --triple "$triple_in")
-    local src="$PKG_DIR/.build/$triple_in/release/pim-bt-rfcomm-mac"
+    # SwiftPM strips the SDK-version suffix off the path on recent
+    # toolchains, so `--triple arm64-apple-macosx13.0` writes to
+    # `.build/arm64-apple-macosx/`. Try the trimmed form first, fall
+    # back to the literal triple for older toolchains.
+    local triple_dir
+    triple_dir="$(echo "$triple_in" | sed 's/macosx[0-9].*$/macosx/')"
+    local src="$PKG_DIR/.build/$triple_dir/release/pim-bt-rfcomm-mac"
+    if [[ ! -f "$src" ]]; then
+        src="$PKG_DIR/.build/$triple_in/release/pim-bt-rfcomm-mac"
+    fi
     local dst="$OUT_DIR/pim-bt-rfcomm-mac-$triple_out"
     cp "$src" "$dst"
     chmod +x "$dst"
@@ -61,7 +70,11 @@ build_for_triple arm64-apple-macosx13.0 aarch64-apple-darwin
 # x86_64 build is best-effort: many Apple Silicon machines lack the SDK
 # fallback toolchain. Skip with a warning rather than fail the script.
 if (cd "$PKG_DIR" && swift build -c release --triple x86_64-apple-macosx13.0) 2>/dev/null; then
-    cp "$PKG_DIR/.build/x86_64-apple-macosx13.0/release/pim-bt-rfcomm-mac" \
+    x86_dir="$PKG_DIR/.build/x86_64-apple-macosx/release/pim-bt-rfcomm-mac"
+    if [[ ! -f "$x86_dir" ]]; then
+        x86_dir="$PKG_DIR/.build/x86_64-apple-macosx13.0/release/pim-bt-rfcomm-mac"
+    fi
+    cp "$x86_dir" \
        "$OUT_DIR/pim-bt-rfcomm-mac-x86_64-apple-darwin"
     chmod +x "$OUT_DIR/pim-bt-rfcomm-mac-x86_64-apple-darwin"
     if [[ -n "${PIM_DEVELOPER_ID:-}" ]]; then

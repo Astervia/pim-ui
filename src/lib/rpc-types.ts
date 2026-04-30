@@ -234,6 +234,26 @@ export interface PeersAddStaticResult {
   config_entry_id: string;
 }
 
+/**
+ * Dial a peer at a runtime-known socket address with the given NodeId.
+ * Used to wire BT-discovered peers into the mesh: the Tauri sidecar
+ * exposes a 127.0.0.1 TCP port that bridges to the open RFCOMM channel,
+ * and this RPC asks the daemon to connect through it.
+ */
+export interface PeersConnectDynamicParams {
+  /** 32-character lowercase hex of the remote peer's NodeId. */
+  node_id: string;
+  /** Socket address to dial — e.g. "127.0.0.1:53104" for a BT bridge. */
+  address: string;
+}
+
+export interface PeersConnectDynamicResult {
+  /** Echoed back from the request — useful for logging on the UI side. */
+  node_id: string;
+  address: string;
+  status: "connected";
+}
+
 /** One of the two fields is required; both are accepted for convenience. */
 export interface PeersRemoveParams {
   node_id?: string;
@@ -539,6 +559,10 @@ export interface RpcMethodMap {
   "peers.add_static": {
     params: PeersAddStaticParams;
     result: PeersAddStaticResult;
+  };
+  "peers.connect_dynamic": {
+    params: PeersConnectDynamicParams;
+    result: PeersConnectDynamicResult;
   };
   "peers.remove": { params: PeersRemoveParams; result: null };
   "peers.discovered": { params: null; result: PeerDiscovered[] };

@@ -21,6 +21,7 @@
 
 import Foundation
 import IOBluetooth
+import Network
 
 // MARK: - Args
 
@@ -137,12 +138,43 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     var peerInfo: [String: Any] = [:]
     let openedAt = Date()
 
+    /// After handshake, the channel switches to verbatim byte-pipe mode.
+    /// Subsequent RFCOMM bytes go straight to the TCP loopback bridge
+    /// instead of being parsed as JSON frames.
+    var inBridgeMode = false
+    /// Bytes received on RFCOMM after handshake but before the TCP
+    /// loopback connection arrives (Mac kernel daemon may take a moment
+    /// to invoke `peer_connect_dynamic`). Drained on TCP accept.
+    var pendingBytes = Data()
+    /// TCP loopback bridge — created once handshake completes, exposes
+    /// a port the Mac kernel daemon can `connect()` to so RFCOMM bytes
+    /// look like a normal TCP peer to it.
+    var bridge: Bridge?
+
     init(addr: String, name: String, channel: IOBluetoothRFCOMMChannel, initiator: Bool) {
         self.bdAddr = addr
         self.bdName = name
         self.channel = channel
         self.isInitiator = initiator
         super.init()
+    }
+
+    /// Write raw bytes (no framing) directly to the RFCOMM channel.
+    /// Used by the bridge to forward TCP loopback bytes verbatim.
+    func sendRawToRfcomm(_ data: Data) {
+        guard let ch = channel else { return }
+        // RFCOMM writeSync wants UInt16 length; chunk if necessary.
+        var offset = 0
+        let mtu = max(1, Int(ch.getMTU()))
+        while offset < data.count {
+            let chunkLen = min(mtu, data.count - offset)
+            let slice = data.subdata(in: offset..<(offset + chunkLen))
+            slice.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+                let p = UnsafeMutableRawPointer(mutating: raw.baseAddress!)
+                _ = ch.writeSync(p, length: UInt16(chunkLen))
+            }
+            offset += chunkLen
+        }
     }
 
     func send(_ json: [String: Any]) {
@@ -197,6 +229,17 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     func rfcommChannelData(_ ch: IOBluetoothRFCOMMChannel!,
                            data ptr: UnsafeMutableRawPointer!, length n: Int) {
         let chunk = Data(bytes: ptr, count: n)
+        if inBridgeMode {
+            // Verbatim byte pipe: RFCOMM → TCP loopback. If the local
+            // kernel daemon hasn't `connect()`ed yet, buffer until it
+            // does so we don't drop the first frames after handshake.
+            if let bridge = bridge, bridge.tcpConnected {
+                bridge.sendToTcp(chunk)
+            } else {
+                pendingBytes.append(chunk)
+            }
+            return
+        }
         do {
             for payload in try reader.feed(chunk) {
                 handlePayload(payload)
@@ -208,6 +251,8 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     }
 
     func rfcommChannelClosed(_ ch: IOBluetoothRFCOMMChannel!) {
+        bridge?.shutdown()
+        bridge = nil
         emit(["event": "lost",
               "peer": peerInfo.isEmpty ? ["bd_addr": bdAddr, "name": bdName] : peerInfo,
               "reason": "channel_closed"])
@@ -252,6 +297,180 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
         peer["bd_addr"] = bdAddr
         peer["since"] = ISO8601DateFormatter().string(from: openedAt)
         emit(["event": "discovered", "peer": peer])
+        startBridge()
+    }
+
+    /// Open a TCP loopback listener and emit `bridge_ready` so the UI
+    /// can RPC the kernel daemon to connect into it. Once the kernel
+    /// connects, post-handshake RFCOMM bytes flow as a verbatim pipe.
+    private func startBridge() {
+        do {
+            let bridge = try Bridge(session: self)
+            self.bridge = bridge
+            inBridgeMode = true
+            let peerNodeId = (peerInfo["node_id"] as? String) ?? ""
+            emit([
+                "event": "bridge_ready",
+                "bd_addr": bdAddr,
+                "name": bdName,
+                "node_id": peerNodeId,
+                "port": Int(bridge.port),
+            ])
+        } catch {
+            logErr("bridge start failed for \(bdAddr): \(error)")
+            emit([
+                "event": "bridge_failed",
+                "bd_addr": bdAddr,
+                "name": bdName,
+                "reason": "\(error)",
+            ])
+        }
+    }
+}
+
+// MARK: - TCP loopback bridge
+//
+// After RFCOMM Hello/HelloAck, each Session opens an `NWListener` on
+// `127.0.0.1:0` (kernel-picked random port) and waits for the local
+// pim-daemon to `connect()` into it. Once connected:
+//
+//   RFCOMM ────→ TCP   (Session.rfcommChannelData → bridge.sendToTcp)
+//   RFCOMM ←──── TCP   (Bridge.receiveLoop → Session.sendRawToRfcomm)
+//
+// The first 16 B the daemon writes is its own NodeId (per
+// `TcpTransport::connect`), which travel across the bridge so the
+// peer's `TcpTransport::handle_incoming` can identify the new peer.
+// We do not parse those bytes — bridge mode is a verbatim byte pipe.
+
+final class Bridge {
+    weak var session: Session?
+    let listener: NWListener
+    var connection: NWConnection?
+    var tcpConnected: Bool = false
+    let port: UInt16
+    private let queue = DispatchQueue(label: "pim-bt-rfcomm-bridge", qos: .userInitiated)
+    private var shutdownRequested = false
+
+    init(session: Session) throws {
+        self.session = session
+        // Open the listener and discover the kernel-picked port BEFORE
+        // wiring up `newConnectionHandler`, so its `[weak self]` capture
+        // happens against a fully-initialized Bridge (Swift forbids
+        // referencing `self.<let property>` before it is assigned).
+        let (listener, port) = try Bridge.openListener(queue: queue)
+        self.listener = listener
+        self.port = port
+        listener.newConnectionHandler = { [weak self] conn in
+            self?.handleNewConnection(conn)
+        }
+    }
+
+    private static func openListener(queue: DispatchQueue) throws -> (NWListener, UInt16) {
+        // 127.0.0.1 only — never expose this listener on the network.
+        // kernel-picked port (.any) so multiple peers don't clash.
+        let params = NWParameters.tcp
+        params.requiredInterfaceType = .loopback
+        params.acceptLocalOnly = true
+        params.allowLocalEndpointReuse = false
+        let listener = try NWListener(using: params, on: .any)
+
+        let portReady = DispatchSemaphore(value: 0)
+        var assignedPort: UInt16 = 0
+        listener.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                if let p = listener.port { assignedPort = p.rawValue }
+                portReady.signal()
+            case .failed(let err):
+                logErr("bridge listener failed: \(err)")
+                portReady.signal()
+            case .cancelled:
+                break
+            default:
+                break
+            }
+        }
+        listener.start(queue: queue)
+        _ = portReady.wait(timeout: .now() + .milliseconds(500))
+        if assignedPort == 0 {
+            throw NSError(domain: "PimBtRfcomm", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "listener never reached .ready"])
+        }
+        return (listener, assignedPort)
+    }
+
+    private func handleNewConnection(_ conn: NWConnection) {
+        // First arrival wins; any subsequent connect is rejected so we
+        // can't end up multiplexing two daemons over one RFCOMM pipe.
+        if connection != nil {
+            conn.cancel()
+            return
+        }
+        connection = conn
+        conn.stateUpdateHandler = { [weak self] state in
+            guard let self = self else { return }
+            switch state {
+            case .ready:
+                self.tcpConnected = true
+                // Drain any RFCOMM bytes that arrived while we were
+                // waiting for the kernel to connect.
+                if let session = self.session, !session.pendingBytes.isEmpty {
+                    let data = session.pendingBytes
+                    session.pendingBytes = Data()
+                    self.sendToTcp(data)
+                }
+                self.receiveLoop()
+            case .failed(let err):
+                logErr("bridge tcp connection failed: \(err)")
+                self.shutdown()
+            case .cancelled:
+                self.shutdown()
+            default: break
+            }
+        }
+        conn.start(queue: queue)
+    }
+
+    private func receiveLoop() {
+        guard let conn = connection, !shutdownRequested else { return }
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, isComplete, error in
+            guard let self = self else { return }
+            if let data = data, !data.isEmpty {
+                self.session?.sendRawToRfcomm(data)
+            }
+            if let error = error {
+                logErr("bridge tcp recv error: \(error)")
+                self.shutdown()
+                return
+            }
+            if isComplete {
+                self.shutdown()
+                return
+            }
+            self.receiveLoop()
+        }
+    }
+
+    /// Forward bytes from the RFCOMM channel to the local TCP peer.
+    func sendToTcp(_ data: Data) {
+        guard let conn = connection else { return }
+        conn.send(content: data, completion: .contentProcessed { error in
+            if let error = error {
+                logErr("bridge tcp send error: \(error)")
+            }
+        })
+    }
+
+    /// Tear down the listener + connection. Idempotent.
+    func shutdown() {
+        if shutdownRequested { return }
+        shutdownRequested = true
+        connection?.cancel()
+        connection = nil
+        listener.cancel()
+        // Force the corresponding RFCOMM channel down so the peer
+        // notices the half-duplex closure and tears its side down too.
+        session?.channel?.close()
     }
 }
 

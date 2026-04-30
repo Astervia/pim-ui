@@ -14,6 +14,7 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
+import { callDaemon } from "@/lib/rpc";
 
 /**
  * Discovered peer payload — matches the `peer` object emitted by the
@@ -48,6 +49,25 @@ type RawEvent =
   | { event: "scan_attempt"; bd_addr: string; name?: string; channel?: number }
   | { event: "inbound"; bd_addr: string; name?: string }
   | { event: "discovered"; peer: BluetoothRfcommPeer & Record<string, unknown> }
+  | {
+      /**
+       * The sidecar has opened a 127.0.0.1 TCP listener that bridges
+       * verbatim to the post-handshake RFCOMM channel. The hook RPCs
+       * the daemon to connect through it so this BT peer becomes a
+       * normal TCP-transport peer to the rest of the kernel.
+       */
+      event: "bridge_ready";
+      bd_addr: string;
+      name?: string;
+      node_id: string;
+      port: number;
+    }
+  | {
+      event: "bridge_failed";
+      bd_addr: string;
+      name?: string;
+      reason?: string;
+    }
   | { event: "lost"; peer: { bd_addr?: string; node_id?: string; [k: string]: unknown }; reason?: string }
   | { event: "open_failed"; bd_addr: string; name?: string; reason?: string }
   | { event: "peer_error"; bd_addr?: string; detail?: unknown }
@@ -181,6 +201,40 @@ function handleEvent(raw: RawEvent, h: Handlers): void {
         since: typeof peer.since === "string" ? peer.since : "",
         lastSeen: new Date().toISOString(),
       });
+      return;
+    }
+    case "bridge_ready": {
+      // Sidecar opened a 127.0.0.1 TCP listener bridging to RFCOMM.
+      // RPC the daemon to dial it so the BT peer becomes a normal
+      // TCP transport peer. Idempotent: callDaemon failures are
+      // logged but not fatal — the discovery state is unchanged.
+      const r = raw as Extract<RawEvent, { event: "bridge_ready" }>;
+      if (
+        typeof r.node_id === "string" &&
+        r.node_id.length === 32 &&
+        typeof r.port === "number" &&
+        r.port > 0
+      ) {
+        const address = `127.0.0.1:${r.port}`;
+        callDaemon("peers.connect_dynamic", {
+          node_id: r.node_id,
+          address,
+        }).catch((e: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `peers.connect_dynamic failed for ${r.node_id} via ${address}:`,
+            e,
+          );
+          h.markError(`bridge connect: ${String(e)}`);
+        });
+      }
+      return;
+    }
+    case "bridge_failed": {
+      const reason =
+        ("reason" in raw && typeof raw.reason === "string" && raw.reason) ||
+        "bridge_failed";
+      h.markError(`bridge: ${reason}`);
       return;
     }
     case "lost": {
