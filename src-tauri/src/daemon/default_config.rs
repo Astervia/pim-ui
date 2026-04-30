@@ -474,6 +474,68 @@ pub fn render_default_config(node_name: &str, role: Role, data_dir: &Path) -> St
     push_line(&mut out, "startup_timeout_ms = 15000");
     push_blank(&mut out);
 
+    // ── [bluetooth_rfcomm] ─────────────────────────────────────────
+    push_line(&mut out, "[bluetooth_rfcomm]");
+    push_line(
+        &mut out,
+        "# Bluetooth RFCOMM direct-channel discovery + TCP bridge. Independent",
+    );
+    push_line(
+        &mut out,
+        "# from [bluetooth] PAN/NAP: scans paired BT devices by name prefix,",
+    );
+    push_line(
+        &mut out,
+        "# opens an RFCOMM channel, exchanges PIM identity frames, and (when",
+    );
+    push_line(
+        &mut out,
+        "# `bridge_to_tcp = true`) forwards the byte stream into the local TCP",
+    );
+    push_line(
+        &mut out,
+        "# transport listener so normal PIM handshakes / sessions are reused.",
+    );
+    push_line(
+        &mut out,
+        "# Linux only — opt-in. Flip to true on a Linux node where you want",
+    );
+    push_line(
+        &mut out,
+        "# RFCOMM-based peer link establishment in addition to (or instead of) PAN.",
+    );
+    push_line(&mut out, "enabled = false");
+    push_line(
+        &mut out,
+        "# RFCOMM channel to bind and dial. 22 avoids common SPP channel conflicts.",
+    );
+    push_line(&mut out, "channel = 22");
+    push_line(
+        &mut out,
+        "# Filter paired Bluetooth devices by name prefix when looking for PIM peers.",
+    );
+    push_line(&mut out, "device_name_prefix = \"PIM-\"");
+    push_line(
+        &mut out,
+        "# Periodically scan paired devices and dial out over RFCOMM.",
+    );
+    push_line(&mut out, "outbound_enabled = true");
+    push_line(
+        &mut out,
+        "# Poll cadence for outbound paired-device scans (milliseconds).",
+    );
+    push_line(&mut out, "poll_interval_ms = 30000");
+    push_line(
+        &mut out,
+        "# Bridge established RFCOMM sessions to 127.0.0.1:<transport.listen_port>.",
+    );
+    push_line(
+        &mut out,
+        "# Disable for discovery-only deployments that don't want a TCP loopback.",
+    );
+    push_line(&mut out, "bridge_to_tcp = true");
+    push_blank(&mut out);
+
     // ── [wifi_direct] ──────────────────────────────────────────────
     push_line(&mut out, "[wifi_direct]");
     push_line(

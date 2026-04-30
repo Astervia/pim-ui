@@ -36,7 +36,7 @@ tauri-plugin-dialog = "2"
 # drift in CI, (b) client-side TOML validation via the `config_validate`
 # Tauri command so the Settings tab can surface schema errors before the
 # daemon REJECTs the save.
-pim-core = "0.1.4"
+pim-core = "0.1.5"
 
 [target.'cfg(unix)'.dependencies]
 # Phase 7 spike: gethostname(3) for the BT sidecar's local-name default

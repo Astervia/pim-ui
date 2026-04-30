@@ -2852,9 +2852,9 @@ dependencies = [
 
 [[package]]
 name = "pim-core"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379622d86820494c07159118525776f9080666b80f171a93c8dadcd3f33eda7d"
+checksum = "1e1fa729bddab15599daa4184c8649c840f3851409f5a0cde26502b5881b417f"
 dependencies = [
  "bytes",
  "serde",
