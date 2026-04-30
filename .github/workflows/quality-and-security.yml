@@ -143,6 +143,32 @@ jobs:
               shell: bash
               run: bash scripts/fetch-daemon.sh
 
+            # tauri.macos.conf.json adds `binaries/pim-bt-rfcomm-mac` to
+            # externalBin on macOS targets, so the Swift sidecar must be
+            # built and dropped into src-tauri/binaries/ before cargo
+            # touches the Tauri manifest. Linux/Windows targets skip
+            # this entirely (config-merged out of externalBin there).
+            - name: Build pim-bt-rfcomm-mac sidecar
+              if: startsWith(matrix.runner, 'macos')
+              shell: bash
+              run: |
+                  case "${{ matrix.label }}" in
+                      macos-aarch64) TRIPLE_IN=arm64-apple-macosx13.0; TRIPLE_OUT=aarch64-apple-darwin ;;
+                      macos-x86_64)  TRIPLE_IN=x86_64-apple-macosx13.0; TRIPLE_OUT=x86_64-apple-darwin ;;
+                      *) echo "skip: not macos"; exit 0 ;;
+                  esac
+                  cd tools/pim-bt-rfcomm-mac
+                  swift build -c release --triple "$TRIPLE_IN"
+                  SRC=$(find .build -name pim-bt-rfcomm-mac -type f -path '*/release/*' ! -path '*.dSYM*' | head -1)
+                  if [[ -z "$SRC" ]]; then
+                      echo "::error::pim-bt-rfcomm-mac binary not found under .build/"
+                      exit 1
+                  fi
+                  DST="../../src-tauri/binaries/pim-bt-rfcomm-mac-$TRIPLE_OUT"
+                  cp "$SRC" "$DST"
+                  chmod +x "$DST"
+                  codesign --force -s - --entitlements entitlements/pim-bt-rfcomm-mac.entitlements "$DST"
+
             - name: Run tests
               run: cargo test --manifest-path src-tauri/Cargo.toml --locked
 
