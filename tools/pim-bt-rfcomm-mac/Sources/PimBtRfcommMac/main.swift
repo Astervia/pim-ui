@@ -31,6 +31,38 @@ struct Args {
     var prefix: String = "PIM-"
     var rfcommChannel: BluetoothRFCOMMChannelID = 22
     var pollInterval: TimeInterval = 30
+    /// Run periodic Bluetooth Classic inquiry to discover PIM-* devices
+    /// that are NOT yet paired with this Mac. Disable with
+    /// `--inquiry=off` when you want hands-off pairing only via the
+    /// existing macOS System Settings → Bluetooth flow.
+    var inquiryEnabled: Bool = true
+    /// Length of each inquiry burst, in seconds (per Apple spec: 1-30).
+    /// Default 8s — enough for a noisy environment, short enough not to
+    /// monopolize the radio.
+    var inquiryLengthSecs: Int = 8
+    /// Time between inquiry bursts, in seconds. Default 120s — Apple
+    /// throttles back-to-back inquiries; this matches the system's
+    /// politeness window without wasting cycles.
+    var inquiryIntervalSecs: TimeInterval = 120
+    /// Auto-trigger `IOBluetoothDevicePair` when inquiry surfaces a
+    /// PIM-* device that is not paired yet. macOS still shows its native
+    /// "Pair this Bluetooth Device?" dialog as a security gate (we
+    /// cannot bypass that from a third-party process), but the user no
+    /// longer needs to navigate to System Settings.
+    var autoPair: Bool = true
+    /// Seconds to wait before re-attempting pair against a BD_ADDR
+    /// after a previous attempt finished (success OR failure). Prevents
+    /// dialog-spam when the user clicks Cancel.
+    var pairCooldownSecs: TimeInterval = 600
+    /// How long to wait for `rfcommChannelOpenComplete` before declaring
+    /// the open dead. macOS IOBluetooth has no public timeout knob and
+    /// will silently never fire the callback if the peer accepts the
+    /// L2CAP/RFCOMM session but has no listener bound to the channel
+    /// (e.g. SDP record advertises SP on ch22 but no service backs it).
+    /// Without this, a stuck open holds the device in `registry` forever
+    /// and the auto-pair inquiry can never fire either, since it gates
+    /// on `registry.allAddrs().isEmpty`.
+    var openTimeoutSecs: TimeInterval = 8
 }
 
 func parseArgs() -> Args {
@@ -44,6 +76,24 @@ func parseArgs() -> Args {
         }
         else if let v = arg.value(after: "--poll="), let s = TimeInterval(v) {
             a.pollInterval = s
+        }
+        else if let v = arg.value(after: "--inquiry=") {
+            a.inquiryEnabled = (v == "on" || v == "true" || v == "1")
+        }
+        else if let v = arg.value(after: "--inquiry-length="), let n = Int(v) {
+            a.inquiryLengthSecs = max(1, min(30, n))
+        }
+        else if let v = arg.value(after: "--inquiry-interval="), let s = TimeInterval(v) {
+            a.inquiryIntervalSecs = max(10, s)
+        }
+        else if let v = arg.value(after: "--auto-pair=") {
+            a.autoPair = (v == "on" || v == "true" || v == "1")
+        }
+        else if let v = arg.value(after: "--pair-cooldown="), let s = TimeInterval(v) {
+            a.pairCooldownSecs = max(0, s)
+        }
+        else if let v = arg.value(after: "--open-timeout="), let s = TimeInterval(v) {
+            a.openTimeoutSecs = s
         }
     }
     if a.localNodeId.isEmpty {
@@ -150,6 +200,10 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     /// a port the Mac kernel daemon can `connect()` to so RFCOMM bytes
     /// look like a normal TCP peer to it.
     var bridge: Bridge?
+    /// Deadline timer that fires if `rfcommChannelOpenComplete` never
+    /// arrives. Cancelled by the delegate callback (success OR error)
+    /// and by `rfcommChannelClosed`. See `Args.openTimeoutSecs`.
+    var openDeadline: DispatchWorkItem?
 
     init(addr: String, name: String, channel: IOBluetoothRFCOMMChannel, initiator: Bool) {
         self.bdAddr = addr
@@ -157,6 +211,33 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
         self.channel = channel
         self.isInitiator = initiator
         super.init()
+    }
+
+    /// Schedule a watchdog that surfaces a stuck `openRFCOMMChannelAsync`
+    /// as an `open_timeout` event and removes the session from the
+    /// registry so the next discovery poll can retry. Idempotent —
+    /// rescheduling cancels the prior timer first.
+    func armOpenDeadline(seconds: TimeInterval) {
+        openDeadline?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            // If we made progress (sent hello as initiator, or got peer
+            // hello as acceptor) the open already completed — bail.
+            if self.helloSent || self.ackReceived || !self.peerInfo.isEmpty {
+                return
+            }
+            emit([
+                "event": "open_timeout",
+                "bd_addr": self.bdAddr,
+                "name": self.bdName,
+                "channel": Int(ARGS.rfcommChannel),
+                "after_s": seconds,
+            ])
+            self.channel?.close()
+            registry.remove(addr: self.bdAddr)
+        }
+        openDeadline = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
     /// Write raw bytes (no framing) directly to the RFCOMM channel.
@@ -216,6 +297,10 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     // MARK: IOBluetoothRFCOMMChannelDelegate
 
     func rfcommChannelOpenComplete(_ ch: IOBluetoothRFCOMMChannel!, status err: IOReturn) {
+        // Whatever the outcome, the open watchdog has done its job —
+        // cancel it before either branch returns.
+        openDeadline?.cancel()
+        openDeadline = nil
         if err != kIOReturnSuccess {
             emit(["event": "open_failed", "bd_addr": bdAddr, "name": bdName,
                   "code": String(format: "0x%x", err)])
@@ -251,6 +336,8 @@ final class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
     }
 
     func rfcommChannelClosed(_ ch: IOBluetoothRFCOMMChannel!) {
+        openDeadline?.cancel()
+        openDeadline = nil
         bridge?.shutdown()
         bridge = nil
         emit(["event": "lost",
@@ -509,10 +596,255 @@ func discoveryTick() {
         if r == kIOReturnSuccess, let opened = ch {
             session.channel = opened
             registry.put(session)
+            // IOBluetooth never times out a stuck open — arm a watchdog
+            // so the next poll can retry instead of skipping this device
+            // forever via `registry.has(addr) { continue }` above. Also
+            // unblocks the inquiry loop, which gates on `registry.allAddrs().isEmpty`.
+            session.armOpenDeadline(seconds: ARGS.openTimeoutSecs)
         } else {
             emit(["event": "open_failed", "bd_addr": addr, "name": name,
                   "code": String(format: "0x%x", r)])
         }
+    }
+}
+
+// MARK: - Inquiry + auto-pair
+//
+// `discoveryTick` only sees devices already paired with this Mac, so a
+// fresh peer is invisible until the user opens System Settings →
+// Bluetooth and pairs by hand. To remove that friction we run periodic
+// `IOBluetoothDeviceInquiry` bursts, and for every PIM-* device that
+// isn't paired yet we kick off `IOBluetoothDevicePair`.
+//
+// macOS still pops its native "Pair this Bluetooth Device?" dialog as
+// the final security gate — Apple does not provide a public way to
+// bypass it from a third-party process. The Linux peer's BlueZ agent
+// uses `NoInputNoOutput` IO capability so the negotiation falls back
+// to Just Works mode (single yes/no, no numeric comparison to copy);
+// after the user clicks Pair once, every future session is silent.
+//
+// Apple warns in IOBluetoothDeviceInquiry.h not to make remote-name
+// requests from delegate methods (deadlock risk), so we never open
+// RFCOMM here. We just emit events and trigger pair; `discoveryTick`
+// picks the device up on its own cadence once it appears in
+// `pairedDevices()`.
+
+/// Lock guarding `pendingPairs` and `pairCooldowns`. Pair work bounces
+/// between the inquiry callback (background queue) and the pair
+/// delegate callbacks (main runloop), so a small lock is the simplest
+/// way to keep both maps coherent.
+let pairLock = NSLock()
+/// In-flight `IOBluetoothDevicePair` keyed by BD_ADDR. The map holds
+/// strong references so the pair object isn't deallocated mid-flow
+/// (its `delegate` property is `weak`).
+var pendingPairs: [String: (IOBluetoothDevicePair, PairDelegate)] = [:]
+/// Per-address cooldown after a pair attempt finishes (success or
+/// failure). Without this, every inquiry burst would re-trigger pair
+/// against a device the user just declined, spamming the system dialog.
+var pairCooldowns: [String: Date] = [:]
+/// Currently-running inquiry, if any. We never run two in parallel.
+var currentInquiry: IOBluetoothDeviceInquiry?
+
+final class InquiryDelegate: NSObject, IOBluetoothDeviceInquiryDelegate {
+    func deviceInquiryStarted(_ sender: IOBluetoothDeviceInquiry) {
+        emit([
+            "event": "inquiry_started",
+            "length_s": Int(sender.inquiryLength),
+        ])
+    }
+
+    func deviceInquiryDeviceFound(
+        _ sender: IOBluetoothDeviceInquiry,
+        device: IOBluetoothDevice
+    ) {
+        let name = device.name ?? ""
+        let addr = device.addressString ?? ""
+        guard !addr.isEmpty, name.hasPrefix(ARGS.prefix) else { return }
+        let paired = device.isPaired()
+        emit([
+            "event": "inquiry_device",
+            "bd_addr": addr,
+            "name": name,
+            "paired": paired,
+            "rssi": Int(device.rawRSSI()),
+        ])
+        // Already-paired devices are picked up by discoveryTick.
+        if paired { return }
+        guard ARGS.autoPair else { return }
+        // Cooldown / dedupe gate before invoking the pair API.
+        pairLock.lock()
+        let isPending = pendingPairs[addr] != nil
+        let cooldownUntil = pairCooldowns[addr]
+        pairLock.unlock()
+        if isPending { return }
+        if let until = cooldownUntil, Date() < until {
+            emit([
+                "event": "pair_skipped",
+                "bd_addr": addr,
+                "name": name,
+                "reason": "cooldown",
+                "retry_in_s": Int(until.timeIntervalSinceNow),
+            ])
+            return
+        }
+        attemptPair(device)
+    }
+
+    func deviceInquiryComplete(
+        _ sender: IOBluetoothDeviceInquiry,
+        error: IOReturn,
+        aborted: Bool
+    ) {
+        let count = sender.foundDevices().count
+        emit([
+            "event": "inquiry_complete",
+            "code": String(format: "0x%x", error),
+            "aborted": aborted,
+            "found_count": count,
+        ])
+        if currentInquiry === sender { currentInquiry = nil }
+    }
+}
+
+let inquiryDelegate = InquiryDelegate()
+
+/// Runs at most one inquiry burst at a time, and only when no RFCOMM
+/// open is in flight (`registry` empty). Apple's docs warn that mixing
+/// inquiry with remote-name / channel-open work can deadlock the BT
+/// stack; serializing with `discoveryTick` sidesteps that.
+func runInquiryIfDue() {
+    guard ARGS.inquiryEnabled else { return }
+    guard currentInquiry == nil else { return }
+    guard registry.allAddrs().isEmpty else {
+        emit(["event": "inquiry_skipped", "reason": "rfcomm_in_flight"])
+        return
+    }
+    guard let inq = IOBluetoothDeviceInquiry(delegate: inquiryDelegate) else {
+        emit(["event": "inquiry_failed", "reason": "alloc_failed"])
+        return
+    }
+    inq.inquiryLength = UInt8(ARGS.inquiryLengthSecs)
+    inq.updateNewDeviceNames = true
+    let r = inq.start()
+    if r == kIOReturnSuccess {
+        currentInquiry = inq
+    } else {
+        emit([
+            "event": "inquiry_failed",
+            "code": String(format: "0x%x", r),
+        ])
+    }
+}
+
+func attemptPair(_ device: IOBluetoothDevice) {
+    let addr = device.addressString ?? ""
+    let name = device.name ?? ""
+    guard let pair = IOBluetoothDevicePair(device: device) else {
+        emit([
+            "event": "pair_failed",
+            "bd_addr": addr,
+            "name": name,
+            "reason": "construct_failed",
+        ])
+        markPairCooldown(addr: addr)
+        return
+    }
+    let delegate = PairDelegate(addr: addr, name: name)
+    pair.delegate = delegate
+    let r = pair.start()
+    emit([
+        "event": "pair_start",
+        "bd_addr": addr,
+        "name": name,
+        "code": String(format: "0x%x", r),
+    ])
+    if r == kIOReturnSuccess {
+        pairLock.lock()
+        pendingPairs[addr] = (pair, delegate)
+        pairLock.unlock()
+    } else {
+        markPairCooldown(addr: addr)
+    }
+}
+
+func markPairCooldown(addr: String) {
+    pairLock.lock()
+    pairCooldowns[addr] = Date().addingTimeInterval(ARGS.pairCooldownSecs)
+    pendingPairs.removeValue(forKey: addr)
+    pairLock.unlock()
+}
+
+final class PairDelegate: NSObject, IOBluetoothDevicePairDelegate {
+    let bdAddr: String
+    let bdName: String
+
+    init(addr: String, name: String) {
+        self.bdAddr = addr
+        self.bdName = name
+        super.init()
+    }
+
+    func devicePairingStarted(_ sender: Any!) {
+        emit(["event": "pair_phase", "bd_addr": bdAddr, "phase": "started"])
+    }
+
+    func devicePairingConnecting(_ sender: Any!) {
+        emit(["event": "pair_phase", "bd_addr": bdAddr, "phase": "connecting"])
+    }
+
+    func devicePairingConnected(_ sender: Any!) {
+        emit(["event": "pair_phase", "bd_addr": bdAddr, "phase": "connected"])
+    }
+
+    func devicePairingUserConfirmationRequest(
+        _ sender: Any!,
+        numericValue: BluetoothNumericValue
+    ) {
+        emit([
+            "event": "pair_confirm",
+            "bd_addr": bdAddr,
+            "name": bdName,
+            "numericValue": Int(numericValue),
+        ])
+        // Auto-confirm Just Works numeric. The PIM-* prefix is our
+        // trust boundary; the eventual pim-protocol Hello handshake is
+        // the real authentication gate. The system pair dialog is
+        // shown by macOS itself in parallel — that gives the user the
+        // veto power.
+        if let p = sender as? IOBluetoothDevicePair {
+            p.replyUserConfirmation(true)
+        }
+    }
+
+    func devicePairingPINCodeRequest(_ sender: Any!) {
+        emit(["event": "pair_pin_request", "bd_addr": bdAddr])
+        // Legacy PIN flow shouldn't trigger for SSP-capable peers like
+        // the Linux pim-daemon (which uses `NoInputNoOutput`). Reply
+        // with "0000" defensively for headless legacy peers.
+        if let p = sender as? IOBluetoothDevicePair {
+            var pin = BluetoothPINCode()
+            withUnsafeMutableBytes(of: &pin) { buf in
+                guard buf.count >= 4 else { return }
+                buf[0] = 0x30; buf[1] = 0x30; buf[2] = 0x30; buf[3] = 0x30
+            }
+            p.replyPINCode(4, pinCode: &pin)
+        }
+    }
+
+    func devicePairingFinished(_ sender: Any!, error: IOReturn) {
+        let ok = (error == kIOReturnSuccess)
+        emit([
+            "event": "pair_finished",
+            "bd_addr": bdAddr,
+            "name": bdName,
+            "code": String(format: "0x%x", error),
+            "ok": ok,
+        ])
+        markPairCooldown(addr: bdAddr)
+        // No explicit RFCOMM open from here — `discoveryTick` will see
+        // the device in `pairedDevices()` on its next pass (within
+        // `--poll=N` seconds, default 30s) and run the existing
+        // outbound channel flow.
     }
 }
 
@@ -558,14 +890,52 @@ IOBluetoothRFCOMMChannel.register(
 
 // MARK: - Main loop
 
-emit(["event": "boot", "name": ARGS.localName, "node_id": ARGS.localNodeId,
-      "prefix": ARGS.prefix, "channel": Int(ARGS.rfcommChannel),
-      "poll_s": ARGS.pollInterval])
+emit([
+    "event": "boot",
+    "name": ARGS.localName,
+    "node_id": ARGS.localNodeId,
+    "prefix": ARGS.prefix,
+    "channel": Int(ARGS.rfcommChannel),
+    "poll_s": ARGS.pollInterval,
+    "inquiry_enabled": ARGS.inquiryEnabled,
+    "inquiry_interval_s": ARGS.inquiryIntervalSecs,
+    "auto_pair": ARGS.autoPair,
+])
 
 DispatchQueue.global().async {
+    var nextInquiry = Date()
     while true {
+        // Inquiry runs FIRST so it gets a clean window to check
+        // `registry.allAddrs().isEmpty`. If we ran discoveryTick first,
+        // it would re-attempt RFCOMM on every paired device and re-fill
+        // the registry; on a stuck peer (Linux RFCOMM module not
+        // listening) the registry would never empty and inquiry would
+        // never fire — auto-discovery would silently degrade.
+        if Date() >= nextInquiry {
+            runInquiryIfDue()
+            nextInquiry = Date().addingTimeInterval(ARGS.inquiryIntervalSecs)
+        }
         discoveryTick()
         Thread.sleep(forTimeInterval: ARGS.pollInterval)
+    }
+}
+
+// Orphan watchdog: when the Tauri shell that spawned us dies (hot
+// reload, `pnpm tauri dev` restart, app crash), `getppid()` flips to 1
+// (launchd adopts us). Without this, every dev iteration leaks a
+// sidecar — observed 28 stale processes accumulating in a single
+// morning, all holding RFCOMM channel 22 in some indeterminate state.
+// Polling once per second keeps the leak window short without
+// measurable cost.
+let initialParent = getppid()
+DispatchQueue.global().async {
+    while true {
+        Thread.sleep(forTimeInterval: 1.0)
+        let p = getppid()
+        if p != initialParent {
+            logErr("parent died (orig=\(initialParent), now=\(p)), exiting")
+            exit(0)
+        }
     }
 }
 

@@ -32,7 +32,7 @@ const PLATFORM_LABEL: Record<string, string> = {
 
 const EMPTY_BT_HEADLINE = "no bluetooth peers yet";
 const EMPTY_BT_NEXT =
-  "pair a PIM-* device via System Settings → Bluetooth — discovery is live";
+  "pim is scanning — pair will pop up when a PIM-* device is in range";
 const EMPTY_BT_CYCLE = ["scan", "pair", "hello"] as const;
 
 export interface BluetoothPeersPanelProps {
@@ -44,17 +44,26 @@ export function BluetoothPeersPanel({
   limitedMode = false,
   revealDelay = 0,
 }: BluetoothPeersPanelProps) {
-  const { peers, sidecarUp, lastError } = useBluetoothRfcomm();
+  const { peers, pairables, attempts, sidecarUp, lastError } =
+    useBluetoothRfcomm();
 
-  // Honest count + status badge.
-  const count = peers.length;
-  const labelText =
-    !sidecarUp
-      ? "starting"
-      : count === 0
-        ? "0 found"
-        : `${count} found`;
-  const variant = !sidecarUp || count === 0 ? "muted" : "default";
+  // Honest count: every meaningful state has its own segment.
+  // "found" = paired + RFCOMM up. "pairing" = inquiry + IOBluetoothDevicePair.
+  // "stalled" = paired but RFCOMM open hung (open_timeout) or failed.
+  const segments: string[] = [];
+  if (peers.length > 0) segments.push(`${peers.length} found`);
+  if (pairables.length > 0) segments.push(`${pairables.length} pairing`);
+  if (attempts.length > 0) segments.push(`${attempts.length} stalled`);
+  const labelText = !sidecarUp
+    ? "starting"
+    : segments.length === 0
+      ? "0 found"
+      : segments.join(" · ");
+  const variant =
+    !sidecarUp ||
+    (peers.length === 0 && pairables.length === 0 && attempts.length === 0)
+      ? "muted"
+      : "default";
   const badge = { label: labelText.toUpperCase(), variant: variant as "default" | "muted" };
 
   return (
@@ -70,7 +79,7 @@ export function BluetoothPeersPanel({
         </div>
       )}
 
-      {peers.length === 0 ? (
+      {peers.length === 0 && pairables.length === 0 && attempts.length === 0 ? (
         <TeachingEmptyState
           headline={EMPTY_BT_HEADLINE}
           next={EMPTY_BT_NEXT}
@@ -118,8 +127,125 @@ export function BluetoothPeersPanel({
               </span>
             </li>
           ))}
+          {pairables.map((p) => {
+            // Honest copy describing exactly which step the system is
+            // at. The most important state is `failed` (user clicked
+            // Cancel) — we surface that with a retry-in hint so the
+            // UI explains why the next pair attempt won't fire
+            // immediately.
+            const failed = p.failed;
+            const phase = p.pairing?.phase ?? null;
+            const stateCopy = failed
+              ? `pair declined (${failed.code}) — retrying ${formatRetryHint(failed.cooldownUntil)}`
+              : phase === "started" || phase === "connecting"
+                ? "asking macOS to pair…"
+                : phase === "connected"
+                  ? "negotiating link…"
+                  : phase === "confirm"
+                    ? "click Pair in the macOS dialog"
+                    : "found nearby — pair pending";
+            const glyph = failed ? "✗" : phase === null ? "○" : "◇";
+            const tone = failed
+              ? "text-amber-500/80"
+              : phase === null
+                ? "text-foreground/45"
+                : "text-foreground/70";
+            return (
+              <li
+                key={`pairable:${p.bd_addr}`}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-foreground/10 px-3 py-2 first:border-t-0"
+                title={
+                  failed
+                    ? "macOS dialog was cancelled or pairing failed. The sidecar waits 10 minutes before re-attempting on the same device, to avoid dialog spam."
+                    : "pim discovered this PIM-* device via Bluetooth inquiry. macOS will (or already did) show a system pair dialog — clicking Pair completes the bond and the device joins the mesh automatically."
+                }
+              >
+                <span aria-hidden="true" className={tone}>
+                  {glyph}
+                </span>
+
+                <div className="flex min-w-0 flex-col">
+                  <div className="flex items-center gap-2 text-[13px] text-foreground/85">
+                    <span className="font-medium">{p.name || "(unnamed)"}</span>
+                    <span className="truncate text-foreground/50">{p.bd_addr}</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-foreground/55">
+                    <span className={tone}>{stateCopy}</span>
+                    {p.rssi < 0 && (
+                      <>
+                        <span>·</span>
+                        <span>rssi {p.rssi} dBm</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <span className="font-mono text-[11px] text-foreground/35">
+                  {failed ? "cooldown" : "discovered"}
+                </span>
+              </li>
+            );
+          })}
+          {attempts.map((a) => {
+            // Paired devices whose RFCOMM open didn't complete. Most
+            // common cause: the remote pim-daemon's RFCOMM module isn't
+            // running. We surface the cause inline so the user knows
+            // it's a "fix the peer side" situation, not a Mac problem.
+            const stateCopy =
+              a.state === "in_progress"
+                ? "trying RFCOMM…"
+                : a.state === "open_timeout"
+                  ? `no RFCOMM reply on ch${a.channel || "?"} after ${a.timeoutAfterSecs ?? "?"}s`
+                  : `RFCOMM open failed (${a.errorCode ?? "?"})`;
+            const glyph = a.state === "in_progress" ? "○" : "✗";
+            const tone =
+              a.state === "in_progress"
+                ? "text-foreground/45"
+                : "text-amber-500/80";
+            return (
+              <li
+                key={`attempt:${a.bd_addr}`}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-foreground/10 px-3 py-2 first:border-t-0"
+                title={
+                  a.state === "open_timeout"
+                    ? "Paired and reachable at the BT layer, but the peer's RFCOMM channel never replied. Most often: the remote pim-daemon's RFCOMM service isn't running."
+                    : undefined
+                }
+              >
+                <span aria-hidden="true" className={tone}>
+                  {glyph}
+                </span>
+
+                <div className="flex min-w-0 flex-col">
+                  <div className="flex items-center gap-2 text-[13px] text-foreground/80">
+                    <span className="font-medium">{a.name || "(unnamed)"}</span>
+                    <span className="truncate text-foreground/50">{a.bd_addr}</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-foreground/55">
+                    <span className={tone}>{stateCopy}</span>
+                  </div>
+                </div>
+
+                <span className="font-mono text-[11px] text-foreground/35">
+                  paired
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </CliPanel>
   );
+}
+
+/** Format an ISO timestamp as "in 8m" / "in 42s" / "now". */
+function formatRetryHint(isoCooldownUntil: string): string {
+  const ms = new Date(isoCooldownUntil).getTime() - Date.now();
+  if (Number.isNaN(ms) || ms <= 0) return "now";
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `in ${secs}s`;
+  const mins = Math.round(secs / 60);
+  return `in ${mins}m`;
 }
