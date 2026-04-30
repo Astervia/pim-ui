@@ -36,6 +36,7 @@ import { LogsScreen } from "@/screens/logs";
 import { SettingsScreen } from "@/screens/settings";
 import { RouteScreen } from "@/screens/routing";
 import { GatewayScreen } from "@/screens/gateway";
+import { MessagesScreen } from "@/screens/messages";
 import { AboutScreen } from "@/screens/about";
 import { usePeerDetail } from "@/hooks/use-peer-detail";
 import { usePairApproval } from "@/hooks/use-pair-approval";
@@ -153,6 +154,9 @@ function renderScreen(
       // ships the SettingsScreen scaffold (nine CollapsibleCliPanel
       // section stubs in fixed order; bodies populated by 03-05/06).
       return <SettingsScreen />;
+    case "messages":
+      // 2026-04-30: encrypted peer-to-peer messaging tab.
+      return <MessagesScreen />;
     case "about":
       // ⌘7 — dedicated About surface (split out of the previous Settings
       // section). Houses app + daemon version, credits, repo link,

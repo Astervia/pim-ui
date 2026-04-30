@@ -141,10 +141,12 @@ export function AppShell() {
           requestActive("dashboard", setActive);
           break;
         case "2":
-          // Peers tab removed (peer management consolidated into the
-          // Dashboard). ⌘2 is intentionally a no-op so muscle-memory
-          // presses don't surface a stale route or reinstate the tab.
+          // 2026-04-30: ⌘2 routes to the Messages tab (encrypted
+          // peer-to-peer messaging). The slot was previously reserved
+          // by the removed Peers screen; reclaiming it preserves the
+          // numerical-shortcut order in the sidebar.
           e.preventDefault();
+          requestActive("messages", setActive);
           break;
         case "3":
           // Plan 04-03 D-16: ⌘3 routes to the Routing tab.

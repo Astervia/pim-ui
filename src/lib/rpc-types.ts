@@ -99,6 +99,10 @@ export const RpcErrorCode = {
   // Subscriptions
   AlreadySubscribed: -32050,
   NotSubscribed: -32051,
+  // Messages
+  MessagePeerUnknown: -32060,
+  MessageBodyTooLarge: -32061,
+  MessageStorageError: -32062,
 } as const;
 
 /** Union of every declared error-code numeric value. */
@@ -542,6 +546,106 @@ export interface StatusEvent {
   detail?: Record<string, unknown>;
 }
 
+// ─── §5.7 messages ───────────────────────────────────────────────────
+
+/** Message lifecycle, mirrored verbatim from `pim-daemon::messaging`. */
+export type MessageStatus =
+  | "pending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed";
+
+/** Direction of a message relative to the local node. */
+export type MessageDirection = "sent" | "received";
+
+/** A single stored message — sent or received. */
+export interface MessageRecord {
+  /** 32-char lowercase hex (UUIDv4 bytes). */
+  id: string;
+  /** Peer node id (32-char lowercase hex). */
+  peer_node_id: string;
+  direction: MessageDirection;
+  /** UTF-8 plaintext body. */
+  body: string;
+  timestamp_ms: number;
+  status: MessageStatus;
+  failure_reason: string | null;
+  delivered_at_ms: number | null;
+  read_at_ms: number | null;
+}
+
+/** One row in the conversation list (sidebar in the Messages tab). */
+export interface ConversationSummary {
+  /** 32-char lowercase hex. */
+  peer_node_id: string;
+  peer_node_id_short: string;
+  /** Latest friendly name advertised by the peer; falls back to short id. */
+  name: string;
+  last_message_preview: string | null;
+  last_message_ts_ms: number | null;
+  unread_count: number;
+  /** Whether the peer currently has a live session with the daemon. */
+  is_connected: boolean;
+}
+
+export interface MessagesListConversationsResult {
+  conversations: ConversationSummary[];
+}
+
+export interface MessagesHistoryParams {
+  peer_node_id: string;
+  before_ts_ms?: number;
+  limit?: number;
+}
+
+export interface MessagesHistoryResult {
+  messages: MessageRecord[];
+  has_more: boolean;
+}
+
+export interface MessagesSendParams {
+  peer_node_id: string;
+  /** UTF-8 plaintext, ≤ 8 KB. */
+  body: string;
+}
+
+export interface MessagesSendResult {
+  id: string;
+  timestamp_ms: number;
+  status: MessageStatus;
+}
+
+export interface MessagesMarkReadParams {
+  peer_node_id: string;
+  up_to_ts_ms: number;
+}
+
+export interface MessagesMarkReadResult {
+  unread_count: number;
+}
+
+/** Discriminated union over `messages.event` notification kinds. */
+export type MessageEvent =
+  | {
+      kind: "message_received";
+      message: MessageRecord;
+      conversation: ConversationSummary;
+    }
+  | {
+      kind: "message_status";
+      message_id: string;
+      peer_node_id: string;
+      new_status: MessageStatus;
+      at_ms: number;
+    }
+  | {
+      kind: "peer_seen";
+      peer_node_id: string;
+      name: string;
+      x25519_known: boolean;
+    };
+
 // ─── Method + event registry (typed callDaemon spine) ────────────────
 
 /**
@@ -615,6 +719,28 @@ export interface RpcMethodMap {
     params: SubscriptionUnsubscribeParams;
     result: null;
   };
+  // §5.7 messages
+  "messages.list_conversations": {
+    params: null;
+    result: MessagesListConversationsResult;
+  };
+  "messages.history": {
+    params: MessagesHistoryParams;
+    result: MessagesHistoryResult;
+  };
+  "messages.send": {
+    params: MessagesSendParams;
+    result: MessagesSendResult;
+  };
+  "messages.mark_read": {
+    params: MessagesMarkReadParams;
+    result: MessagesMarkReadResult;
+  };
+  "messages.subscribe": { params: null; result: SubscriptionResult };
+  "messages.unsubscribe": {
+    params: SubscriptionUnsubscribeParams;
+    result: null;
+  };
 }
 
 /** Maps each v1 notification method to its `params` payload shape. */
@@ -624,6 +750,8 @@ export interface RpcEventMap {
   "logs.event": LogEvent;
   // TBD-RPC (RESEARCH §5b)
   "gateway.event": GatewayEvent;
+  /** Messaging (§5.7) — discriminated by `kind`. */
+  "messages.event": MessageEvent;
 }
 
 export type RpcMethodName = keyof RpcMethodMap;

@@ -84,6 +84,12 @@ const _methodLookup: Record<RpcMethodName, true> = {
   "config.save": true,
   "logs.subscribe": true,
   "logs.unsubscribe": true,
+  "messages.list_conversations": true,
+  "messages.history": true,
+  "messages.send": true,
+  "messages.mark_read": true,
+  "messages.subscribe": true,
+  "messages.unsubscribe": true,
 };
 
 // HelloResult must contain exactly these three fields, matching

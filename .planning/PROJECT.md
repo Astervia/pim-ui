@@ -47,7 +47,10 @@ See `.planning/REQUIREMENTS.md` for the full v1 traceability table.
 ### Out of Scope
 
 - **SSO / cloud account system** — contradicts the "no control plane" ethos
-- **Built-in chat/messaging** — pim is not a messenger; ships protocol only
+- ~~**Built-in chat/messaging**~~ — re-scoped 2026-04-30 by creator: encrypted
+  peer-to-peer messaging now ships as a v0.1+ feature on top of the existing
+  mesh. Identity-stable (`node_id`-keyed), ECIES end-to-end encrypted, locally
+  stored. See `docs/superpowers/specs/2026-04-30-messaging-design.md`.
 - **Gateway mode on macOS/Windows** — kernel is Linux-only; deferred until kernel supports
 - **Rate limiting / reputation scores / onion routing** — not yet exposed by the daemon
 - **Simple/Advanced mode toggle** — explicitly rejected; single UI with three disclosure layers instead

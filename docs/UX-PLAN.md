@@ -730,7 +730,11 @@ remote-only companion. This is a multi-milestone initiative.
 ### Non-goals for v1.0
 
 - Account system, cloud sync, SSO
-- Built-in chat (pim is not a messenger)
+- ~~Built-in chat~~ — re-scoped 2026-04-30: encrypted peer-to-peer
+  messaging is now in scope as a v0.1+ feature, riding on top of the
+  protocol's existing mesh routing + ECIES primitives. Identity is the
+  peer's `node_id` (immune to name / IP changes). See
+  `docs/superpowers/specs/2026-04-30-messaging-design.md`.
 - Hardware pairing beyond BLE (no LoRa companion, no audio pair)
 - Automatic gateway on macOS/Windows until kernel supports it
 - Rate-limiting, reputation scores, onion routing — until daemon exposes

@@ -72,6 +72,7 @@ interface ActiveRow {
 // doesn't trip into a stale screen.
 const NAV: readonly ActiveRow[] = [
   { id: "dashboard", label: "dashboard", shortcut: "⌘1" },
+  { id: "messages", label: "messages", shortcut: "⌘2" },
   { id: "routing", label: "routing", shortcut: "⌘3" },
   { id: "gateway", label: "gateway", shortcut: "⌘4" },
   { id: "logs", label: "logs", shortcut: "⌘5" },
