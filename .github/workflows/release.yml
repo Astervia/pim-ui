@@ -1,0 +1,216 @@
+name: Release Bundles
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    build:
+        name: Build ${{ matrix.label }}
+        runs-on: ${{ matrix.runner }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - label: linux-x86_64
+                      runner: ubuntu-22.04
+                      tauri_args: ""
+                      target_dir: target/release/bundle
+                    - label: macos-x86_64
+                      runner: macos-15-intel
+                      tauri_args: --target x86_64-apple-darwin
+                      target_dir: target/x86_64-apple-darwin/release/bundle
+                    - label: macos-aarch64
+                      runner: macos-15
+                      tauri_args: --target aarch64-apple-darwin
+                      target_dir: target/aarch64-apple-darwin/release/bundle
+                    - label: windows-x86_64
+                      runner: windows-latest
+                      tauri_args: ""
+                      target_dir: target/release/bundle
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Install Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: ${{ contains(matrix.runner, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+            - name: Cache cargo artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+                  key: ${{ matrix.label }}
+
+            - name: Install Linux build dependencies
+              if: matrix.label == 'linux-x86_64'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
+                    libxdo-dev \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev \
+                    patchelf
+
+            - name: Install frontend dependencies
+              run: pnpm install --frozen-lockfile
+
+            # Fetch the real pim-daemon binary from the
+            # proximity-internet-mesh release matching
+            # `PIM_DAEMON_VERSION`. The release upload is produced by
+            # proximity-internet-mesh's own release.yml workflow on tag
+            # pushes — keep that repo's tag in sync with this one for
+            # reproducible bundles.
+            - name: Fetch pim-daemon sidecar
+              shell: bash
+              run: bash scripts/fetch-daemon.sh
+
+            - name: Build Tauri bundles
+              uses: tauri-apps/tauri-action@v0
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # Tauri auto-updater signing — see https://v2.tauri.app/plugin/updater/
+                  # Generate keys: `pnpm tauri signer generate -w ~/.tauri/pim.key`
+                  # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+                  # macOS code signing + notarization — uncomment + configure secrets before prod release:
+                  # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+                  # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+                  # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+                  # APPLE_ID: ${{ secrets.APPLE_ID }}
+                  # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+                  # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+                  # Windows code signing:
+                  # WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+                  # WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+              with:
+                  # No tagName — build only. The publish job below
+                  # creates the GitHub release once every matrix bundle
+                  # has been packaged + checksummed.
+                  args: ${{ matrix.tauri_args }}
+                  projectPath: src-tauri
+
+            - name: Package release artifacts
+              shell: bash
+              env:
+                  TAG: ${{ github.ref_name }}
+                  LABEL: ${{ matrix.label }}
+                  TARGET_DIR: ${{ matrix.target_dir }}
+              run: |
+                  set -euo pipefail
+                  ASSET_DIR="pim-ui-${TAG}-${LABEL}"
+                  mkdir -p "dist/${ASSET_DIR}"
+
+                  bundle_root="src-tauri/${TARGET_DIR}"
+                  if [ ! -d "$bundle_root" ]; then
+                      echo "bundle root not found: $bundle_root" >&2
+                      ls -R src-tauri/target 2>/dev/null || true
+                      exit 1
+                  fi
+
+                  shopt -s globstar nullglob
+                  declare -a bundles=()
+                  for path in "$bundle_root"/**/*; do
+                      [ -f "$path" ] || continue
+                      case "$path" in
+                          *.AppImage|*.deb|*.rpm|*.dmg|*.msi|*.exe)
+                              bundles+=("$path") ;;
+                      esac
+                  done
+
+                  if [ ${#bundles[@]} -eq 0 ]; then
+                      echo "no bundles found under $bundle_root" >&2
+                      ls -R "$bundle_root" 2>/dev/null || true
+                      exit 1
+                  fi
+
+                  # Rename bundles to a predictable
+                  # `pim-ui-<tag>-<label>.<ext>` form so the README's
+                  # curl examples stay short and the URLs do not embed
+                  # the bundler's internal version string.
+                  for bundle in "${bundles[@]}"; do
+                      base="$(basename "$bundle")"
+                      ext="${base##*.}"
+                      cp "$bundle" "dist/${ASSET_DIR}/pim-ui-${TAG}-${LABEL}.${ext}"
+                  done
+
+                  (
+                      cd "dist/${ASSET_DIR}"
+                      for f in *; do
+                          [ -f "$f" ] || continue
+                          case "$f" in *.sha256) continue ;; esac
+                          if command -v sha256sum >/dev/null 2>&1; then
+                              sha256sum "$f" > "${f}.sha256"
+                          else
+                              shasum -a 256 "$f" > "${f}.sha256"
+                          fi
+                      done
+                  )
+
+                  ls -la "dist/${ASSET_DIR}"
+
+            - name: Upload packaged artifacts
+              uses: actions/upload-artifact@v7
+              with:
+                  name: release-${{ matrix.label }}
+                  path: |
+                      dist/**/*
+                  if-no-files-found: error
+
+    publish:
+        name: Publish GitHub release
+        runs-on: ubuntu-22.04
+        needs: build
+
+        steps:
+            - name: Download packaged artifacts
+              uses: actions/download-artifact@v8
+              with:
+                  path: dist
+                  merge-multiple: true
+
+            - name: Flatten artifacts
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p release
+                  find dist -type f \( \
+                      -name '*.AppImage' -o \
+                      -name '*.deb' -o \
+                      -name '*.rpm' -o \
+                      -name '*.dmg' -o \
+                      -name '*.msi' -o \
+                      -name '*.exe' -o \
+                      -name '*.sha256' \
+                  \) -exec cp {} release/ \;
+                  ls -la release/
+
+            - name: Publish GitHub release
+              uses: softprops/action-gh-release@v3
+              with:
+                  draft: true
+                  generate_release_notes: true
+                  name: pim ${{ github.ref_name }}
+                  files: |
+                      release/*

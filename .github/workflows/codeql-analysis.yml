@@ -1,0 +1,71 @@
+name: CodeQL Analysis
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main, develop]
+    schedule:
+        # Mondays 06:00 UTC. Catches advisories that landed during the
+        # week without a PR triggering the analyser.
+        - cron: "0 6 * * 1"
+
+permissions:
+    actions: read
+    contents: read
+    security-events: write
+
+concurrency:
+    group: codeql-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    analyze:
+        name: CodeQL SAST Scan (${{ matrix.language }})
+        runs-on: ubuntu-22.04
+
+        strategy:
+            fail-fast: false
+            matrix:
+                language: ["javascript-typescript", "rust"]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Install Rust toolchain
+              if: matrix.language == 'rust'
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Install Linux build dependencies
+              if: matrix.language == 'rust'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
+                    libxdo-dev \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev
+
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v4
+              with:
+                  languages: ${{ matrix.language }}
+
+            # tauri.conf.json's bundle.externalBin requires the sidecar
+            # to exist on disk before `cargo build` resolves. Fetch the
+            # matching proximity-internet-mesh release before autobuild.
+            - name: Fetch pim-daemon sidecar
+              if: matrix.language == 'rust'
+              run: bash scripts/fetch-daemon.sh
+
+            - name: Build project
+              if: matrix.language == 'rust'
+              run: cargo build --manifest-path src-tauri/Cargo.toml --locked
+
+            # JS/TS analyses statically, no build step needed.
+
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v4
+              with:
+                  category: /language:${{ matrix.language }}
