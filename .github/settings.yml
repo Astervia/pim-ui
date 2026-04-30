@@ -4,73 +4,72 @@
 # file as documentation.
 
 repository:
-  allow_merge_commit: false
-  allow_squash_merge: true
-  allow_rebase_merge: true
+    allow_merge_commit: false
+    allow_squash_merge: true
+    allow_rebase_merge: true
 
-  squash_merge_commit_title: "pull_request_title"
-  squash_merge_commit_message: "pull_request_body"
+    squash_merge_commit_title: "pull_request_title"
+    squash_merge_commit_message: "pull_request_body"
 
-  delete_branch_on_merge: true
+    delete_branch_on_merge: true
 
 branches:
-  - name: main
-    protection:
-      required_status_checks:
-        strict: true
-        contexts:
-          - "check / frontend (typecheck + build)"
-          - "check / rust quality (fmt + clippy + audit)"
-          - "check / tauri build (ubuntu-22.04)"
-          - "check / tauri build (macos-aarch64)"
-          - "check / tauri build (macos-x86_64)"
-          - "check / tauri build (windows)"
-          - "codeql / codeql javascript-typescript"
-          - "codeql / codeql rust"
-          - "secret-scanning / gitleaks"
-      required_pull_request_reviews:
-        required_approving_review_count: 0
-        dismiss_stale_reviews: true
-        require_code_owner_reviews: false
+    - name: main
+      protection:
+          required_status_checks:
+              strict: true
+              contexts:
+                  - "Quality & Security (Tauri) / Code Quality – Frontend, Format, Clippy & Tests"
+                  - "Quality & Security (Tauri) / Dependency Security Scan (cargo-audit)"
+                  - "Quality & Security (Tauri) / Platform Validation (linux)"
+                  - "Quality & Security (Tauri) / Platform Validation (macos-aarch64)"
+                  - "Quality & Security (Tauri) / Platform Validation (macos-x86_64)"
+                  - "CodeQL Analysis / CodeQL SAST Scan (javascript-typescript)"
+                  - "CodeQL Analysis / CodeQL SAST Scan (rust)"
+                  - "Secret Detection / gitleaks"
+          required_pull_request_reviews:
+              required_approving_review_count: 0
+              dismiss_stale_reviews: true
+              require_code_owner_reviews: false
 
-      required_conversation_resolution: true
+          required_conversation_resolution: true
 
-      enforce_admins: false
+          enforce_admins: false
 
-      allow_force_pushes: false
-      allow_deletions: false
+          allow_force_pushes: false
+          allow_deletions: false
 
-      required_linear_history: true
+          required_linear_history: true
 
 labels:
-  - name: "security"
-    color: "d73a4a"
-    description: "Security-related fixes, CVEs, SAST, supply chain"
+    - name: "security"
+      color: "d73a4a"
+      description: "Security-related fixes, CVEs, SAST, supply chain"
 
-  - name: "ci"
-    color: "0e8a16"
-    description: "CI/CD workflow updates"
+    - name: "ci"
+      color: "0e8a16"
+      description: "CI/CD workflow updates"
 
-  - name: "dependencies"
-    color: "1d76db"
-    description: "Dependency updates and maintenance"
+    - name: "dependencies"
+      color: "1d76db"
+      description: "Dependency updates and maintenance"
 
-  - name: "frontend"
-    color: "61dafb"
-    description: "React / Vite / Tailwind UI"
+    - name: "frontend"
+      color: "61dafb"
+      description: "React / Vite / Tailwind UI"
 
-  - name: "tauri"
-    color: "ffc131"
-    description: "Tauri Rust backend"
+    - name: "tauri"
+      color: "ffc131"
+      description: "Tauri Rust backend"
 
-  - name: "macos"
-    color: "f5f5f7"
-    description: "macOS-specific work (TCC, sidecar, signing)"
+    - name: "macos"
+      color: "f5f5f7"
+      description: "macOS-specific work (TCC, sidecar, signing)"
 
-  - name: "linux"
-    color: "ffa500"
-    description: "Linux-specific work"
+    - name: "linux"
+      color: "ffa500"
+      description: "Linux-specific work"
 
-  - name: "windows"
-    color: "0078d4"
-    description: "Windows-specific work"
+    - name: "windows"
+      color: "0078d4"
+      description: "Windows-specific work"

@@ -1,0 +1,178 @@
+name: Quality & Security (Tauri)
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main, develop]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: quality-security-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    lint-and-test:
+        name: Code Quality – Frontend, Format, Clippy & Tests
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Install Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: rustfmt, clippy
+
+            - name: Cache cargo artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+
+            - name: Install Linux build dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
+                    libxdo-dev \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev \
+                    patchelf
+
+            - name: Install frontend dependencies
+              run: pnpm install --frozen-lockfile
+
+            # tauri.conf.json declares the pim-daemon sidecar via
+            # bundle.externalBin, so the build script fails to resolve
+            # unless the binary exists at src-tauri/binaries/. Fetch the
+            # matching release once before any cargo step touches the
+            # manifest.
+            - name: Fetch pim-daemon sidecar
+              run: bash scripts/fetch-daemon.sh
+
+            - name: Frontend typecheck
+              run: pnpm typecheck
+
+            - name: Frontend build
+              run: pnpm build
+
+            - name: Frontend tests
+              run: pnpm test
+
+            - name: Check formatting
+              run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+            - name: Run clippy
+              run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+
+            - name: Run tests
+              run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+    platform-validation:
+        name: Platform Validation (${{ matrix.label }})
+        runs-on: ${{ matrix.runner }}
+        needs: lint-and-test
+
+        # Windows is intentionally absent: per CLAUDE.md the daemon
+        # bridge speaks JSON-RPC 2.0 over a Unix domain socket, which
+        # tokio::net::unix only exposes on `cfg(unix)`. The Windows
+        # port is out of scope for v1 and tracked separately. Adding
+        # it here just to fail every push isn't useful.
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - label: linux
+                      runner: ubuntu-22.04
+                    - label: macos-aarch64
+                      runner: macos-15
+                    - label: macos-x86_64
+                      runner: macos-15-intel
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Install Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+                  key: ${{ matrix.label }}
+
+            - name: Install Linux build dependencies
+              if: startsWith(matrix.runner, 'ubuntu')
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
+                    libxdo-dev \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev \
+                    patchelf
+
+            - name: Install frontend dependencies
+              run: pnpm install --frozen-lockfile
+
+            # tauri.conf.json's bundle.externalBin requires the sidecar
+            # to exist on disk before `cargo build` touches the manifest.
+            - name: Fetch pim-daemon sidecar
+              shell: bash
+              run: bash scripts/fetch-daemon.sh
+
+            - name: Run tests
+              run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+            # `cargo build` on src-tauri validates compile + link + the
+            # tauri.conf.json declarative wiring on every supported
+            # target. We skip the bundle stage here to keep PR
+            # validation fast; release.yml does the full bundle on tag
+            # pushes.
+            - name: Build src-tauri
+              run: cargo build --manifest-path src-tauri/Cargo.toml --locked
+
+    security:
+        name: Dependency Security Scan (cargo-audit)
+        runs-on: ubuntu-22.04
+        needs: platform-validation
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+
+            - name: Install cargo-audit
+              run: cargo install cargo-audit --locked
+
+            - name: Run cargo-audit
+              run: cargo audit --file src-tauri/Cargo.lock

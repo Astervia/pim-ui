@@ -1,44 +1,46 @@
-name: sbom
+name: SBOM
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: "0 6 * * 1"
-  workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main, develop]
+    schedule:
+        - cron: "0 6 * * 1"
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: sbom-${{ github.ref }}
-  cancel-in-progress: true
+    group: sbom-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  generate-sbom:
-    name: cyclonedx sbom (rust + npm)
-    runs-on: ubuntu-22.04
+    generate-sbom:
+        name: Generate SBOM (CycloneDX for Rust + npm)
+        runs-on: ubuntu-22.04
 
-    steps:
-      - uses: actions/checkout@v4
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
 
-      - name: install syft
-        uses: anchore/sbom-action/download-syft@v0
+            - name: Install Syft
+              uses: anchore/sbom-action/download-syft@v0
 
-      # Syft auto-detects Cargo.lock + package-lock/pnpm-lock so a single
-      # invocation covers the whole workspace (frontend + src-tauri).
-      - name: generate sbom (cyclonedx-json)
-        run: syft dir:. -o cyclonedx-json=sbom.json
+            # Syft auto-detects Cargo.lock + package-lock/pnpm-lock so
+            # a single invocation covers the whole workspace (frontend
+            # + src-tauri).
+            - name: Generate SBOM (JSON)
+              run: syft dir:. -o cyclonedx-json=sbom.json
 
-      - name: generate sbom (cyclonedx-xml)
-        run: syft dir:. -o cyclonedx-xml=sbom.xml
+            - name: Generate SBOM (XML)
+              run: syft dir:. -o cyclonedx-xml=sbom.xml
 
-      - name: upload sbom artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: |
-            sbom.json
-            sbom.xml
+            - name: Upload SBOM artifacts
+              uses: actions/upload-artifact@v7
+              with:
+                  name: sbom
+                  path: |
+                      sbom.json
+                      sbom.xml

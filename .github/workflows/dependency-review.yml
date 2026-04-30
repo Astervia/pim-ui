@@ -1,28 +1,34 @@
-name: dependency-review
+name: Dependency Review
 
 # PR-only — github/dependency-review-action diffs the PR's lockfiles
-# against base and fails if any new dependency has a known
-# vulnerability or a license outside the allow-list. Provides inline
-# annotations on the PR's "Files changed" tab.
+# against base and fails if any new dependency has a known vulnerability
+# or a license outside the allow-list. Provides inline annotations on
+# the PR's "Files changed" tab. Complements cargo-audit (in
+# quality-and-security.yml) by also catching npm advisories.
 
 on:
-  pull_request:
-    branches: [main]
+    pull_request:
+        branches: [main]
 
 permissions:
-  contents: read
-  pull-requests: write
+    contents: read
+    pull-requests: write
+
+concurrency:
+    group: dependency-review-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  dependency-review:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
+    dependency-review:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
 
-      - uses: actions/dependency-review-action@v4
-        with:
-          # Allow the OSS-permissive set the project already depends on.
-          # Anything else needs explicit review before merge.
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, Zlib, CC0-1.0, Unlicense, 0BSD
-          fail-on-severity: moderate
-          comment-summary-in-pr: on-failure
+            - uses: actions/dependency-review-action@v4
+              with:
+                  # Allow the OSS-permissive set the project already
+                  # depends on. Anything else needs explicit review
+                  # before merge.
+                  allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, Zlib, CC0-1.0, Unlicense, 0BSD
+                  fail-on-severity: moderate
+                  comment-summary-in-pr: on-failure

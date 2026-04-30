@@ -1,52 +1,54 @@
 version: 2
 
 updates:
-  # Frontend (React + Tauri JS bindings + Vite + Tailwind).
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "America/Sao_Paulo"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        applies-to: "version-updates"
-        update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "frontend"
+    # Frontend (React + Tauri JS bindings + Vite + Tailwind).
+    - package-ecosystem: "npm"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "06:00"
+          timezone: "America/Sao_Paulo"
+      open-pull-requests-limit: 5
+      groups:
+          minor-and-patch:
+              applies-to: "version-updates"
+              update-types:
+                  - "minor"
+                  - "patch"
+      labels:
+          - "dependencies"
+          - "frontend"
 
-  # Tauri Rust backend.
-  - package-ecosystem: "cargo"
-    directory: "/src-tauri"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "America/Sao_Paulo"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        applies-to: "version-updates"
-        update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "tauri"
+    # Tauri Rust backend.
+    - package-ecosystem: "cargo"
+      directory: "/src-tauri"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "06:00"
+          timezone: "America/Sao_Paulo"
+      open-pull-requests-limit: 5
+      groups:
+          minor-and-patch:
+              applies-to: "version-updates"
+              update-types:
+                  - "minor"
+                  - "patch"
+      labels:
+          - "dependencies"
+          - "tauri"
+          - "security"
 
-  # GitHub Actions versions.
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-      day: "monday"
-      time: "06:00"
-      timezone: "America/Sao_Paulo"
-    open-pull-requests-limit: 3
-    groups:
-      actions:
-        patterns: ["*"]
-    labels:
-      - "dependencies"
-      - "ci"
+    # GitHub Actions versions.
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "06:00"
+          timezone: "America/Sao_Paulo"
+      open-pull-requests-limit: 5
+      labels:
+          - "dependencies"
+          - "ci"
