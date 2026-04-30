@@ -15,6 +15,7 @@ use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 use crate::daemon::config_path::resolve_config_path;
+use crate::daemon::config_validation::{validate_pim_toml, ConfigValidationError};
 use crate::daemon::data_dir::resolve_data_dir;
 use crate::daemon::default_config::{render_default_config, Role};
 use crate::daemon::jsonrpc::RpcError;
@@ -287,6 +288,23 @@ pub struct ReadConfigResult {
     pub raw: String,
     pub path: String,
     pub last_modified: String,
+}
+
+/// Schema-validate a `pim.toml` candidate against the canonical
+/// `pim_core::Config` definition published on crates.io.
+///
+/// Lets the Settings editor surface schema errors inline (debounced
+/// `onChange`) BEFORE the user clicks save and waits for the daemon's
+/// REJECT round-trip. The daemon remains the source of truth — if it
+/// accepts a config this validator rejected (e.g. looser parsing,
+/// forward-compat with a newer `pim-core`), trust the daemon.
+///
+/// Tauri serializes `Result<(), ConfigValidationError>` so the frontend
+/// gets a Promise that resolves on success and rejects with the
+/// structured error payload (`{ message, line?, column? }`) on failure.
+#[tauri::command]
+pub async fn config_validate(content: String) -> Result<(), ConfigValidationError> {
+    validate_pim_toml(&content)
 }
 
 /// Tiny ad-hoc UNIX-seconds → RFC-3339 (UTC) formatter — avoids pulling

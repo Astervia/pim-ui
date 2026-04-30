@@ -43,6 +43,11 @@ pub fn run() {
             // Settings tab — read pim.toml from disk when the daemon
             // is stopped so the form can populate without a live RPC.
             rpc::commands::read_pim_config_text,
+            // Settings tab — schema-validate edited TOML against
+            // `pim_core::Config` before the user triggers a save.
+            // Surfaces type/structure errors inline; daemon REJECT
+            // remains the source of truth for save outcomes.
+            rpc::commands::config_validate,
             // Phase 6 Plan 06-03: BT NAP-server preflight (Linux-only,
             // honest unsupported answer on macOS/Windows).
             rpc::bt_nap::bt_nap_preflight,

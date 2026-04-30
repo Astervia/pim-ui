@@ -11,6 +11,7 @@
 //!   events      — Tauri event name constants + emitters
 
 pub mod config_path;
+pub mod config_validation;
 pub mod data_dir;
 pub mod default_config;
 pub mod events;

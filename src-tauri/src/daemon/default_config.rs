@@ -732,4 +732,43 @@ mod tests {
             "\"join_the_mesh\""
         );
     }
+
+    /// Drift detector — proves the rendered template still parses against
+    /// the canonical `pim_core::Config` schema published on crates.io.
+    /// When `pim-core` adds a required field or renames an enum variant
+    /// in a future minor bump, this test fails BEFORE the change ships
+    /// to users (who would otherwise get a daemon-side REJECT on first
+    /// run).
+    ///
+    /// Cross-field assertions verify the UI's opinionated defaults are
+    /// preserved through the round-trip — these are the values that
+    /// diverge from `pim-cli`'s template (user-scope paths,
+    /// trust_on_first_use, etc.) and must not regress silently.
+    #[test]
+    fn rendered_template_parses_with_pim_core() {
+        for role in [Role::JoinTheMesh, Role::ShareMyInternet] {
+            let toml = render_default_config("test-node", role, &dd());
+            let cfg: pim_core::Config = toml
+                .parse()
+                .unwrap_or_else(|e| panic!("pim-core failed to parse template for {role:?}: {e}\n---\n{toml}"));
+
+            assert_eq!(cfg.node.name, "test-node");
+            assert_eq!(
+                cfg.gateway.enabled,
+                matches!(role, Role::ShareMyInternet),
+                "gateway.enabled must mirror Role for {role:?}"
+            );
+            assert!(
+                cfg.relay.enabled,
+                "relay defaults on (client+relay capability bits 0x03) for {role:?}"
+            );
+            assert_eq!(
+                cfg.security.authorization_policy,
+                pim_core::AuthorizationPolicy::TrustOnFirstUse,
+                "pim-ui defaults to TrustOnFirstUse — pim-cli's allow_all is wrong for desktop UX"
+            );
+            assert_eq!(cfg.transport.r#type, "tcp");
+            assert_eq!(cfg.discovery.port, 9101);
+        }
+    }
 }
