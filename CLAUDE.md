@@ -55,3 +55,28 @@ Architecture not yet mapped. Follow existing patterns found in the codebase.
 > This section is managed by `generate-claude-profile` -- do not edit manually.
 
 <!-- GSD:profile-end -->
+
+## Kernel crates
+
+The `pim-daemon` stack ships as twelve independently-versioned crates published
+to crates.io from `Astervia/proximity-internet-mesh` (sibling repo at `../kernel`):
+
+| Crate | Purpose |
+|-------|---------|
+| `pim-core` | Config schema (`Config`, `BluetoothRfcommConfig`, …), shared types, errors. The only kernel crate `pim-ui`'s Rust side links against — used by `default_config.rs` schema drift tests and the `config_validate` Tauri command. |
+| `pim-crypto` | Ed25519 / X25519 / Noise primitives. |
+| `pim-protocol` | Wire framing for peer sessions. |
+| `pim-transport` | TCP transport listener + dialer. |
+| `pim-bluetooth` | BlueZ PAN/NAP + RFCOMM service implementations. |
+| `pim-wifidirect` | Wi-Fi Direct P2P backend (Linux `wpa_supplicant`, macOS Bonjour). |
+| `pim-discovery` | UDP broadcast peer discovery (`PIMD` on :9101). |
+| `pim-routing` | Distance-vector routing table. |
+| `pim-tun` | TUN device creation + I/O loop. |
+| `pim-gateway` | NAT/iptables glue for `gateway.enabled` nodes. |
+| `pim-cli` | `pim` binary — config bootstrapping helpers, `pim up/down/status/peers/logs`. |
+| `pim-daemon` | Long-running `pim-daemon` binary (the JSON-RPC server `pim-ui` talks to over the local Unix socket). Shipped as a sidecar via `scripts/fetch-daemon.sh`. |
+
+Release cadence: each kernel push tags a top-level release like `v0.1.16` and
+bumps whichever per-crate semver versions changed. When updating, check the
+release commit (`git log --oneline crates/<name>/Cargo.toml`) for the actual
+per-crate version, not the umbrella tag.
