@@ -231,8 +231,7 @@ pub async fn start(app: &AppHandle, cfg: BluetoothRfcommConfig) -> Result<()> {
                         "code": payload.code,
                         "signal": payload.signal,
                     });
-                    let state: tauri::State<'_, BluetoothRfcommState> =
-                        app_handle.state();
+                    let state: tauri::State<'_, BluetoothRfcommState> = app_handle.state();
                     state.record_event(payload.clone()).await;
                     let _ = app_handle.emit(EVENT_CHANNEL, payload);
                     break;
@@ -297,9 +296,7 @@ pub async fn bluetooth_rfcomm_stop(app: AppHandle) -> std::result::Result<(), St
 /// the `boot`/`discovered` events fired before its listener attached
 /// (Tauri's event bus does not replay missed messages).
 #[tauri::command]
-pub async fn bluetooth_rfcomm_snapshot(
-    app: AppHandle,
-) -> std::result::Result<Vec<Value>, String> {
+pub async fn bluetooth_rfcomm_snapshot(app: AppHandle) -> std::result::Result<Vec<Value>, String> {
     let state: tauri::State<'_, BluetoothRfcommState> = app.state();
     Ok(state.snapshot_events().await)
 }
