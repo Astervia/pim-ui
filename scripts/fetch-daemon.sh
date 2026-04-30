@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fetch pre-built pim-daemon binaries from the proximity-internet-mesh
-# release matching `$PIM_DAEMON_VERSION`. Tauri 2 sidecar convention:
+# release matching `$PIM_DAEMON_VERSION`, or the latest release when the
+# variable is not set. Tauri 2 sidecar convention:
 # binaries live in src-tauri/binaries/ with a target-triple suffix and
 # are declared under bundle.externalBin in tauri.conf.json. Not
 # committed to git — CI downloads per-release.
@@ -11,14 +12,26 @@
 #
 # Environment:
 #   PIM_DAEMON_VERSION   release tag in proximity-internet-mesh, e.g.
-#                        v0.1.12. Defaults to the value below — bump
-#                        when you cut a new pim-ui release that needs
-#                        a fresher daemon.
+#                        v0.1.12. Defaults to the latest GitHub release.
 
 set -euo pipefail
 
-VERSION="${PIM_DAEMON_VERSION:-v0.1.12}"
 RELEASE_BASE="https://github.com/Astervia/proximity-internet-mesh/releases/download"
+LATEST_RELEASE_URL="https://github.com/Astervia/proximity-internet-mesh/releases/latest"
+
+latest_release_version() {
+  curl -fsSLI -o /dev/null -w '%{url_effective}' "$LATEST_RELEASE_URL" | sed 's:.*/::'
+}
+
+if [ -n "${PIM_DAEMON_VERSION:-}" ]; then
+  VERSION="$PIM_DAEMON_VERSION"
+else
+  VERSION="$(latest_release_version)"
+  if [ -z "$VERSION" ]; then
+    echo "fetch-daemon: failed to determine latest proximity-internet-mesh release" >&2
+    exit 1
+  fi
+fi
 
 # Map pim-ui target triples → proximity release asset triples.
 # proximity-internet-mesh/.github/workflows/release.yml currently ships:

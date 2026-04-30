@@ -7,9 +7,9 @@ Tauri resolves `sidecar("pim-daemon")` to `binaries/pim-daemon-<target-triple>`.
     bash scripts/fetch-daemon.sh
 
 Downloads the pre-built tarball from `Astervia/proximity-internet-mesh`
-release `$PIM_DAEMON_VERSION` (defaults to the version pinned in the
-script), verifies sha256, and drops the binary in this directory under
-the host triple. This is what CI does — same artifact, same sha. ≈ 5 s.
+release `$PIM_DAEMON_VERSION` (defaults to the latest GitHub release),
+verifies sha256, and drops the binary in this directory under the host
+triple. This is what CI does — same artifact, same sha. ≈ 5 s.
 
 ## Option 2 — build from crates.io (no kernel checkout)
 
