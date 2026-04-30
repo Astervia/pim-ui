@@ -678,6 +678,19 @@ impl Sidecar {
             log_file.display(),
         );
 
+        // Pre-spawn: if the configured `[interface] name` is busy, pick
+        // the next free `pimN` and rewrite `pim.toml` atomically. Linux
+        // doesn't leak TUN like macOS leaks utun, so this is a no-op in
+        // the common case — but it transparently handles the rare cases
+        // (another tool holding `pim0`, a debug-stalled previous daemon,
+        // etc.) the same way the macOS twin handles the utun-leak race.
+        if let Err(e) = pick_and_apply_free_linux_iface(&config_path) {
+            log::warn!(
+                target: "pim-daemon",
+                "could not auto-pick free pim iface (will use existing pim.toml value): {e}"
+            );
+        }
+
         // Build the privileged shell command. pkexec strips most of the
         // environment, so we re-export the bits the daemon and its
         // socket-path resolver depend on:
@@ -1056,6 +1069,141 @@ fn pick_and_apply_free_utun(config_path: &Path) -> Result<()> {
         "auto-picked free interface: {chosen} (rewrote [interface] name in pim.toml)"
     );
     Ok(())
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Linux TUN-name pre-spawn auto-pick.
+// ────────────────────────────────────────────────────────────────────────
+
+/// Linux mirror of `pick_and_apply_free_utun`. If the configured
+/// `[interface] name` is busy, pick a free `pimN` (N in `0..32`) and
+/// rewrite `pim.toml` atomically. If the configured name is already
+/// free, leave the file alone — Linux respects user choice here because,
+/// unlike macOS, TUN interfaces don't leak across daemon restarts (the
+/// kernel reaps them when the creating fd closes).
+///
+/// Why this exists: rare conflicts where another network utility is
+/// holding `pim0`, the user manually configured a `pim0` veth/bridge for
+/// testing, or a previous daemon was OOM-killed mid-syscall and somehow
+/// left kernel state behind. Without this scan the daemon fails with
+/// `Device or resource busy` and the UI just sees a crash-on-boot — with
+/// it, we transparently fall through to `pim1`.
+///
+/// Active interfaces are enumerated by reading `/sys/class/net/` (one
+/// directory entry per netdev). No external command, no extra dep.
+#[cfg(target_os = "linux")]
+fn pick_and_apply_free_linux_iface(config_path: &Path) -> Result<()> {
+    let mut active: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let entries =
+        std::fs::read_dir("/sys/class/net").map_err(|e| anyhow!("read /sys/class/net: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| anyhow!("read /sys/class/net entry: {e}"))?;
+        if let Ok(name) = entry.file_name().into_string() {
+            active.insert(name);
+        }
+    }
+
+    let cfg_text = std::fs::read_to_string(config_path)
+        .map_err(|e| anyhow!("read {}: {e}", config_path.display()))?;
+
+    let configured_name = extract_interface_name(&cfg_text).ok_or_else(|| {
+        anyhow!(
+            "did not find a `[interface]` section with a `name = \"...\"` line in {}",
+            config_path.display()
+        )
+    })?;
+
+    // Configured name is free — respect it, no rewrite.
+    if !active.contains(&configured_name) {
+        log::debug!(
+            target: "pim-daemon",
+            "iface {configured_name} is free — leaving pim.toml [interface] name as-is"
+        );
+        return Ok(());
+    }
+
+    let chosen = (0..32u32)
+        .map(|n| format!("pim{n}"))
+        .find(|name| !active.contains(name.as_str()))
+        .ok_or_else(|| {
+            anyhow!("no free pim* iface in range 0..32 — investigate `/sys/class/net/`")
+        })?;
+
+    if chosen == configured_name {
+        return Ok(());
+    }
+
+    let new_text = rewrite_interface_name(&cfg_text, &chosen)?;
+    let parent = config_path
+        .parent()
+        .ok_or_else(|| anyhow!("config has no parent dir"))?;
+    let tmp = parent.join(".pim.toml.iface-rewrite");
+    std::fs::write(&tmp, new_text).map_err(|e| anyhow!("write tmp {}: {e}", tmp.display()))?;
+    std::fs::rename(&tmp, config_path)
+        .map_err(|e| anyhow!("rename {} -> {}: {e}", tmp.display(), config_path.display()))?;
+
+    log::info!(
+        target: "pim-daemon",
+        "auto-picked free interface: {chosen} (was {configured_name}; rewrote [interface] name in pim.toml)"
+    );
+    Ok(())
+}
+
+/// Parse `[interface] name = "..."` out of pim.toml text. Returns the
+/// raw name string, or `None` if the section/key is missing. Shared by
+/// the Linux auto-pick and exposed for unit tests on every platform.
+#[cfg(target_os = "linux")]
+fn extract_interface_name(cfg_text: &str) -> Option<String> {
+    let mut in_interface_section = false;
+    for line in cfg_text.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            in_interface_section = trimmed.starts_with("[interface]");
+            continue;
+        }
+        if in_interface_section && trimmed.starts_with("name = \"") {
+            let after = &trimmed[8..];
+            if let Some(end) = after.find('"') {
+                return Some(after[..end].to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Rewrite ONLY the `[interface] name` line in `cfg_text`. Every other
+/// line — including comments, indents, neighbouring keys, and trailing
+/// content after the closing quote — is preserved verbatim. Returns the
+/// new file text (newline-terminated).
+#[cfg(target_os = "linux")]
+fn rewrite_interface_name(cfg_text: &str, new_name: &str) -> Result<String> {
+    let mut new_lines: Vec<String> = Vec::with_capacity(cfg_text.lines().count() + 1);
+    let mut in_interface_section = false;
+    let mut rewrote = false;
+    for line in cfg_text.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            in_interface_section = trimmed.starts_with("[interface]");
+        }
+        if in_interface_section && !rewrote && trimmed.starts_with("name = \"") {
+            let leading_ws = &line[..line.len() - trimmed.len()];
+            let after_first_quote = &trimmed[8..];
+            let close_quote = after_first_quote
+                .find('"')
+                .ok_or_else(|| anyhow!("malformed [interface] name line: missing closing quote"))?;
+            let tail = &after_first_quote[close_quote + 1..];
+            new_lines.push(format!("{leading_ws}name = \"{new_name}\"{tail}"));
+            rewrote = true;
+            continue;
+        }
+        new_lines.push(line.to_string());
+    }
+    if !rewrote {
+        return Err(anyhow!(
+            "did not find a `[interface]` section with a `name = \"...\"` line"
+        ));
+    }
+    Ok(new_lines.join("\n") + "\n")
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -1455,7 +1603,7 @@ async fn kill_privileged_linux() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     use super::*;
 
     #[cfg(target_os = "macos")]
@@ -1515,6 +1663,114 @@ name = "ignore-me""#
         ));
         // [interface] name rewritten to a utunN with N >= 7.
         assert!(after.contains("[interface]\nname = \"utun"));
+        // Tail comment + neighbour fields preserved.
+        assert!(after.contains("# comment-tail is preserved"));
+        assert!(after.contains("mtu = 1400"));
+        assert!(after.contains("[transport]\nlisten_port = 0"));
+    }
+
+    // ── Linux TUN-name auto-pick ──────────────────────────────────────
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn extract_interface_name_finds_name_in_section() {
+        let cfg = r#"[node]
+name = "not-this-one"
+
+[interface]
+name = "pim0"
+mtu = 1400
+"#;
+        assert_eq!(extract_interface_name(cfg).as_deref(), Some("pim0"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn extract_interface_name_returns_none_when_section_missing() {
+        let cfg = r#"[node]
+name = "n"
+"#;
+        assert!(extract_interface_name(cfg).is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rewrite_interface_name_preserves_comments_and_neighbours() {
+        let original = r#"[node]
+name = "ignore-me"
+
+[interface]
+name = "pim0"         # comment-tail is preserved
+mtu = 1400
+
+[transport]
+listen_port = 0
+"#;
+        let after = rewrite_interface_name(original, "pim7").expect("rewrite");
+        assert!(after.contains("[node]\nname = \"ignore-me\""));
+        assert!(after.contains("[interface]\nname = \"pim7\""));
+        assert!(after.contains("# comment-tail is preserved"));
+        assert!(after.contains("mtu = 1400"));
+        assert!(after.contains("[transport]\nlisten_port = 0"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rewrite_interface_name_errors_when_section_missing() {
+        let cfg = r#"[node]
+name = "n"
+"#;
+        assert!(rewrite_interface_name(cfg, "pim0").is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn pick_and_apply_free_linux_iface_skips_rewrite_when_iface_free() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let cfg = dir.path().join("pim.toml");
+        // A name that almost certainly is NOT in /sys/class/net.
+        let original = r#"[node]
+name = "ignore-me"
+
+[interface]
+name = "definitely-not-a-real-iface-xyz123"
+mtu = 1400
+
+[transport]
+listen_port = 0
+"#;
+        std::fs::write(&cfg, original).expect("write");
+        pick_and_apply_free_linux_iface(&cfg).expect("pick");
+        let after = std::fs::read_to_string(&cfg).expect("read");
+        assert_eq!(
+            after, original,
+            "config should be byte-identical when the iface is free"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn pick_and_apply_free_linux_iface_rewrites_when_iface_busy() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let cfg = dir.path().join("pim.toml");
+        // `lo` (loopback) is universally present in /sys/class/net/.
+        let original = r#"[node]
+name = "ignore-me"
+
+[interface]
+name = "lo"           # comment-tail is preserved
+mtu = 1400
+
+[transport]
+listen_port = 0
+"#;
+        std::fs::write(&cfg, original).expect("write");
+        pick_and_apply_free_linux_iface(&cfg).expect("pick");
+        let after = std::fs::read_to_string(&cfg).expect("read");
+        // [node] name untouched.
+        assert!(after.contains("[node]\nname = \"ignore-me\""));
+        // [interface] name rewritten to a pimN.
+        assert!(after.contains("[interface]\nname = \"pim"));
         // Tail comment + neighbour fields preserved.
         assert!(after.contains("# comment-tail is preserved"));
         assert!(after.contains("mtu = 1400"));
