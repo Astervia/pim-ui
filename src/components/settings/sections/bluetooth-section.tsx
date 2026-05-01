@@ -153,9 +153,53 @@ export function BluetoothSection({ open, onOpenChange }: BluetoothSectionProps) 
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (values: BluetoothValues): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
+      "bluetooth.enabled": values.enabled,
+      "bluetooth.interface": values.interface,
+      "bluetooth.radio_discovery_enabled": values.radio_discovery_enabled,
+      "bluetooth.device_name_prefix": values.device_name_prefix,
+      "bluetooth.local_alias": values.local_alias,
+      "bluetooth.connect_pan": values.connect_pan,
+      "bluetooth.serve_nap": values.serve_nap,
+      "bluetooth.nap_bridge": values.nap_bridge,
+      "bluetooth.nap_bridge_addr": values.nap_bridge_addr,
+      "bluetooth.dhcp_enabled": values.dhcp_enabled,
+      "bluetooth.dhcp_lease_time": values.dhcp_lease_time,
+      "bluetooth.request_dhcp": values.request_dhcp,
+      "bluetooth.auto_discover_peers": values.auto_discover_peers,
+      "bluetooth.poll_interval_ms": numOrString(values.poll_interval_ms),
+      "bluetooth.scan_interval_ms": numOrString(values.scan_interval_ms),
+      "bluetooth.peer_discovery_interval_ms": numOrString(
+        values.peer_discovery_interval_ms,
+      ),
+      "bluetooth.bluetoothctl_timeout_s": numOrString(
+        values.bluetoothctl_timeout_s,
+      ),
+      "bluetooth.discoverable_timeout_s": numOrString(
+        values.discoverable_timeout_s,
+      ),
+      "bluetooth.startup_timeout_ms": numOrString(values.startup_timeout_ms),
+    };
+    if (values.dhcp_range.trim() !== "") {
+      payload["bluetooth.dhcp_range"] = values.dhcp_range;
+    }
+    if (values.dhcp_dns.trim() !== "") {
+      payload["bluetooth.dhcp_dns"] = values.dhcp_dns;
+    }
+    return payload;
+  };
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "bluetooth",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -189,50 +233,8 @@ export function BluetoothSection({ open, onOpenChange }: BluetoothSectionProps) 
     </span>
   );
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      const payload: Record<string, unknown> = {
-        "bluetooth.enabled": values.enabled,
-        "bluetooth.interface": values.interface,
-        "bluetooth.radio_discovery_enabled": values.radio_discovery_enabled,
-        "bluetooth.device_name_prefix": values.device_name_prefix,
-        "bluetooth.local_alias": values.local_alias,
-        "bluetooth.connect_pan": values.connect_pan,
-        "bluetooth.serve_nap": values.serve_nap,
-        "bluetooth.nap_bridge": values.nap_bridge,
-        "bluetooth.nap_bridge_addr": values.nap_bridge_addr,
-        "bluetooth.dhcp_enabled": values.dhcp_enabled,
-        "bluetooth.dhcp_lease_time": values.dhcp_lease_time,
-        "bluetooth.request_dhcp": values.request_dhcp,
-        "bluetooth.auto_discover_peers": values.auto_discover_peers,
-        "bluetooth.poll_interval_ms": numOrString(values.poll_interval_ms),
-        "bluetooth.scan_interval_ms": numOrString(values.scan_interval_ms),
-        "bluetooth.peer_discovery_interval_ms": numOrString(
-          values.peer_discovery_interval_ms,
-        ),
-        "bluetooth.bluetoothctl_timeout_s": numOrString(
-          values.bluetoothctl_timeout_s,
-        ),
-        "bluetooth.discoverable_timeout_s": numOrString(
-          values.discoverable_timeout_s,
-        ),
-        "bluetooth.startup_timeout_ms": numOrString(values.startup_timeout_ms),
-      };
-      // Optional fields — omit when empty so the daemon can fall back
-      // to its built-in defaults / runtime resolution.
-      if (values.dhcp_range.trim() !== "") {
-        payload["bluetooth.dhcp_range"] = values.dhcp_range;
-      }
-      if (values.dhcp_dns.trim() !== "") {
-        payload["bluetooth.dhcp_dns"] = values.dhcp_dns;
-      }
-      return save(payload);
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   const off = watched.enabled === false;

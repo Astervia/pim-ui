@@ -14,7 +14,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
-use crate::daemon::config_path::resolve_config_path;
+use crate::daemon::config_path::{
+    override_file_path, read_override_file, resolve_config_path,
+};
 use crate::daemon::config_validation::{validate_pim_toml, ConfigValidationError};
 use crate::daemon::data_dir::resolve_data_dir;
 use crate::daemon::default_config::{render_default_config, Role};
@@ -407,6 +409,75 @@ pub async fn write_pim_config_text(
 #[tauri::command]
 pub async fn config_validate(content: String) -> Result<(), ConfigValidationError> {
     validate_pim_toml(&content)
+}
+
+/// Returned by `get_config_path` — the currently-resolved active path
+/// plus the user-set override (if any). The frontend uses `effective`
+/// to display the live path in the Settings UI and `override_path` to
+/// pre-fill the editable input so the user can see what they previously
+/// chose vs. the OS default.
+#[derive(Serialize)]
+pub struct ConfigPathInfo {
+    /// Path `resolve_config_path()` is currently returning — what
+    /// read_pim_config_text / write_pim_config_text actually act on.
+    pub effective: String,
+    /// User-set override (None when only the OS default is in effect).
+    /// Distinct from `effective` because `$PIM_CONFIG_PATH` env-var
+    /// always wins, so the override file may be set yet inert.
+    pub override_path: Option<String>,
+}
+
+/// Read the currently-resolved config path + the user override file
+/// content. Frontend Settings panel uses this to pre-fill the editable
+/// path field and tell the user which one is actually live.
+#[tauri::command]
+pub async fn get_config_path() -> Result<ConfigPathInfo, String> {
+    let effective = resolve_config_path().to_string_lossy().to_string();
+    let override_path = read_override_file().map(|p| p.to_string_lossy().to_string());
+    Ok(ConfigPathInfo {
+        effective,
+        override_path,
+    })
+}
+
+/// Persist a user-chosen `pim.toml` path so future `resolve_config_path()`
+/// calls return it. Daemon must be restarted to pick up a path change
+/// (it reads `pim.toml` at boot); the read/write Tauri commands honour
+/// the override immediately so the Settings UI re-renders against the
+/// new file as soon as the user clicks Apply.
+///
+/// Empty input clears the override (equivalent to `clear_config_path_override`).
+#[tauri::command]
+pub async fn set_config_path_override(path: String) -> Result<(), String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return clear_override().await;
+    }
+    let p = override_file_path();
+    if let Some(parent) = p.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("create parent {}: {e}", parent.display()))?;
+    }
+    std::fs::write(&p, trimmed)
+        .map_err(|e| format!("write override {}: {e}", p.display()))?;
+    Ok(())
+}
+
+/// Remove the user override file so `resolve_config_path()` falls back
+/// to env-var / OS-default. Daemon restart still needed for the spawn
+/// path to pick up the reverted value.
+#[tauri::command]
+pub async fn clear_config_path_override() -> Result<(), String> {
+    clear_override().await
+}
+
+async fn clear_override() -> Result<(), String> {
+    let p = override_file_path();
+    match std::fs::remove_file(&p) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("remove override {}: {e}", p.display())),
+    }
 }
 
 /// Tiny ad-hoc UNIX-seconds → RFC-3339 (UTC) formatter — avoids pulling

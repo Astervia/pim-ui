@@ -67,9 +67,13 @@ export function RelaySection({ open, onOpenChange }: RelaySectionProps) {
     defaultValues: defaults,
     values: defaults,
   });
+  const composePayload = (values: RelayValues): Record<string, unknown> => ({
+    "relay.enabled": values.enabled,
+  });
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "relay",
     form,
+    composePayload,
   );
 
   // Plan 06-01: confirm gate for true → false flips. Open + onConfirm
@@ -95,9 +99,7 @@ export function RelaySection({ open, onOpenChange }: RelaySectionProps) {
   );
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({ "relay.enabled": values.enabled });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

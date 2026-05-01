@@ -101,9 +101,33 @@ export function DiscoverySection({ open, onOpenChange }: DiscoverySectionProps) 
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (values: DiscoveryValues): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
+      "discovery.enabled": values.enabled,
+      "discovery.port": numOrString(values.port),
+      "discovery.broadcast_interval_ms": numOrString(
+        values.broadcast_interval_ms,
+      ),
+      "discovery.peer_timeout_ms": numOrString(values.peer_timeout_ms),
+      "discovery.connect_relays": values.connect_relays,
+      "discovery.connect_gateways": values.connect_gateways,
+    };
+    if (values.shared_key.trim() !== "") {
+      payload["discovery.shared_key"] = values.shared_key;
+    }
+    return payload;
+  };
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "discovery",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -128,28 +152,8 @@ export function DiscoverySection({ open, onOpenChange }: DiscoverySectionProps) 
     </span>
   );
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      const payload: Record<string, unknown> = {
-        "discovery.enabled": values.enabled,
-        "discovery.port": numOrString(values.port),
-        "discovery.broadcast_interval_ms": numOrString(
-          values.broadcast_interval_ms,
-        ),
-        "discovery.peer_timeout_ms": numOrString(values.peer_timeout_ms),
-        "discovery.connect_relays": values.connect_relays,
-        "discovery.connect_gateways": values.connect_gateways,
-      };
-      if (values.shared_key.trim() !== "") {
-        payload["discovery.shared_key"] = values.shared_key;
-      }
-      return save(payload);
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   const off = watched.enabled === false;

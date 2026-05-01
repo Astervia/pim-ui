@@ -73,9 +73,18 @@ export function RoutingSection({ open, onOpenChange }: RoutingSectionProps) {
     defaultValues: defaults,
     values: defaults,
   });
+
+  const composePayload = (values: RoutingValues): Record<string, unknown> => {
+    const hopsNum = Number(values.max_hops);
+    return {
+      "routing.max_hops": Number.isFinite(hopsNum) ? hopsNum : values.max_hops,
+    };
+  };
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "routing",
     form,
+    composePayload,
   );
 
   // Surface daemon-mapped field errors as react-hook-form errors.
@@ -99,13 +108,7 @@ export function RoutingSection({ open, onOpenChange }: RoutingSectionProps) {
   );
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      const hopsNum = Number(values.max_hops);
-      const payload: Record<string, unknown> = {
-        "routing.max_hops": Number.isFinite(hopsNum) ? hopsNum : values.max_hops,
-      };
-      return save(payload);
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

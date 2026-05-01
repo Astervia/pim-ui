@@ -107,9 +107,27 @@ export function BluetoothRfcommSection({
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (
+    values: BluetoothRfcommValues,
+  ): Record<string, unknown> => ({
+    "bluetooth_rfcomm.enabled": values.enabled,
+    "bluetooth_rfcomm.channel": numOrString(values.channel),
+    "bluetooth_rfcomm.device_name_prefix": values.device_name_prefix,
+    "bluetooth_rfcomm.outbound_enabled": values.outbound_enabled,
+    "bluetooth_rfcomm.poll_interval_ms": numOrString(values.poll_interval_ms),
+    "bluetooth_rfcomm.bridge_to_tcp": values.bridge_to_tcp,
+  });
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "bluetooth_rfcomm",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -134,24 +152,8 @@ export function BluetoothRfcommSection({
     </span>
   );
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "bluetooth_rfcomm.enabled": values.enabled,
-        "bluetooth_rfcomm.channel": numOrString(values.channel),
-        "bluetooth_rfcomm.device_name_prefix": values.device_name_prefix,
-        "bluetooth_rfcomm.outbound_enabled": values.outbound_enabled,
-        "bluetooth_rfcomm.poll_interval_ms": numOrString(
-          values.poll_interval_ms,
-        ),
-        "bluetooth_rfcomm.bridge_to_tcp": values.bridge_to_tcp,
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   const off = watched.enabled === false;

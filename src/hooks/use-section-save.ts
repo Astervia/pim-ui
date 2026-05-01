@@ -72,9 +72,22 @@ export interface UseSectionSaveReturn {
   sectionBannerError: string | null;
 }
 
+/**
+ * Map react-hook-form values to the wire-keyed payload that
+ * `assembleToml(base, { [sectionId]: payload })` expects (e.g.
+ * `{ enabled: true }` → `{ "discovery.enabled": true }`). Sections must
+ * pass this so Save-All composes the same payload as the per-section
+ * footer button — without it, `assembleToml` sees no matching tomlKeys
+ * and the form values are silently dropped on save.
+ */
+export type ComposePayload<TValues extends FieldValues> = (
+  values: TValues,
+) => Record<string, unknown>;
+
 export function useSectionSave<TValues extends FieldValues = FieldValues>(
   sectionId: SectionId,
   form: UseFormReturn<TValues>,
+  composePayload?: ComposePayload<TValues>,
 ): UseSectionSaveReturn {
   const [state, setState] = useState<SaveState>("idle");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -241,7 +254,11 @@ export function useSectionSave<TValues extends FieldValues = FieldValues>(
         }
         const submit = form.handleSubmit(
           async (values) => {
-            await save(values as Record<string, unknown>);
+            const payload =
+              composePayload !== undefined
+                ? composePayload(values as TValues)
+                : (values as Record<string, unknown>);
+            await save(payload);
             resolve();
           },
           () => {
@@ -256,7 +273,7 @@ export function useSectionSave<TValues extends FieldValues = FieldValues>(
     return () => {
       unregisterSectionSave(sectionId);
     };
-  }, [sectionId, form, save]);
+  }, [sectionId, form, save, composePayload]);
 
   return { state, save, fieldErrors, sectionBannerError };
 }

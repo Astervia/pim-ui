@@ -80,9 +80,13 @@ export function IdentitySection({ open, onOpenChange }: IdentitySectionProps) {
     defaultValues: { name: defaultName },
     values: { name: defaultName },
   });
+  const composePayload = (values: IdentityValues): Record<string, unknown> => ({
+    "node.name": values.name,
+  });
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "identity",
     form,
+    composePayload,
   );
 
   // Surface daemon-mapped field errors as react-hook-form errors so
@@ -107,9 +111,7 @@ export function IdentitySection({ open, onOpenChange }: IdentitySectionProps) {
   );
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({ "node.name": values.name });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

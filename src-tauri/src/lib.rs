@@ -53,6 +53,13 @@ pub fn run() {
             // Surfaces type/structure errors inline; daemon REJECT
             // remains the source of truth for save outcomes.
             rpc::commands::config_validate,
+            // Settings tab — read the resolved pim.toml path + the
+            // user override (if any), and persist a user-chosen path
+            // so future resolutions point at it. Daemon restart needed
+            // to apply a changed path to the running process.
+            rpc::commands::get_config_path,
+            rpc::commands::set_config_path_override,
+            rpc::commands::clear_config_path_override,
             // Phase 6 Plan 06-03: BT NAP-server preflight (Linux-only,
             // honest unsupported answer on macOS/Windows).
             rpc::bt_nap::bt_nap_preflight,

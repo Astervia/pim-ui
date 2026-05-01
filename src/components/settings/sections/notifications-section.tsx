@@ -78,9 +78,16 @@ export function NotificationsSection({
     defaultValues: defaults,
     values: defaults,
   });
+  const composePayload = (
+    values: NotificationsValues,
+  ): Record<string, unknown> => ({
+    "notifications.all_gateways_lost": values.all_gateways_lost,
+    "notifications.kill_switch": values.kill_switch,
+  });
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "notifications",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -105,12 +112,7 @@ export function NotificationsSection({
   );
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "notifications.all_gateways_lost": values.all_gateways_lost,
-        "notifications.kill_switch": values.kill_switch,
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

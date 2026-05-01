@@ -32,7 +32,7 @@ export function MessagesScreen() {
   }, [conversations, snapshot.state]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       <CliPanel
         title="messages"
         status={{
@@ -40,11 +40,12 @@ export function MessagesScreen() {
           variant: snapshot.state === "running" ? "default" : "muted",
         }}
         density="default"
+        fill
       >
         <p className="text-xs text-muted-foreground -mt-1 mb-2 font-code">
           {subtitle}
         </p>
-        <div className="flex h-[60vh] min-h-[28rem] border border-border bg-background">
+        <div className="flex flex-1 min-h-0 border border-border bg-background">
           <PeerList
             conversations={conversations}
             selected={selected}

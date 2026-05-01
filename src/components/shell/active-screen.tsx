@@ -95,7 +95,19 @@ export function ActiveScreen() {
 
   return (
     <>
-      <section aria-label={active} className="flex flex-col gap-6">
+      <section
+        aria-label={active}
+        className={
+          // Messages is the only viewport-filling screen — its conversation
+          // pane needs the section to be a constrained flex column so the
+          // panel can use `flex-1 min-h-0` end-to-end. Other screens stay
+          // content-sized so <main>'s overflow-y-auto continues to scroll
+          // the tall Dashboard / Settings / Logs layouts.
+          active === "messages"
+            ? "flex flex-col gap-6 flex-1 min-h-0"
+            : "flex flex-col gap-6"
+        }
+      >
         {renderScreen(active, onPeerSelect, onNearbyPair)}
       </section>
       {/* App-global overlays — rendered once at shell level, not per-screen.

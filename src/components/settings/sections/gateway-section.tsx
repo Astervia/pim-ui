@@ -83,9 +83,22 @@ export function GatewaySection({ open, onOpenChange }: GatewaySectionProps) {
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (values: GatewayValues): Record<string, unknown> => ({
+    "gateway.enabled": values.enabled,
+    "gateway.nat_interface": values.nat_interface,
+    "gateway.max_connections": numOrString(values.max_connections),
+  });
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "gateway",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -110,19 +123,8 @@ export function GatewaySection({ open, onOpenChange }: GatewaySectionProps) {
     </span>
   );
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "gateway.enabled": values.enabled,
-        "gateway.nat_interface": values.nat_interface,
-        "gateway.max_connections": numOrString(values.max_connections),
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   const off = watched.enabled === false;

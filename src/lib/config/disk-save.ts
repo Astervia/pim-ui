@@ -67,3 +67,37 @@ export function isConfigValidationError(
     typeof (e as { message: unknown }).message === "string"
   );
 }
+
+/**
+ * Currently-resolved active path + the user override (if any). The
+ * frontend uses `effective` to display the live path and `overridePath`
+ * to pre-fill the editable input. The Rust side returns these as
+ * `effective` / `override_path`; Tauri's serde mapping camelCases on
+ * the wire so `overridePath` is what the JS-side actually sees.
+ */
+export interface ConfigPathInfo {
+  effective: string;
+  override_path: string | null;
+}
+
+/** Read the live pim.toml path + the user override (if any). */
+export async function getConfigPath(): Promise<ConfigPathInfo> {
+  return invoke<ConfigPathInfo>("get_config_path");
+}
+
+/**
+ * Persist a user-chosen pim.toml path. Rejects with the Rust-side
+ * error string on filesystem failure. Empty `path` clears the override.
+ *
+ * Daemon must be restarted to pick up the new path; the read/write
+ * Tauri commands honour it immediately so the Settings UI re-renders
+ * against the new file as soon as the caller refetches.
+ */
+export async function setConfigPathOverride(path: string): Promise<void> {
+  await invoke<void>("set_config_path_override", { path });
+}
+
+/** Remove the override file so resolution falls back to OS default. */
+export async function clearConfigPathOverride(): Promise<void> {
+  await invoke<void>("clear_config_path_override");
+}

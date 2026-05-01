@@ -95,9 +95,27 @@ export function WifiDirectSection({
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (
+    values: WifiDirectValues,
+  ): Record<string, unknown> => ({
+    "wifi_direct.enabled": values.enabled,
+    "wifi_direct.interface": values.interface,
+    "wifi_direct.go_intent": numOrString(values.go_intent),
+    "wifi_direct.listen_channel": numOrString(values.listen_channel),
+    "wifi_direct.op_channel": numOrString(values.op_channel),
+    "wifi_direct.connect_method": values.connect_method,
+  });
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "wifi_direct",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -121,22 +139,8 @@ export function WifiDirectSection({
     </span>
   );
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "wifi_direct.enabled": values.enabled,
-        "wifi_direct.interface": values.interface,
-        "wifi_direct.go_intent": numOrString(values.go_intent),
-        "wifi_direct.listen_channel": numOrString(values.listen_channel),
-        "wifi_direct.op_channel": numOrString(values.op_channel),
-        "wifi_direct.connect_method": values.connect_method,
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   const off = watched.enabled === false;

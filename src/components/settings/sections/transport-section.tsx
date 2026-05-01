@@ -81,9 +81,24 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
     defaultValues: defaults,
     values: defaults,
   });
+
+  const numOrString = (s: string): number | string => {
+    const n = Number(s);
+    return Number.isFinite(n) && s.trim() !== "" ? n : s;
+  };
+
+  const composePayload = (values: TransportValues): Record<string, unknown> => ({
+    "transport.listen_port": numOrString(values.listen_port),
+    "transport.max_reconnect_attempts": numOrString(
+      values.max_reconnect_attempts,
+    ),
+    "transport.connect_timeout_ms": numOrString(values.connect_timeout_ms),
+  });
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "transport",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -113,21 +128,8 @@ export function TransportSection({ open, onOpenChange }: TransportSectionProps) 
       </span>
     ) : undefined;
 
-  const numOrString = (s: string): number | string => {
-    const n = Number(s);
-    return Number.isFinite(n) && s.trim() !== "" ? n : s;
-  };
-
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "transport.listen_port": numOrString(values.listen_port),
-        "transport.max_reconnect_attempts": numOrString(
-          values.max_reconnect_attempts,
-        ),
-        "transport.connect_timeout_ms": numOrString(values.connect_timeout_ms),
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

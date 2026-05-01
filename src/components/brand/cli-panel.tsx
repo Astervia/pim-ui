@@ -45,6 +45,13 @@ export interface CliPanelProps {
    * `revealDelay={null}` to opt out of the animation entirely.
    */
   revealDelay?: number | null;
+  /**
+   * When true, the panel and its body grow to fill their flex-column
+   * parent (used by the Messages screen so the conversation pane spans
+   * the full viewport instead of an arbitrary `h-[Nvh]`). Requires the
+   * caller to be inside a flex-col container with available height.
+   */
+  fill?: boolean;
 }
 
 export function CliPanel({
@@ -55,6 +62,7 @@ export function CliPanel({
   density = "default",
   emphasis = false,
   revealDelay = 0,
+  fill = false,
 }: CliPanelProps) {
   const bodyPadding =
     density === "compact"
@@ -77,6 +85,7 @@ export function CliPanel({
         "bg-popover border border-border text-foreground",
         "font-code text-sm leading-[1.7]",
         emphasis === true && "border-l-2 border-l-primary",
+        fill === true && "flex flex-col flex-1 min-h-0",
         revealClass,
         className,
       )}
@@ -92,7 +101,15 @@ export function CliPanel({
         <span>┌─── {title.toUpperCase()} ───┐</span>
         {status && <Badge variant={status.variant ?? "default"}>[{status.label}]</Badge>}
       </header>
-      <div className={cn(bodyPadding, "overflow-hidden")}>{children}</div>
+      <div
+        className={cn(
+          bodyPadding,
+          "overflow-hidden",
+          fill === true && "flex flex-col flex-1 min-h-0",
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }

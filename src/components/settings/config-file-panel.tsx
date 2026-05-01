@@ -1,34 +1,46 @@
 /**
  * <ConfigFilePanel /> — sits at the top of the Advanced section.
  *
- * Surfaces the on-disk pim.toml path and four operations the user can
- * actually perform from the webview today:
+ * Surfaces the on-disk pim.toml path and lets the user point pim at a
+ * different file. The path is editable: users can type an absolute
+ * path or pick one through a native file dialog, then click Apply to
+ * persist the override (kept under `<data_dir>/config-path-override`)
+ * and refetch the config from the new location.
  *
- *   - [ Copy path ]   — write source_path to clipboard
- *   - [ Reveal ]      — open the file's parent directory in the OS
- *                       file explorer (Tauri shell.open)
- *   - [ Import… ]     — pick a local .toml file, validate it via
- *                       config.save(dry_run=true), then commit as the
- *                       new pim.toml (replaces the existing content)
- *   - [ Export… ]     — download the current raw TOML as a .toml file
- *                       via a browser blob URL
+ * Operations:
  *
- * "Change the daemon's config location" is intentionally NOT a button.
- * The daemon is launched with a config path argument set at app boot;
- * relocating the file requires a daemon restart with a new --config
- * argument, which the UI doesn't drive today. The path field is
- * presented as read-only with the Import / Export pair covering the
- * common "I want to use this other file" use case.
+ *   - Path input    — edit the active config path. Apply persists the
+ *                     override + refetches; daemon restart needed for
+ *                     the running daemon to pick it up.
+ *   - [ Browse… ]   — open native file picker, prefilled in the parent
+ *                     directory of the current path.
+ *   - [ Reset ]     — clear the override, fall back to the OS default.
+ *   - [ Copy path ] — write the live path to the clipboard.
+ *   - [ Reveal ]    — open the file's parent directory in the OS file
+ *                     explorer (Tauri shell.open).
+ *   - [ Import… ]   — pick a .toml file, validate via dry_run, then
+ *                     commit its content as the current pim.toml.
+ *   - [ Export… ]   — download the live raw TOML as a .toml file.
  *
- * W1 invariant preserved — uses callDaemon (request/response RPC) +
- * shell.open / browser file APIs only. No new Tauri listeners.
+ * W1 invariant preserved — uses callDaemon (request/response RPC),
+ * dialog/shell plugins, and dedicated #[tauri::command] handlers only.
+ * No new Tauri listeners.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useDaemonState } from "@/hooks/use-daemon-state";
 import { useSettingsConfig } from "@/hooks/use-settings-config";
+import { restartDaemon } from "@/lib/daemon-restart";
+import {
+  clearConfigPathOverride,
+  getConfigPath,
+  setConfigPathOverride,
+} from "@/lib/config/disk-save";
 import { callDaemon } from "@/lib/rpc";
 import type { RpcError } from "@/lib/rpc-types";
 import { cn } from "@/lib/utils";
@@ -43,8 +55,45 @@ function parentDir(path: string): string {
 
 export function ConfigFilePanel() {
   const { raw, sourcePath, refetch } = useSettingsConfig();
+  const { snapshot, actions } = useDaemonState();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [draftPath, setDraftPath] = useState<string>("");
+  const [overridePath, setOverridePath] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+
+  // Seed the editable input from the live source path on first render
+  // and whenever the resolved path changes (e.g. after refetch). The
+  // override is independent — surfaced separately so the user can see
+  // whether the live path is OS-default or something they set.
+  useEffect(() => {
+    if (sourcePath !== "") {
+      setDraftPath((prev) => (prev === "" ? sourcePath : prev));
+    }
+  }, [sourcePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getConfigPath()
+      .then((info) => {
+        if (cancelled === true) return;
+        setOverridePath(info.override_path);
+        if (info.override_path !== null) {
+          setDraftPath(info.override_path);
+        } else if (info.effective !== "") {
+          setDraftPath(info.effective);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — falls back to sourcePath-driven seed above.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dirty = draftPath.trim() !== "" && draftPath.trim() !== sourcePath;
+  const daemonRunning = snapshot.state === "running";
 
   const onCopyPath = async (): Promise<void> => {
     if (sourcePath === "") {
@@ -70,6 +119,72 @@ export function ConfigFilePanel() {
       await shellOpen(dir);
     } catch {
       toast.error("Couldn't open the folder.");
+    }
+  };
+
+  const onBrowse = async (): Promise<void> => {
+    try {
+      const seedDir = parentDir(draftPath || sourcePath);
+      const picked = await openFileDialog({
+        multiple: false,
+        directory: false,
+        defaultPath: seedDir === "" ? undefined : seedDir,
+        filters: [{ name: "TOML", extensions: ["toml"] }],
+      });
+      if (picked === null) return;
+      setDraftPath(picked);
+    } catch {
+      toast.error("Couldn't open file picker.");
+    }
+  };
+
+  const offerRestart = (): void => {
+    if (daemonRunning === false) return;
+    toast("Daemon needs a restart to read the new path.", {
+      duration: 8000,
+      action: {
+        label: "[ Restart ]",
+        onClick: () => {
+          void restartDaemon(actions);
+        },
+      },
+    });
+  };
+
+  const onApplyPath = async (): Promise<void> => {
+    const next = draftPath.trim();
+    if (next === "") {
+      toast.error("Path can't be empty.");
+      return;
+    }
+    setApplying(true);
+    try {
+      await setConfigPathOverride(next);
+      setOverridePath(next);
+      await refetch();
+      toast.success("Path updated.", { duration: 2000 });
+      offerRestart();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Couldn't save path: ${msg}`);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const onResetPath = async (): Promise<void> => {
+    setApplying(true);
+    try {
+      await clearConfigPathOverride();
+      setOverridePath(null);
+      await refetch();
+      toast.success("Reverted to default path.", { duration: 2000 });
+      offerRestart();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Couldn't reset path: ${msg}`);
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -148,20 +263,50 @@ export function ConfigFilePanel() {
       <div className="flex flex-col gap-2">
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           source path
+          {overridePath !== null ? (
+            <span className="ml-2 text-accent">· user override</span>
+          ) : null}
         </span>
-        <code
-          className={cn(
-            "font-code text-sm break-all leading-tight",
-            "border border-border bg-popover px-3 py-2",
-            "text-foreground",
-            sourcePath === "" && "text-muted-foreground",
-          )}
-        >
-          {sourcePath === "" ? "(resolving…)" : sourcePath}
-        </code>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            type="text"
+            spellCheck={false}
+            autoComplete="off"
+            placeholder={sourcePath === "" ? "(resolving…)" : sourcePath}
+            value={draftPath}
+            onChange={(e) => setDraftPath(e.target.value)}
+            disabled={applying === true}
+            className="font-code text-sm flex-1"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                void onBrowse();
+              }}
+              disabled={applying === true}
+            >
+              [ Browse… ]
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => {
+                void onApplyPath();
+              }}
+              disabled={applying === true || dirty === false}
+              aria-busy={applying === true ? true : undefined}
+            >
+              {applying === true ? "[ Applying… ]" : "[ Apply ]"}
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Actions row — wraps on narrow viewports so all four affordances
+      {/* Actions row — wraps on narrow viewports so all affordances
           stay reachable on phone-portrait. */}
       <div className="flex flex-wrap gap-2 mt-1">
         <Button
@@ -190,6 +335,17 @@ export function ConfigFilePanel() {
           type="button"
           variant="ghost"
           size="sm"
+          onClick={() => {
+            void onResetPath();
+          }}
+          disabled={applying === true || overridePath === null}
+        >
+          [ Reset to default ]
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={onPickFile}
           disabled={importing === true}
           aria-busy={importing === true ? true : undefined}
@@ -208,13 +364,14 @@ export function ConfigFilePanel() {
       </div>
 
       <p className="font-code text-xs text-text-secondary leading-[1.55]">
-        Import replaces the current pim.toml with the chosen file's
-        content (validated first). Export saves the live config to disk
-        as a backup.
+        Apply persists the path so future launches use it. The running
+        daemon needs a restart to pick up a changed path; the Settings
+        UI reads/writes the new file immediately.
         <br />
         <span className="text-muted-foreground">
-          To run the daemon against a different path, restart it with a
-          new --config argument — the in-app path is read-only.
+          Import replaces the current pim.toml with the chosen file&apos;s
+          content (validated first). Export saves the live config to disk
+          as a backup.
         </span>
       </p>
 

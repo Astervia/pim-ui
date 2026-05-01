@@ -141,9 +141,14 @@ export function TrustSection({ open, onOpenChange }: TrustSectionProps) {
     defaultValues: defaults,
     values: defaults,
   });
+  const composePayload = (values: TrustValues): Record<string, unknown> => ({
+    "security.authorization_policy": values.authorization_policy,
+    "security.require_encryption": values.require_encryption,
+  });
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "trust",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -181,12 +186,7 @@ export function TrustSection({ open, onOpenChange }: TrustSectionProps) {
   );
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      return save({
-        "security.authorization_policy": values.authorization_policy,
-        "security.require_encryption": values.require_encryption,
-      });
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (

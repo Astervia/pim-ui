@@ -82,9 +82,24 @@ export function InterfaceSection({ open, onOpenChange }: InterfaceSectionProps) 
     defaultValues: defaults,
     values: defaults,
   });
+
+  const composePayload = (values: InterfaceValues): Record<string, unknown> => {
+    const mtuNum = Number(values.mtu);
+    const payload: Record<string, unknown> = {
+      "interface.name": values.name,
+      "interface.mtu": Number.isFinite(mtuNum) ? mtuNum : values.mtu,
+      "interface.mesh_ip": values.mesh_ip,
+    };
+    if (values.mesh_ipv6.trim() !== "") {
+      payload["interface.mesh_ipv6"] = values.mesh_ipv6;
+    }
+    return payload;
+  };
+
   const { state, save, fieldErrors, sectionBannerError } = useSectionSave(
     "interface",
     form,
+    composePayload,
   );
 
   useEffect(() => {
@@ -116,20 +131,7 @@ export function InterfaceSection({ open, onOpenChange }: InterfaceSectionProps) 
     ) : undefined;
 
   const onSave = (): void => {
-    void form.handleSubmit((values) => {
-      const mtuNum = Number(values.mtu);
-      const payload: Record<string, unknown> = {
-        "interface.name": values.name,
-        "interface.mtu": Number.isFinite(mtuNum) ? mtuNum : values.mtu,
-        "interface.mesh_ip": values.mesh_ip,
-      };
-      // Only emit mesh_ipv6 when non-empty; otherwise the daemon should
-      // delete the field (handled save-side).
-      if (values.mesh_ipv6.trim() !== "") {
-        payload["interface.mesh_ipv6"] = values.mesh_ipv6;
-      }
-      return save(payload);
-    })();
+    void form.handleSubmit((values) => save(composePayload(values)))();
   };
 
   return (
