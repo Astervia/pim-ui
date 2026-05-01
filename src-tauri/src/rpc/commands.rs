@@ -14,9 +14,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
-use crate::daemon::config_path::{
-    override_file_path, read_override_file, resolve_config_path,
-};
+use crate::daemon::config_path::{override_file_path, read_override_file, resolve_config_path};
 use crate::daemon::config_validation::{validate_pim_toml, ConfigValidationError};
 use crate::daemon::data_dir::resolve_data_dir;
 use crate::daemon::default_config::{render_default_config, Role};
@@ -458,8 +456,7 @@ pub async fn set_config_path_override(path: String) -> Result<(), String> {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("create parent {}: {e}", parent.display()))?;
     }
-    std::fs::write(&p, trimmed)
-        .map_err(|e| format!("write override {}: {e}", p.display()))?;
+    std::fs::write(&p, trimmed).map_err(|e| format!("write override {}: {e}", p.display()))?;
     Ok(())
 }
 
