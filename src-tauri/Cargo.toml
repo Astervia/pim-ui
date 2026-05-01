@@ -1,6 +1,6 @@
 [package]
 name = "pim-ui"
-version = "0.0.1"
+version = "0.1.0"
 description = "Desktop + mobile UI for the pim proximity mesh daemon"
 authors = ["Astervia"]
 license = "MIT"
