@@ -154,15 +154,17 @@ jobs:
                       exit 1
                   fi
 
-                  shopt -s globstar nullglob
                   declare -a bundles=()
-                  for path in "$bundle_root"/**/*; do
-                      [ -f "$path" ] || continue
-                      case "$path" in
-                          *.AppImage|*.deb|*.rpm|*.dmg|*.msi|*.exe)
-                              bundles+=("$path") ;;
-                      esac
-                  done
+                  while IFS= read -r -d '' path; do
+                      bundles+=("$path")
+                  done < <(find "$bundle_root" -type f \( \
+                      -name '*.AppImage' -o \
+                      -name '*.deb' -o \
+                      -name '*.rpm' -o \
+                      -name '*.dmg' -o \
+                      -name '*.msi' -o \
+                      -name '*.exe' \
+                  \) -print0)
 
                   if [ ${#bundles[@]} -eq 0 ]; then
                       echo "no bundles found under $bundle_root" >&2
