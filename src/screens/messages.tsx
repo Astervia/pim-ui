@@ -12,24 +12,54 @@ import { PeerList } from "@/components/conversations/peer-list";
 import { ConversationPane } from "@/components/conversations/conversation-pane";
 import { useConversations } from "@/hooks/use-conversations";
 import { useDaemonState } from "@/hooks/use-daemon-state";
+import { usePeers } from "@/hooks/use-peers";
+import type { ConversationSummary, PeerSummary } from "@/lib/rpc-types";
+
+function isPeerConnected(peer: PeerSummary): boolean {
+  return peer.state === "active" || peer.state === "relayed";
+}
+
+function synthesizeConversation(peer: PeerSummary): ConversationSummary {
+  return {
+    peer_node_id: peer.node_id,
+    peer_node_id_short: peer.node_id_short,
+    name: peer.label ?? peer.node_id_short,
+    last_message_preview: null,
+    last_message_ts_ms: null,
+    unread_count: 0,
+    is_connected: true,
+  };
+}
 
 export function MessagesScreen() {
   const conversations = useConversations();
+  const peers = usePeers();
   const [selected, setSelected] = useState<string | null>(null);
   const { snapshot } = useDaemonState();
 
+  // Merge live connected peers into the conversation list so a freshly-
+  // paired peer with no message history still surfaces under ACTIVE.
+  // Existing conversation rows win — their preview/unread state is real.
+  const merged = useMemo<ConversationSummary[]>(() => {
+    const known = new Set(conversations.map((c) => c.peer_node_id));
+    const synthetic = peers
+      .filter((p) => isPeerConnected(p) && !known.has(p.node_id))
+      .map(synthesizeConversation);
+    return [...conversations, ...synthetic];
+  }, [conversations, peers]);
+
   const selectedConversation = useMemo(
-    () => conversations.find((c) => c.peer_node_id === selected) ?? null,
-    [conversations, selected],
+    () => merged.find((c) => c.peer_node_id === selected) ?? null,
+    [merged, selected],
   );
 
   const subtitle = useMemo(() => {
     if (snapshot.state !== "running") {
       return "daemon offline · messages will resume when the mesh is up";
     }
-    const active = conversations.filter((c) => c.is_connected === true).length;
+    const active = merged.filter((c) => c.is_connected === true).length;
     return `via mesh · noise hop-by-hop + ecies e2e · ${active} peer${active === 1 ? "" : "s"} online`;
-  }, [conversations, snapshot.state]);
+  }, [merged, snapshot.state]);
 
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
@@ -47,7 +77,7 @@ export function MessagesScreen() {
         </p>
         <div className="flex flex-1 min-h-0 border border-border bg-background">
           <PeerList
-            conversations={conversations}
+            conversations={merged}
             selected={selected}
             onSelect={setSelected}
           />
