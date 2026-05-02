@@ -75,7 +75,7 @@ if [ -z "${VERSION}" ]; then
 fi
 
 case "$(uname -s)-$(uname -m)" in
-  Linux-x86_64)   LABEL="linux-x86_64"  ; EXT="AppImage" ;;
+  Linux-x86_64)   LABEL="linux-x86_64"  ; EXT="deb" ;;   # rpm-based distros: set EXT=rpm
   Darwin-x86_64)  LABEL="macos-x86_64"  ; EXT="dmg" ;;
   Darwin-arm64)   LABEL="macos-aarch64" ; EXT="dmg" ;;
   *)
@@ -99,68 +99,58 @@ fi
 
 Then install the bundle the platform-native way:
 
-- **Linux (`.AppImage`)**: `chmod +x ./pim-ui-${VERSION}-linux-x86_64.AppImage && ./pim-ui-${VERSION}-linux-x86_64.AppImage`
 - **Linux (`.deb`)**: `sudo dpkg -i pim-ui-${VERSION}-linux-x86_64.deb`
 - **Linux (`.rpm`)**: `sudo rpm -i pim-ui-${VERSION}-linux-x86_64.rpm`
 - **macOS (`.dmg`)**: open the `.dmg` and drag `pim.app` into `/Applications`
 - **Windows (`.msi`)**: double-click to launch the installer
 - **Windows (`.exe`)**: NSIS setup — double-click to install
 
+> **Linux `.AppImage` is not recommended.** The AppImage bundler
+> currently mangles the bundled `pim-daemon` (same ELF `BuildID` but
+> different SHA256 than the `.deb` / `.rpm` payload), causing the daemon
+> to `SIGSEGV` before `main()` and the UI to surface
+> `pim-daemon exited in ~2000 ms during startup`. Use `.deb` or `.rpm`
+> until the AppImage build is fixed.
+
 ### Run From the App Launcher
 
 - **Linux (`.deb`/`.rpm`)**: after installation, search for `pim` in your
   desktop app launcher and open it from there.
-- **Linux (`.AppImage`)**: the AppImage can be run directly from the download
-  directory. To make it searchable in your app launcher, install an AppImage
-  integration tool such as
-  [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) or
-  [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher), then add
-  the downloaded AppImage through that tool.
 - **macOS (`.dmg`)**: after dragging `pim.app` into `/Applications`, open it
   from `/Applications`, Spotlight, or Launchpad.
 
-Manual AppImage launcher example:
-
-```bash
-APPIMAGE="pim-ui-${VERSION}-linux-x86_64.AppImage"
-
-chmod +x "./${APPIMAGE}"
-mkdir -p \
-  "${HOME}/.local/share/pim-ui" \
-  "${HOME}/.local/share/icons/hicolor/512x512/apps" \
-  "${HOME}/.local/share/applications"
-
-install -m 755 "./${APPIMAGE}" "${HOME}/.local/share/pim-ui/pim-ui.AppImage"
-"./${APPIMAGE}" --appimage-extract pim.png >/dev/null 2>&1 || true
-
-if [ -f squashfs-root/pim.png ]; then
-  install -m 644 squashfs-root/pim.png \
-    "${HOME}/.local/share/icons/hicolor/512x512/apps/pim-ui.png"
-fi
-
-cat > "${HOME}/.local/share/applications/pim-ui.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=pim
-GenericName=Proximity Internet Mesh
-Comment=Desktop UI for the pim proximity mesh daemon
-Exec=${HOME}/.local/share/pim-ui/pim-ui.AppImage
-Icon=pim-ui
-Terminal=false
-Categories=Network;
-StartupNotify=true
-StartupWMClass=pim
-EOF
-
-update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
-gtk-update-icon-cache "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
-```
-
-After that, search for `pim` in your app launcher. If it does not appear
-immediately, log out and back in.
-
 The bundle ships with the matching `pim-daemon` sidecar baked in; no
 separate daemon download is required for desktop use.
+
+### Clean A Previous Install (Linux)
+
+Run this before installing or upgrading on Linux. It is idempotent —
+safe to run when nothing is installed. Preserves `~/.config/pim/pim.toml`
+(your authored daemon config); to wipe that too, `rm -rf ~/.config/pim`
+explicitly.
+
+```bash
+# 1. Stop the UI (the daemon is killed by the UI on close).
+pkill -x pim-ui 2>/dev/null || true
+sudo pkill -x pim-daemon 2>/dev/null || true
+
+# 2. Uninstall whichever package format is installed (silences "not installed").
+sudo dpkg -r pim 2>/dev/null || true
+sudo rpm -e pim 2>/dev/null || true
+
+# 3. Remove user-level launcher remnants from any earlier AppImage recipe.
+rm -rf "${HOME}/.local/share/pim-ui"
+rm -f "${HOME}/.local/share/applications/pim-ui.desktop"
+rm -f "${HOME}/.local/share/icons/hicolor/512x512/apps/pim-ui.png"
+update-desktop-database "${HOME}/.local/share/applications" 2>/dev/null || true
+gtk-update-icon-cache "${HOME}/.local/share/icons/hicolor" 2>/dev/null || true
+
+# 4. Clear stale root-owned daemon runtime state.
+sudo rm -f \
+  "/run/user/$(id -u)/pim.sock" \
+  "/run/user/$(id -u)/pim.pid" \
+  "/run/user/$(id -u)/pim-daemon.log"
+```
 
 ## Develop
 
