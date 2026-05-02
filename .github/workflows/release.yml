@@ -242,7 +242,7 @@ jobs:
             - name: Publish GitHub release
               uses: softprops/action-gh-release@v3
               with:
-                  draft: true
+                  make_latest: true
                   generate_release_notes: true
                   name: pim ${{ github.ref_name }}
                   files: |
