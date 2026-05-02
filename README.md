@@ -106,6 +106,59 @@ Then install the bundle the platform-native way:
 - **Windows (`.msi`)**: double-click to launch the installer
 - **Windows (`.exe`)**: NSIS setup — double-click to install
 
+### Run From the App Launcher
+
+- **Linux (`.deb`/`.rpm`)**: after installation, search for `pim` in your
+  desktop app launcher and open it from there.
+- **Linux (`.AppImage`)**: the AppImage can be run directly from the download
+  directory. To make it searchable in your app launcher, install an AppImage
+  integration tool such as
+  [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) or
+  [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher), then add
+  the downloaded AppImage through that tool.
+- **macOS (`.dmg`)**: after dragging `pim.app` into `/Applications`, open it
+  from `/Applications`, Spotlight, or Launchpad.
+
+Manual AppImage launcher example:
+
+```bash
+APPIMAGE="pim-ui-${VERSION}-linux-x86_64.AppImage"
+
+chmod +x "./${APPIMAGE}"
+mkdir -p \
+  "${HOME}/.local/share/pim-ui" \
+  "${HOME}/.local/share/icons/hicolor/512x512/apps" \
+  "${HOME}/.local/share/applications"
+
+install -m 755 "./${APPIMAGE}" "${HOME}/.local/share/pim-ui/pim-ui.AppImage"
+"./${APPIMAGE}" --appimage-extract pim.png >/dev/null 2>&1 || true
+
+if [ -f squashfs-root/pim.png ]; then
+  install -m 644 squashfs-root/pim.png \
+    "${HOME}/.local/share/icons/hicolor/512x512/apps/pim-ui.png"
+fi
+
+cat > "${HOME}/.local/share/applications/pim-ui.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=pim
+GenericName=Proximity Internet Mesh
+Comment=Desktop UI for the pim proximity mesh daemon
+Exec=${HOME}/.local/share/pim-ui/pim-ui.AppImage
+Icon=pim-ui
+Terminal=false
+Categories=Network;
+StartupNotify=true
+StartupWMClass=pim
+EOF
+
+update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
+gtk-update-icon-cache "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+```
+
+After that, search for `pim` in your app launcher. If it does not appear
+immediately, log out and back in.
+
 The bundle ships with the matching `pim-daemon` sidecar baked in; no
 separate daemon download is required for desktop use.
 
