@@ -97,10 +97,15 @@ else
 fi
 ```
 
-Then install the bundle the platform-native way:
+Then install the bundle the platform-native way. Use a dependency-aware
+front-end (`apt`, `dnf`, `zypper`) rather than the raw `dpkg`/`rpm`
+commands — the .deb/.rpm declare GTK runtime deps
+(`libayatana-appindicator3-1`, `libwebkit2gtk-4.1-0`, `libgtk-3-0` on
+Debian/Ubuntu) that need to be pulled in.
 
-- **Linux (`.deb`)**: `sudo dpkg -i pim-ui-${VERSION}-linux-x86_64.deb`
-- **Linux (`.rpm`)**: `sudo rpm -i pim-ui-${VERSION}-linux-x86_64.rpm`
+- **Debian / Ubuntu (`.deb`)**: `sudo apt install ./pim-ui-${VERSION}-linux-x86_64.deb`
+- **Fedora / RHEL (`.rpm`)**: `sudo dnf install ./pim-ui-${VERSION}-linux-x86_64.rpm`
+- **openSUSE (`.rpm`)**: `sudo zypper install ./pim-ui-${VERSION}-linux-x86_64.rpm`
 - **macOS (`.dmg`)**: open the `.dmg` and drag `pim.app` into `/Applications`
 - **Windows (`.msi`)**: double-click to launch the installer
 - **Windows (`.exe`)**: NSIS setup — double-click to install
@@ -111,6 +116,32 @@ Then install the bundle the platform-native way:
 > to `SIGSEGV` before `main()` and the UI to surface
 > `pim-daemon exited in ~2000 ms during startup`. Use `.deb` or `.rpm`
 > until the AppImage build is fixed.
+
+### Runtime Requirements (Linux)
+
+The .deb / .rpm declare the GTK webview deps and the package manager
+will pull them in. A few runtime requirements are not declared and need
+to already be present:
+
+- **polkit + a polkit auth agent** — required so the UI can `pkexec`
+  the daemon (it needs root for TUN, NAT, etc.). Full KDE / GNOME /
+  XFCE / MATE / LXQt desktops ship one. On minimal i3 / sway / headless
+  setups install one explicitly (e.g. `polkit-gnome`, `polkit-kde-agent-1`,
+  `lxqt-policykit`); without it the password dialog never appears, the
+  daemon never starts, and the UI surfaces the same
+  `pim-daemon exited in ~2000 ms` error.
+- **`iproute2` (`ip`) and `iptables`** — used by the daemon to bring up
+  the TUN interface and set up forwarding. Installed by default on most
+  desktop distros.
+- **Bluetooth path only** — if `[bluetooth]` or `[bluetooth_rfcomm]` is
+  enabled in `~/.config/pim/pim.toml`, the daemon shells out to
+  `bluetoothctl`, `bt-network`, `dnsmasq`, `dhclient`. Install
+  `bluez`, `bluez-tools`, `dnsmasq`, and `isc-dhcp-client` on
+  Debian/Ubuntu (or the equivalents on other distros) before enabling
+  those features. The UI starts fine without them; only the BT bridge
+  setup logs errors.
+- **Wi-Fi Direct path only** — if `[wifi_direct]` is enabled, the daemon
+  drives `wpa_supplicant` directly. Most desktop distros include it.
 
 ### Run From the App Launcher
 
