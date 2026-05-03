@@ -3,14 +3,18 @@
  * + filter state.
  *
  * Subscription lifecycle (02-CONTEXT §D-25):
- *   - On mount: callDaemon("logs.subscribe", { min_level, sources: [] })
- *     to request server-side forwarding, store subscription_id, then
- *     register a fan-out handler on useDaemonState.actions.subscribe for
- *     event name "logs.event" (no new Tauri listener — W1 preserved).
+ *   - On daemon `running`: register a fan-out handler via
+ *     `actions.subscribe("logs.event", …)` — that path's `registerHandler`
+ *     (use-daemon-state.ts) already calls `daemon_subscribe →
+ *     logs.subscribe` on the daemon. A second explicit subscribe used to
+ *     live here and caused every log line to arrive twice; do not add
+ *     it back without also fixing the daemon's `logs.unsubscribe`
+ *     (currently a no-op, so duplicate subscriptions leak).
  *   - Each incoming LogEvent prepends onto a module-local ring buffer
  *     capped at MAX_ENTRIES (2000, drop-oldest).
- *   - On unmount: callDaemon("logs.unsubscribe", { subscription_id }) and
- *     remove the fan-out handler.
+ *   - On daemon leaving `running`: tear down the fan-out via
+ *     `sub.unsubscribe()` — this routes through `daemon_unsubscribe`
+ *     and (eventually) `logs.unsubscribe` on the daemon.
  *
  * Filter semantics (02-CONTEXT §D-26 + 03-CONTEXT §D-21/D-22):
  *   - Level filter (trace/debug/info/warn/error) is SERVER-SIDE — changing
@@ -53,7 +57,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useDaemonState } from "./use-daemon-state";
-import { callDaemon, type DaemonSubscription } from "@/lib/rpc";
+import { type DaemonSubscription } from "@/lib/rpc";
 import type { LogEvent, LogLevel } from "@/lib/rpc-types";
 
 export type StreamStatus = "streaming" | "paused" | "reconnecting" | "idle";
@@ -255,7 +259,6 @@ export function setSourceAtom(next: string | null): void {
 // hook mount/unmount. Opening / closing the Logs tab incurs no extra
 // daemon round-trips.
 
-let subscriptionId: string | null = null;
 let fanOutSub: DaemonSubscription | null = null;
 let streamStatus: StreamStatus = "idle";
 let streamErrorMessage: string | null = null;
@@ -327,52 +330,15 @@ function pushEvent(evt: LogEvent): void {
   notifyBuffer();
 }
 
-/**
- * D-25 subscribe helper with D-31 retry-once. Subscribes daemon-side
- * with the broadest possible filter (`min_level: "trace"`, `sources: []`)
- * so the client sees EVERY event the daemon emits. All user-facing
- * filtering — multi-select levels, multi-select crates, peer, search,
- * time range — is then applied client-side on the buffer. Trade-offs:
- *
- *   1. Filter changes are instant — no daemon round-trip, no
- *      subscription churn, no momentary blank list.
- *   2. The history-replay buffer (daemon's last 2048 events) is read
- *      ONCE, the first time the daemon enters the running state. While
- *      the daemon stays up, this function is called only on the first
- *      stop→running transition; opening / closing the Logs tab does
- *      not re-fire it (subscription is owned at AppShell level).
- *
- * On first failure waits 500 ms and retries. On second failure stores
- * errorMessage + status="idle" on the module atoms so the LogsScreen
- * empty state can route the user to the dashboard.
- */
-async function subscribeOnce(): Promise<void> {
-  setStatus("reconnecting");
-
-  const attempt = async (): Promise<void> => {
-    const res = await callDaemon("logs.subscribe", {
-      min_level: "trace",
-      sources: [],
-    });
-    subscriptionId = res.subscription_id;
-  };
-
-  try {
-    await attempt();
-    setStatus("streaming");
-    setError(null, null);
-  } catch {
-    await new Promise((r) => setTimeout(r, 500));
-    try {
-      await attempt();
-      setStatus("streaming");
-      setError(null, null);
-    } catch (e2) {
-      setStatus("idle");
-      setError(describeError(e2), "logs");
-    }
-  }
-}
+// Subscription is now driven solely by `actions.subscribe("logs.event", …)`
+// in `useLogsSubscriptionLifecycle` — that hook's `registerHandler`
+// (use-daemon-state.ts) already calls `daemon_subscribe → logs.subscribe`
+// on the daemon, so a separate `callDaemon("logs.subscribe", …)` here
+// caused the daemon to spawn TWO subscription tasks per UI session,
+// each replaying history + forwarding live events to the same
+// connection's writer — every log line arrived twice. The daemon's
+// `logs.unsubscribe` is a no-op (rpc.rs §5.6), so the redundant
+// subscriptions also leak for the connection's lifetime.
 
 // ─── App-level subscription lifecycle ─────────────────────────────────
 //
@@ -417,16 +383,11 @@ export function useLogsSubscriptionLifecycle(): void {
       // reachable (state === "reconnecting" can briefly co-exist with
       // a live socket); when the daemon is fully gone, the call simply
       // fails silently. Then drop refs so the next "running" transition
-      // triggers a fresh subscribeOnce + fan-out attach.
+      // triggers a fresh fan-out attach.
       const staleFan = fanOutSub;
-      const staleId = subscriptionId;
       fanOutSub = null;
-      subscriptionId = null;
       if (staleFan !== null) {
         staleFan.unsubscribe().catch(() => {});
-      }
-      if (staleId !== null) {
-        callDaemon("logs.unsubscribe", { subscription_id: staleId }).catch(() => {});
       }
       setStatus("idle");
       return;
@@ -435,21 +396,42 @@ export function useLogsSubscriptionLifecycle(): void {
     // Daemon is running — ensure subscribe + fan-out attach. We use a
     // local cancelled flag so an awaiting attach call doesn't write to
     // module state if the daemon flips away from "running" mid-flight.
-    const cancelled = { current: false };
-    void subscribeOnce();
+    // `isCancelled` is a function (rather than `cancelled.current`) so
+    // TS doesn't narrow the flag to the false-literal across awaits.
+    const cancelled: { current: boolean } = { current: false };
+    const isCancelled = (): boolean => cancelled.current;
+    setStatus("reconnecting");
     (async () => {
+      const attempt = (): Promise<DaemonSubscription> =>
+        actions.subscribe("logs.event", pushEvent);
       try {
-        const sub = await actions.subscribe("logs.event", pushEvent);
-        if (cancelled.current === true) {
+        const sub = await attempt();
+        if (isCancelled()) {
           await sub.unsubscribe().catch(() => {});
           return;
         }
         fanOutSub = sub;
-      } catch (e) {
-        if (cancelled.current === true) return;
-        console.warn("logs.event fan-out subscribe failed:", e);
-        setStatus("idle");
-        setError(describeError(e), "logs");
+        setStatus("streaming");
+        setError(null, null);
+      } catch (e1) {
+        if (isCancelled()) return;
+        await new Promise((r) => setTimeout(r, 500));
+        if (isCancelled()) return;
+        try {
+          const sub = await attempt();
+          if (isCancelled()) {
+            await sub.unsubscribe().catch(() => {});
+            return;
+          }
+          fanOutSub = sub;
+          setStatus("streaming");
+          setError(null, null);
+        } catch (e2) {
+          if (isCancelled()) return;
+          console.warn("logs.event fan-out subscribe failed:", e2);
+          setStatus("idle");
+          setError(describeError(e2), "logs");
+        }
       }
     })().catch((e) => {
       console.warn("useLogsSubscriptionLifecycle attach failed:", e);
