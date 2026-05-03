@@ -183,6 +183,131 @@ sudo rm -f \
   "/run/user/$(id -u)/pim-daemon.log"
 ```
 
+## Build From Source
+
+If you would rather produce your own installer bundle than download a
+published one, build it locally. The output is the same
+`.deb` / `.rpm` / `.AppImage` / `.dmg` / `.msi` / `.exe` formats listed in
+[Install From GitHub Releases](#install-from-github-releases) — install them
+the same platform-native way once built.
+
+### Prerequisites
+
+- **git**
+- **Node** ≥ 20
+- **pnpm** 10 (`npm install -g pnpm@10`)
+- **Rust** (stable) — install via [rustup](https://rustup.rs/)
+- **Platform build deps** — see
+  [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+  On Debian / Ubuntu:
+
+  ```bash
+  sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+    libayatana-appindicator3-dev librsvg2-dev patchelf
+  ```
+
+- **macOS only** — Xcode command-line tools (Swift toolchain) are required to
+  build the `pim-bt-rfcomm-mac` Bluetooth-RFCOMM bridge declared in
+  `src-tauri/tauri.macos.conf.json`.
+
+### Build
+
+```bash
+git clone https://github.com/Astervia/pim-ui.git
+cd pim-ui
+
+pnpm install --frozen-lockfile
+
+# Bake the matching pim-daemon sidecar into src-tauri/binaries/.
+# Defaults to the latest proximity-internet-mesh release;
+# see "Pinning the bundled daemon" below to override.
+pnpm fetch-daemon
+```
+
+On **macOS only**, also build the Bluetooth-RFCOMM Swift sidecar that
+`tauri.macos.conf.json` declares (mirrors the matching step in
+`.github/workflows/release.yml`):
+
+```bash
+case "$(uname -m)" in
+  arm64)  TRIPLE_IN=arm64-apple-macosx13.0  ; TRIPLE_OUT=aarch64-apple-darwin ;;
+  x86_64) TRIPLE_IN=x86_64-apple-macosx13.0 ; TRIPLE_OUT=x86_64-apple-darwin  ;;
+esac
+(
+  cd tools/pim-bt-rfcomm-mac
+  swift build -c release --triple "$TRIPLE_IN"
+  src="$(find .build -name pim-bt-rfcomm-mac -type f -path '*/release/*' ! -path '*.dSYM*' | head -1)"
+  dst="../../src-tauri/binaries/pim-bt-rfcomm-mac-${TRIPLE_OUT}"
+  cp "$src" "$dst"
+  chmod +x "$dst"
+  codesign --force -s - \
+    --entitlements entitlements/pim-bt-rfcomm-mac.entitlements "$dst"
+)
+```
+
+Then produce the native installer bundles for the host:
+
+```bash
+pnpm tauri build
+```
+
+Output lands under `src-tauri/target/release/bundle/`:
+
+| Platform | Bundles                                                               |
+| -------- | --------------------------------------------------------------------- |
+| Linux    | `bundle/deb/*.deb`, `bundle/rpm/*.rpm`, `bundle/appimage/*.AppImage`  |
+| macOS    | `bundle/dmg/*.dmg`, `bundle/macos/pim.app`                            |
+| Windows  | `bundle/msi/*.msi`, `bundle/nsis/*.exe`                               |
+
+Install the resulting bundle the same platform-native way described in
+[Install From GitHub Releases](#install-from-github-releases). For example
+on Debian / Ubuntu:
+
+```bash
+sudo apt install ./src-tauri/target/release/bundle/deb/pim_*.deb
+```
+
+The `.AppImage` warning above applies to locally-built AppImages too —
+prefer `.deb` or `.rpm` on Linux until the AppImage daemon-mangling issue
+is fixed. On Linux, the [Runtime Requirements](#runtime-requirements-linux)
+(polkit auth agent, `iproute2`, `iptables`, …) apply to source-built
+bundles exactly the same way they apply to released ones.
+
+### Pinning the bundled daemon
+
+`scripts/fetch-daemon.sh` decides which `pim-daemon` ends up baked into the
+bundle. Override the default-latest-release with:
+
+```bash
+pnpm fetch-daemon --version v0.1.16        # pin a kernel release tag
+pnpm fetch-daemon --branch main            # build pim-daemon from a kernel branch
+PIM_DAEMON_VERSION=v0.1.16 pnpm fetch-daemon
+```
+
+`--branch` builds the daemon from source: it reads a sibling `../kernel`
+checkout when present, otherwise pulls a tarball from
+[Astervia/proximity-internet-mesh](https://github.com/Astervia/proximity-internet-mesh).
+Override the local checkout location with `--repo-path <path>` or
+`PIM_DAEMON_REPO_PATH=<path>`.
+
+### Cross-compiling
+
+`pnpm tauri build` defaults to the host triple. To target another triple,
+fetch a daemon for it and pass `--target`:
+
+```bash
+# Apple Silicon host → also build the Intel bundle:
+rustup target add x86_64-apple-darwin
+pnpm fetch-daemon x86_64-apple-darwin
+pnpm tauri build --target x86_64-apple-darwin
+```
+
+For multi-platform releases the
+[`.github/workflows/release.yml`](.github/workflows/release.yml) matrix is
+the easier path — it already runs each target on a matching host runner
+and produces the same `pim-ui-<tag>-<label>.<ext>` artifact layout used in
+[Install From GitHub Releases](#install-from-github-releases).
+
 ## Develop
 
 ```bash
