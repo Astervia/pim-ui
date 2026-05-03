@@ -17,15 +17,30 @@ export interface PeerListProps {
   conversations: ConversationSummary[];
   selected: string | null;
   onSelect: (peerNodeId: string) => void;
+  /**
+   * NodeIds we learned about exclusively via routed broadcast — used
+   * to split the "known" group into an extra "discovered" section so
+   * the user can tell apart "we've chatted before" from "their
+   * identity card just arrived from the mesh".
+   */
+  discoveredIds?: ReadonlySet<string>;
 }
 
 export function PeerList({
   conversations,
   selected,
   onSelect,
+  discoveredIds,
 }: PeerListProps) {
   const active = conversations.filter((c) => c.is_connected === true);
-  const known = conversations.filter((c) => c.is_connected === false);
+  const offline = conversations.filter((c) => c.is_connected === false);
+  const isDiscovered = (c: ConversationSummary): boolean => {
+    if (discoveredIds === undefined) return false;
+    if (c.last_message_ts_ms !== null) return false; // chatted before
+    return discoveredIds.has(c.peer_node_id);
+  };
+  const discovered = offline.filter(isDiscovered);
+  const known = offline.filter((c) => !isDiscovered(c));
 
   return (
     <nav
@@ -66,6 +81,20 @@ export function PeerList({
           ))
         )}
       </Section>
+      {discovered.length === 0 ? null : (
+        <Section title="discovered" count={discovered.length}>
+          {discovered.map((c) => (
+            <Row
+              key={c.peer_node_id}
+              conversation={c}
+              selected={selected === c.peer_node_id}
+              onSelect={onSelect}
+              connected={false}
+              discoveredBadge
+            />
+          ))}
+        </Section>
+      )}
     </nav>
   );
 }
@@ -98,9 +127,17 @@ interface RowProps {
   selected: boolean;
   connected: boolean;
   onSelect: (peerNodeId: string) => void;
+  /** Adds a small "via mesh" badge for broadcast-discovered peers. */
+  discoveredBadge?: boolean;
 }
 
-function Row({ conversation, selected, connected, onSelect }: RowProps) {
+function Row({
+  conversation,
+  selected,
+  connected,
+  onSelect,
+  discoveredBadge,
+}: RowProps) {
   const marker = connected === true ? "◆" : "○";
   const unreadVisible = conversation.unread_count > 0;
 
@@ -126,6 +163,19 @@ function Row({ conversation, selected, connected, onSelect }: RowProps) {
               {marker}
             </span>
             <span className="truncate font-medium">{conversation.name}</span>
+            {discoveredBadge === true ? (
+              <span
+                className={cn(
+                  "shrink-0 text-[0.55rem] uppercase tracking-wider px-1 py-px border",
+                  selected === true
+                    ? "border-primary-foreground/60 text-primary-foreground/80"
+                    : "border-border text-muted-foreground",
+                )}
+                title="learned via mesh broadcast"
+              >
+                via mesh
+              </span>
+            ) : null}
           </span>
           <span className="text-[0.65rem] tabular-nums text-muted-foreground shrink-0">
             {formatRelativeDate(conversation.last_message_ts_ms)}

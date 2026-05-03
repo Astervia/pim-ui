@@ -182,10 +182,17 @@ export interface StatusStats {
 export interface Status {
   /** Configured node name (from pim.toml `[node] name`). */
   node: string;
-  /** Full 64-char hex Ed25519 pubkey. */
+  /** 32-char lowercase hex NodeId (SHA-256/2 of the Ed25519 pubkey). */
   node_id: string;
   /** 8-char prefix for UI display. */
   node_id_short: string;
+  /**
+   * 64-char lowercase hex of this node's static X25519 public key.
+   * Derived from the same Ed25519 seed at startup; safe to share
+   * out-of-band so peers can import it via `peers.import_identity`
+   * and message us across the mesh.
+   */
+  x25519_pubkey: string;
   /** CIDR, e.g. "10.77.0.100/24". */
   mesh_ip: string;
   interface: StatusInterface;
@@ -223,6 +230,12 @@ export interface PeerSummary {
   is_gateway: boolean;
   /** True when the peer is configured statically in pim.toml. */
   static: boolean;
+  /**
+   * 64-char lowercase hex of the peer's cached X25519 static public
+   * key. Null when no `PeerInfo` has been received and no out-of-band
+   * `peers.import_identity` has populated the keystore.
+   */
+  x25519_pubkey: string | null;
 }
 
 export interface PeersAddStaticParams {
@@ -285,6 +298,73 @@ export interface PeersPairParams {
   /** "once" = trust for this session only; "persist" = write to trust store. */
   trust: "once" | "persist";
   label?: string;
+}
+
+/**
+ * Out-of-band identity import. Lets a user paste a peer's `node_id +
+ * x25519_pubkey` (typically shared via Signal/email/QR) so the daemon
+ * can ECIES-encrypt to that peer without a direct PeerInfo handshake —
+ * unblocking multi-hop messaging when both sides import each other.
+ */
+export interface PeersImportIdentityParams {
+  /** 32-char lowercase hex NodeId. */
+  node_id: string;
+  /** 64-char lowercase hex of the peer's static X25519 public key. */
+  x25519_pubkey: string;
+  /** Optional friendly label; preserves existing if omitted/empty. */
+  friendly_name?: string;
+}
+
+export interface PeersImportIdentityResult {
+  /** Echoed back: 32-char hex NodeId. */
+  node_id: string;
+  /** 8-char prefix for UI surfacing. */
+  node_id_short: string;
+  /**
+   * `true` when a new `peers_seen` row was created; `false` when an
+   * identical row already existed (idempotent re-import).
+   */
+  imported: boolean;
+}
+
+/**
+ * Source of an inbound `PeerInfo` frame — direct (handshake) vs. routed
+ * (multi-hop broadcast). Carried on `peer_seen` so the UI can section
+ * directly-paired peers from broadcast-discovered ones, and also
+ * surfaces in the broadcast-state RPCs.
+ */
+export type PeerInfoSource = "direct" | "routed";
+
+export interface PeersBroadcastIdentityNowResult {
+  /** Number of distinct destination NodeIds the cycle attempted. */
+  recipients: number;
+  /** UTC ms when the cycle completed (`i64::MIN` if it didn't run). */
+  sent_at_ms: number;
+}
+
+/**
+ * Partial update for `peers.set_broadcast_config`. Fields omitted from
+ * the payload leave the corresponding daemon-side value unchanged. To
+ * disable the periodic outbound broadcast, send
+ * `outgoing_interval_s: null` explicitly (an absent key is a no-op).
+ */
+export interface PeersSetBroadcastConfigParams {
+  /** `null` disables; `>= 30` sets a periodic cadence. */
+  outgoing_interval_s?: number | null;
+  /** When false, routed PeerInfo no longer surfaces `peer_seen`. */
+  watch_incoming?: boolean;
+  /** Per-peer minimum seconds between accepted broadcasts. */
+  min_peer_interval_s?: number;
+}
+
+export interface BroadcastState {
+  outgoing_interval_s: number | null;
+  watch_incoming: boolean;
+  min_peer_interval_s: number;
+  /** UTC ms of the last completed broadcast cycle, null if none yet. */
+  last_broadcast_ms: number | null;
+  /** Recipient count from the last completed cycle, null if none yet. */
+  last_recipient_count: number | null;
 }
 
 /** Kinds emitted on the `peers.event` notification stream. */
@@ -587,6 +667,13 @@ export interface ConversationSummary {
   unread_count: number;
   /** Whether the peer currently has a live session with the daemon. */
   is_connected: boolean;
+  /**
+   * 64-char lowercase hex of the peer's cached X25519 static public key
+   * (sourced from `peers_seen`). Lets the identity card render the key
+   * for offline / known-only peers without needing a matching active
+   * session in `usePeers()`.
+   */
+  x25519_pubkey: string | null;
 }
 
 export interface MessagesListConversationsResult {
@@ -644,6 +731,8 @@ export type MessageEvent =
       peer_node_id: string;
       name: string;
       x25519_known: boolean;
+      /** How the identity arrived — direct handshake or routed broadcast. */
+      via: PeerInfoSource;
     };
 
 // ─── Method + event registry (typed callDaemon spine) ────────────────
@@ -682,6 +771,19 @@ export interface RpcMethodMap {
   "peers.remove": { params: PeersRemoveParams; result: null };
   "peers.discovered": { params: null; result: PeerDiscovered[] };
   "peers.pair": { params: PeersPairParams; result: PeerSummary };
+  "peers.import_identity": {
+    params: PeersImportIdentityParams;
+    result: PeersImportIdentityResult;
+  };
+  "peers.broadcast_identity_now": {
+    params: null;
+    result: PeersBroadcastIdentityNowResult;
+  };
+  "peers.set_broadcast_config": {
+    params: PeersSetBroadcastConfigParams;
+    result: BroadcastState;
+  };
+  "peers.get_broadcast_state": { params: null; result: BroadcastState };
   "peers.subscribe": { params: null; result: SubscriptionResult };
   "peers.unsubscribe": {
     params: SubscriptionUnsubscribeParams;

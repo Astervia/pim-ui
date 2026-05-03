@@ -90,9 +90,28 @@ function applyEvent(evt: MessageEvent): void {
 /**
  * Optimistic-add a freshly-sent record so the conversation pane reflects
  * the user's last input immediately, before the daemon round-trip.
+ *
+ * `replaceId` lets the post-send reconcile step swap the optimistic row
+ * (keyed under `optimistic-…`) for the canonical record (keyed under the
+ * daemon-issued UUID). Without it, the differing ids would cause the
+ * merge to append a second row instead of replacing the first.
  */
-export function injectOptimisticSend(record: MessageRecord): void {
-  appendOrReplace(record.peer_node_id, record);
+export function injectOptimisticSend(
+  record: MessageRecord,
+  replaceId?: string,
+): void {
+  const peer = record.peer_node_id;
+  if (replaceId !== undefined && replaceId !== record.id) {
+    const prior = buffers.get(peer) ?? EMPTY;
+    const idx = prior.findIndex((m) => m.id === replaceId);
+    if (idx >= 0) {
+      const next = prior.slice();
+      next[idx] = record;
+      setForPeer(peer, next);
+      return;
+    }
+  }
+  appendOrReplace(peer, record);
 }
 
 export function useMessageHistory(

@@ -10,9 +10,14 @@ import { useMemo, useState } from "react";
 import { CliPanel } from "@/components/brand/cli-panel";
 import { PeerList } from "@/components/conversations/peer-list";
 import { ConversationPane } from "@/components/conversations/conversation-pane";
+import { BroadcastControlPanel } from "@/components/conversations/broadcast-control-panel";
 import { useConversations } from "@/hooks/use-conversations";
 import { useDaemonState } from "@/hooks/use-daemon-state";
 import { usePeers } from "@/hooks/use-peers";
+import {
+  useDiscoveredPeers,
+  type DiscoveredPeer,
+} from "@/hooks/use-discovered-peers";
 import type { ConversationSummary, PeerSummary } from "@/lib/rpc-types";
 
 function isPeerConnected(peer: PeerSummary): boolean {
@@ -28,25 +33,58 @@ function synthesizeConversation(peer: PeerSummary): ConversationSummary {
     last_message_ts_ms: null,
     unread_count: 0,
     is_connected: true,
+    x25519_pubkey: peer.x25519_pubkey,
+  };
+}
+
+function synthesizeDiscoveredConversation(p: DiscoveredPeer): ConversationSummary {
+  return {
+    peer_node_id: p.nodeId,
+    peer_node_id_short: p.nodeId.slice(0, 8),
+    name: p.name === "" ? p.nodeId.slice(0, 8) : p.name,
+    last_message_preview: null,
+    last_message_ts_ms: null,
+    unread_count: 0,
+    // Discovered-via-broadcast peers don't have a direct session — they
+    // surface as offline in the sidebar's "discovered" group.
+    is_connected: false,
+    // x25519 is known by definition (the discover hook only tracks
+    // entries with `x25519_known: true`) but the actual key isn't
+    // carried on the event yet — show null until a future RPC seeds
+    // the cache.
+    x25519_pubkey: null,
   };
 }
 
 export function MessagesScreen() {
   const conversations = useConversations();
   const peers = usePeers();
+  const discovered = useDiscoveredPeers();
   const [selected, setSelected] = useState<string | null>(null);
   const { snapshot } = useDaemonState();
 
   // Merge live connected peers into the conversation list so a freshly-
   // paired peer with no message history still surfaces under ACTIVE.
   // Existing conversation rows win — their preview/unread state is real.
+  // Then layer in discovered peers (broadcast-only) as a third category.
   const merged = useMemo<ConversationSummary[]>(() => {
     const known = new Set(conversations.map((c) => c.peer_node_id));
-    const synthetic = peers
+    const syntheticActive = peers
       .filter((p) => isPeerConnected(p) && !known.has(p.node_id))
       .map(synthesizeConversation);
-    return [...conversations, ...synthetic];
-  }, [conversations, peers]);
+    for (const p of syntheticActive) {
+      known.add(p.peer_node_id);
+    }
+    const syntheticDiscovered = discovered
+      .filter((p) => !known.has(p.nodeId))
+      .map(synthesizeDiscoveredConversation);
+    return [...conversations, ...syntheticActive, ...syntheticDiscovered];
+  }, [conversations, peers, discovered]);
+
+  const discoveredIds = useMemo(
+    () => new Set(discovered.map((p) => p.nodeId)),
+    [discovered],
+  );
 
   const selectedConversation = useMemo(
     () => merged.find((c) => c.peer_node_id === selected) ?? null,
@@ -75,11 +113,13 @@ export function MessagesScreen() {
         <p className="text-xs text-muted-foreground -mt-1 mb-2 font-code">
           {subtitle}
         </p>
+        <BroadcastControlPanel />
         <div className="flex flex-1 min-h-0 border border-border bg-background">
           <PeerList
             conversations={merged}
             selected={selected}
             onSelect={setSelected}
+            discoveredIds={discoveredIds}
           />
           <ConversationPane conversation={selectedConversation} />
         </div>

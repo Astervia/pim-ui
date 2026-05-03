@@ -7,11 +7,14 @@
  * x25519 known yet → composer disabled with a banner explaining why.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMessageHistory } from "@/hooks/use-message-history";
+import { usePeers } from "@/hooks/use-peers";
 import { Composer } from "./composer";
 import { MessageRow } from "./message-row";
+import { PeerIdentityCard } from "./peer-identity-card";
+import { SharePeerDialog } from "./share-peer-dialog";
 import { callDaemon } from "@/lib/rpc";
 import { injectOptimisticSend } from "@/hooks/use-message-history";
 import { refreshConversations } from "@/hooks/use-conversations";
@@ -24,7 +27,23 @@ export interface ConversationPaneProps {
 export function ConversationPane({ conversation }: ConversationPaneProps) {
   const peerId = conversation?.peer_node_id ?? null;
   const messages = useMessageHistory(peerId);
+  const peers = usePeers();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [identityOpen, setIdentityOpen] = useState(false);
+
+  const peerSummary = useMemo(() => {
+    if (peerId === null) return null;
+    return peers.find((p) => p.node_id === peerId) ?? null;
+  }, [peers, peerId]);
+
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // Close the identity card / share dialog when switching conversations
+  // so they don't linger showing the previous peer's data.
+  useEffect(() => {
+    setIdentityOpen(false);
+    setShareOpen(false);
+  }, [peerId]);
 
   // Auto-scroll to bottom on new messages.
   useEffect(() => {
@@ -72,13 +91,18 @@ export function ConversationPane({ conversation }: ConversationPaneProps) {
           peer_node_id: peerId,
           body,
         });
-        // Replace the optimistic row with the canonical record.
-        injectOptimisticSend({
-          ...optimistic,
-          id: result.id,
-          timestamp_ms: result.timestamp_ms,
-          status: result.status,
-        });
+        // Replace the optimistic row with the canonical record. Pass the
+        // optimistic id so the merge can find the row to swap — the daemon
+        // assigns a fresh UUID and a plain id-keyed lookup would miss it.
+        injectOptimisticSend(
+          {
+            ...optimistic,
+            id: result.id,
+            timestamp_ms: result.timestamp_ms,
+            status: result.status,
+          },
+          optimistic.id,
+        );
         void refreshConversations();
       } catch (e) {
         injectOptimisticSend({
@@ -114,6 +138,15 @@ export function ConversationPane({ conversation }: ConversationPaneProps) {
     <div className="flex-1 flex flex-col min-w-0">
       <header className="px-4 py-2 border-b border-border bg-popover/40 font-code">
         <div className="flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setIdentityOpen(true)}
+            aria-label={`show identity card for ${conversation.name}`}
+            title="show identity card"
+            className="font-mono text-[10px] uppercase tracking-wider text-text-secondary hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-100 ease-linear"
+          >
+            [ i ]
+          </button>
           <span aria-hidden>
             {conversation.is_connected === true ? "◆" : "○"}
           </span>
@@ -121,6 +154,15 @@ export function ConversationPane({ conversation }: ConversationPaneProps) {
           <span className="text-xs tabular-nums text-muted-foreground">
             · {conversation.peer_node_id_short}
           </span>
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            aria-label={`share another peer's identity with ${conversation.name}`}
+            title="share another peer's identity card"
+            className="ml-auto font-mono text-[10px] uppercase tracking-wider text-text-secondary hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-100 ease-linear"
+          >
+            [ + share peer ]
+          </button>
         </div>
         <p className="mt-0.5 text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
           {conversation.is_connected === true
@@ -128,6 +170,17 @@ export function ConversationPane({ conversation }: ConversationPaneProps) {
             : "offline · last message queued · ecies e2e"}
         </p>
       </header>
+      <PeerIdentityCard
+        open={identityOpen}
+        onOpenChange={setIdentityOpen}
+        conversation={conversation}
+        peer={peerSummary}
+      />
+      <SharePeerDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        recipient={conversation}
+      />
       <div
         ref={scrollerRef}
         className={cn(

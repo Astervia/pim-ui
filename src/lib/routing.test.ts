@@ -46,6 +46,7 @@ function makePeer(o: Partial<PeerSummary> & { node_id: string }): PeerSummary {
     latency_ms: o.latency_ms === undefined ? 12 : o.latency_ms,
     is_gateway: o.is_gateway ?? false,
     static: o.static ?? false,
+    x25519_pubkey: o.x25519_pubkey ?? null,
   };
 }
 
@@ -55,6 +56,9 @@ function makeStatus(o: Partial<Status>): Status {
     node: o.node ?? "client-a",
     node_id: o.node_id ?? "0000000000000000000000000000000000000000000000000000000000000000",
     node_id_short: o.node_id_short ?? "00000000",
+    x25519_pubkey:
+      o.x25519_pubkey ??
+      "0000000000000000000000000000000000000000000000000000000000000000",
     mesh_ip: o.mesh_ip ?? "10.77.0.100/24",
     interface: o.interface ?? { name: "pim0", up: true, mtu: 1280 },
     role: o.role ?? ["client"],

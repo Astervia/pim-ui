@@ -15,6 +15,8 @@ function buildStatus(overrides: Partial<Status> = {}): Status {
     node: "test-node",
     node_id: "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111",
     node_id_short: "aaaa",
+    x25519_pubkey:
+      "1111111111111111111111111111111111111111111111111111111111111111",
     mesh_ip: "10.77.0.1/24",
     interface: { name: "pim0", up: true, mtu: 1400 },
     role: ["client", "relay"],
