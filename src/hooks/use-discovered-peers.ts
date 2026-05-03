@@ -48,11 +48,27 @@ function notify(): void {
 }
 
 function applyEvent(evt: MessageEvent): void {
+  // history_cleared { scope: all } also drops every discovered row —
+  // those entries are pure-runtime state that follows the keystore.
+  if (evt.kind === "history_cleared" && evt.scope === "all") {
+    if (entries.size === 0) return;
+    entries = new Map();
+    notify();
+    return;
+  }
   if (evt.kind !== "peer_seen") return;
+  // x25519_known=false is the peer-forget signal — drop the entry
+  // regardless of the via discriminator (the daemon emits this with
+  // via="direct" because the user explicitly forgot, not the broadcast
+  // path).
+  if (evt.x25519_known === false) {
+    if (!entries.has(evt.peer_node_id)) return;
+    entries = new Map(entries);
+    entries.delete(evt.peer_node_id);
+    notify();
+    return;
+  }
   if (evt.via !== "routed") return;
-  // Only track peers whose x25519 we now have — we can't usefully act
-  // on a name without the key.
-  if (evt.x25519_known !== true) return;
   const prior = entries.get(evt.peer_node_id);
   const next: DiscoveredPeer = {
     nodeId: evt.peer_node_id,

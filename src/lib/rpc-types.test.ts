@@ -70,6 +70,7 @@ const _methodLookup: Record<RpcMethodName, true> = {
   "peers.discovered": true,
   "peers.pair": true,
   "peers.import_identity": true,
+  "peers.forget": true,
   "peers.broadcast_identity_now": true,
   "peers.set_broadcast_config": true,
   "peers.get_broadcast_state": true,
@@ -92,6 +93,8 @@ const _methodLookup: Record<RpcMethodName, true> = {
   "messages.history": true,
   "messages.send": true,
   "messages.mark_read": true,
+  "messages.delete_conversation": true,
+  "messages.delete_all": true,
   "messages.subscribe": true,
   "messages.unsubscribe": true,
 };

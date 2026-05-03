@@ -328,6 +328,44 @@ export interface PeersImportIdentityResult {
 }
 
 /**
+ * Forget a peer's identity from the messaging keystore. The default
+ * (less-destructive) variant keeps the message history so revoking
+ * trust doesn't double as data loss; pass `also_delete_messages: true`
+ * for a full per-peer wipe.
+ */
+export interface PeersForgetParams {
+  /** 32-char lowercase hex NodeId. */
+  node_id: string;
+  /** When true, extends the same SQLite transaction with a per-peer
+   *  message + conversation wipe. Default false. */
+  also_delete_messages?: boolean;
+}
+
+export interface PeersForgetResult {
+  /** True when a `peers_seen` row was actually removed. */
+  forgot_identity: boolean;
+  /** Number of `messages` rows deleted (0 unless `also_delete_messages`). */
+  deleted_messages: number;
+  /** True when a `conversations_meta` row was removed. */
+  deleted_conversation: boolean;
+}
+
+export interface MessagesDeleteConversationParams {
+  /** 32-char lowercase hex NodeId. */
+  peer_node_id: string;
+}
+
+export interface MessagesDeleteConversationResult {
+  deleted_messages: number;
+  deleted_conversation: boolean;
+}
+
+export interface MessagesDeleteAllResult {
+  deleted_messages: number;
+  deleted_conversations: number;
+}
+
+/**
  * Source of an inbound `PeerInfo` frame — direct (handshake) vs. routed
  * (multi-hop broadcast). Carried on `peer_seen` so the UI can section
  * directly-paired peers from broadcast-discovered ones, and also
@@ -733,6 +771,14 @@ export type MessageEvent =
       x25519_known: boolean;
       /** How the identity arrived — direct handshake or routed broadcast. */
       via: PeerInfoSource;
+    }
+  | {
+      kind: "history_cleared";
+      /** Set when scope is "peer"; null/undefined for "all". */
+      peer_node_id: string | null;
+      /** "peer" — single conversation; "all" — every conversation. */
+      scope: "peer" | "all";
+      deleted_messages: number;
     };
 
 // ─── Method + event registry (typed callDaemon spine) ────────────────
@@ -775,6 +821,7 @@ export interface RpcMethodMap {
     params: PeersImportIdentityParams;
     result: PeersImportIdentityResult;
   };
+  "peers.forget": { params: PeersForgetParams; result: PeersForgetResult };
   "peers.broadcast_identity_now": {
     params: null;
     result: PeersBroadcastIdentityNowResult;
@@ -838,6 +885,11 @@ export interface RpcMethodMap {
     params: MessagesMarkReadParams;
     result: MessagesMarkReadResult;
   };
+  "messages.delete_conversation": {
+    params: MessagesDeleteConversationParams;
+    result: MessagesDeleteConversationResult;
+  };
+  "messages.delete_all": { params: null; result: MessagesDeleteAllResult };
   "messages.subscribe": { params: null; result: SubscriptionResult };
   "messages.unsubscribe": {
     params: SubscriptionUnsubscribeParams;

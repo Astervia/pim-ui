@@ -121,7 +121,12 @@ export function MessagesScreen() {
             onSelect={setSelected}
             discoveredIds={discoveredIds}
           />
-          <ConversationPane conversation={selectedConversation} />
+          <ConversationPane
+            conversation={selectedConversation}
+            onConversationGone={(nodeId) => {
+              if (selected === nodeId) setSelected(null);
+            }}
+          />
         </div>
         <p className="mt-3 text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground font-code">
           messages stored locally · identity is the peer's node_id, not its

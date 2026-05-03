@@ -62,6 +62,18 @@ function applyEvent(evt: MessageEvent): void {
     appendOrReplace(evt.message.peer_node_id, evt.message);
     return;
   }
+  if (evt.kind === "history_cleared") {
+    if (evt.scope === "all") {
+      buffers.clear();
+      notify();
+      return;
+    }
+    if (evt.peer_node_id !== null) {
+      buffers.delete(evt.peer_node_id);
+      notify();
+    }
+    return;
+  }
   if (evt.kind === "message_status") {
     const prior = buffers.get(evt.peer_node_id);
     if (prior === undefined) return;

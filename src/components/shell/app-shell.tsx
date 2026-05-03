@@ -287,6 +287,11 @@ export function AppShell() {
           className={cn(
             "flex flex-col gap-6 flex-1",
             "px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8",
+            // Messages is viewport-filling: the conversation scroller must
+            // clip and scroll inside its pane, not push <main> into scroll.
+            // Other screens stay content-sized so <main>'s overflow-y-auto
+            // keeps scrolling tall Dashboard / Settings / Logs layouts.
+            active === "messages" && "min-h-0",
           )}
         >
           {/* BannerStack (limited mode + kill switch) only on the

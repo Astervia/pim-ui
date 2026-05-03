@@ -76,6 +76,17 @@ function applyEvent(evt: MessageEvent): void {
     }
     return;
   }
+  if (evt.kind === "history_cleared") {
+    if (evt.scope === "all") {
+      setConversations(EMPTY);
+      return;
+    }
+    if (evt.peer_node_id !== null) {
+      const target = evt.peer_node_id;
+      setConversations(conversations.filter((c) => c.peer_node_id !== target));
+    }
+    return;
+  }
   // message_status — refetch the affected conversation cheaply for now
   // (only impacts last_message_preview's status indicator). Server-side
   // we could push the full ConversationSummary; deferred to v1.1.

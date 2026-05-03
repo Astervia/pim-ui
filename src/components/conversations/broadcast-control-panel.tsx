@@ -22,7 +22,19 @@ import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useBroadcast } from "@/hooks/use-broadcast";
 import { formatTimeOfDay } from "@/lib/conversations/format";
+import { callDaemon } from "@/lib/rpc";
+import { refreshConversations } from "@/hooks/use-conversations";
 import { MyIdentityCard } from "./my-identity-card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface IntervalOption {
   /** Daemon-side seconds; null = disabled. */
@@ -48,9 +60,28 @@ export function BroadcastControlPanel() {
   const { state, loading, error, now, update } = useBroadcast();
   const [expanded, setExpanded] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
+  const [deleteAllBusy, setDeleteAllBusy] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"now" | "interval" | "watch" | "min" | null>(
     null,
   );
+
+  const onDeleteAll = useCallback(async () => {
+    setDeleteAllBusy(true);
+    setDeleteAllError(null);
+    try {
+      await callDaemon("messages.delete_all", null);
+      // The daemon's HistoryCleared event will flush the live caches;
+      // refresh once for the (rare) missed-event case.
+      void refreshConversations();
+      setDeleteAllConfirm(false);
+    } catch (e) {
+      setDeleteAllError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleteAllBusy(false);
+    }
+  }, []);
 
   const onPickOutgoing = useCallback(
     async (value: number | null) => {
@@ -207,6 +238,24 @@ export function BroadcastControlPanel() {
             </span>
           </Row>
 
+          <Row label="danger">
+            <button
+              type="button"
+              onClick={() => setDeleteAllConfirm(true)}
+              className={cn(
+                "uppercase tracking-wider px-2 py-px",
+                "border border-destructive/60 text-destructive",
+                "hover:bg-destructive/10",
+                "transition-colors duration-100 ease-linear",
+              )}
+            >
+              [ delete all chats ]
+            </button>
+            <span className="text-text-secondary">
+              wipes every message + conversation; identities are kept
+            </span>
+          </Row>
+
           {error !== null ? (
             <p className="text-destructive break-all">✗ {error}</p>
           ) : null}
@@ -214,6 +263,47 @@ export function BroadcastControlPanel() {
       ) : null}
 
       <MyIdentityCard open={identityOpen} onOpenChange={setIdentityOpen} />
+
+      <AlertDialog
+        open={deleteAllConfirm}
+        onOpenChange={(o) => {
+          if (deleteAllBusy === true) return;
+          if (o === false) {
+            setDeleteAllConfirm(false);
+            setDeleteAllError(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>delete every chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              every message and conversation row on this device will be
+              deleted. cached peer identities (x25519) are preserved so
+              you can still message them. this cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteAllError !== null ? (
+            <p className="font-code text-xs text-destructive break-all">
+              ✗ {deleteAllError}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAllBusy}>
+              cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void onDeleteAll();
+              }}
+              disabled={deleteAllBusy}
+            >
+              {deleteAllBusy ? "deleting…" : "delete all"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
