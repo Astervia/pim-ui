@@ -149,12 +149,14 @@ export interface KeyboardShortcut {
 
 export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcut[] = [
   { key: "⌘1", label: "Dashboard" },
-  { key: "⌘2", label: "Peers" },
+  { key: "⌘2", label: "Messages" },
   { key: "⌘3", label: "Routing" },
   { key: "⌘4", label: "Gateway" },
   { key: "⌘5", label: "Logs" },
   { key: "⌘6 / ⌘,", label: "Settings" },
+  { key: "⌘7", label: "About" },
   { key: "⌘K", label: "Command palette" },
+  { key: "⌘\\", label: "Switch to simple mode" },
   { key: "⌘F", label: "Filter settings sections (when on Settings)" },
   { key: "⌘↑", label: "Collapse all settings sections (when on Settings)" },
   { key: "⌘↓", label: "Expand all settings sections (when on Settings)" },

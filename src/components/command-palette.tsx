@@ -3,8 +3,8 @@
  *
  * Mounted ONCE at AppShell level (D-28). Reads { open, setOpen } from
  * useCommandPalette() and renders a cmdk Command.Dialog containing the
- * 17 actions from PALETTE_ACTIONS grouped into navigate / routing /
- * peers / gateway / logs.
+ * actions from PALETTE_ACTIONS grouped into navigate / routing / peers /
+ * gateway / logs / settings.
  *
  * Brand styling lives in src/globals.css cmdk override block (Plan 05-05
  * D-25 + RESEARCH §7a) — this file adds NO Tailwind class names that
@@ -22,17 +22,20 @@
  * preflight via its keywords array.
  *
  * Group ordering: groups are rendered in the locked order navigate →
- * routing → peers → gateway → logs to honor D-26 registration-order
- * tie-breaker. cmdk renders groups in DOM order (not alphabetical).
+ * routing → peers → gateway → logs → settings to honor D-26
+ * registration-order tie-breaker. cmdk renders groups in DOM order
+ * (not alphabetical).
  *
  * W1 invariant: this file contains zero Tauri listen() calls. The
- * onSelect handler may call emit() (TBD-PHASE-4-G in actions.ts) which
- * is a Tauri event EMIT, not a listener registration.
+ * onSelect handler may call emit() inside actions.ts (peers.add_nearby)
+ * which is a Tauri event EMIT, not a listener registration.
  */
 
 import { Command } from "cmdk";
 import { useCommandPalette } from "@/lib/command-palette/state";
 import { useActiveScreen } from "@/hooks/use-active-screen";
+import { useAppMode } from "@/hooks/use-app-mode";
+import { useInvitePeer } from "@/hooks/use-invite-peer";
 import {
   PALETTE_ACTIONS,
   type PaletteAction,
@@ -42,10 +45,14 @@ import {
 export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const { setActive } = useActiveScreen();
+  const { setMode } = useAppMode();
+  const { open: openInvite } = useInvitePeer();
 
   const ctx: PaletteContext = {
     setActive: (id) => setActive(id),
     closePalette: () => setOpen(false),
+    setMode: (m) => setMode(m),
+    openInvite: () => openInvite(),
   };
 
   // Group actions by group preserving registration order — cmdk renders
@@ -59,6 +66,7 @@ export function CommandPalette() {
     { name: "peers", actions: [] },
     { name: "gateway", actions: [] },
     { name: "logs", actions: [] },
+    { name: "settings", actions: [] },
   ];
   for (const action of PALETTE_ACTIONS) {
     const bucket = groups.find((g) => g.name === action.group);

@@ -2,39 +2,31 @@
  * PALETTE_ACTIONS — single source of truth for the ⌘K command palette
  * registry per 05-CONTEXT D-26 + D-27.
  *
- * Registration order LOCKED (RESEARCH §7b): navigate (6) → routing (3) →
- * peers (3) → gateway (3) → logs (2). cmdk uses substring + prefix +
- * Levenshtein scoring; registration order is the tie-breaker, so
- * placing navigate first ensures `g` resolves to "go to gateway" over
- * "gateway preflight".
+ * Registration order LOCKED (RESEARCH §7b): navigate → routing → peers →
+ * gateway → logs → settings. cmdk uses substring + prefix + Levenshtein
+ * scoring; registration order is the tie-breaker, so placing navigate
+ * first ensures `g` resolves to "go to gateway" over "gateway preflight".
  *
  * Action labels are VERBATIM per D-27 — no exclamation marks, lowercase,
  * brand voice. Keywords expand search to include synonyms (RESEARCH §7b).
- *
- * TBD-PHASE-4 markers (greppable per RESEARCH §4):
- *   - TBD-PHASE-4-A: route on / route off run handlers — Phase 4 ROUTE-01
- *     wires route.set_split_default RPC. Until then, console.warn + close.
- *   - TBD-PHASE-4-F: show routing table run handler — Phase 4 ROUTE-03
- *     ships the routing screen. Note: post-Phase-4 reality, the routing
- *     screen DOES exist (src/screens/routing.tsx) and ActiveScreenId
- *     already includes "routing" — but per user directive the marker
- *     ships verbatim so a future audit grep finds it; the run handler
- *     stays as a console.warn no-op for now.
- *   - TBD-PHASE-4-G: add peer nearby run handler — emits the Tauri event
- *     pim://open-add-peer matching Plan 05-04's tray Add-peer flow.
  */
 
 import { emit } from "@tauri-apps/api/event";
+import { toast } from "sonner";
 import type { ActiveScreenId } from "@/hooks/use-active-screen";
+import type { AppMode } from "@/hooks/use-app-mode";
+import { callDaemon } from "@/lib/rpc";
 
 export interface PaletteContext {
   setActive: (id: ActiveScreenId) => void;
   closePalette: () => void;
+  setMode: (mode: AppMode) => void;
+  openInvite: () => void;
 }
 
 export interface PaletteAction {
   id: string;
-  group: "navigate" | "routing" | "peers" | "gateway" | "logs";
+  group: "navigate" | "routing" | "peers" | "gateway" | "logs" | "settings";
   // NB. The "peers" group is preserved as a search/grouping label — the
   // dedicated peers screen has been removed and every peers.* action
   // now routes to the Dashboard, where peer management lives inline.
@@ -44,26 +36,39 @@ export interface PaletteAction {
   run: (ctx: PaletteContext) => void;
 }
 
+function dispatchSettingsEvent(name: string): void {
+  // SettingsScreen attaches its window listeners on mount via useEffect.
+  // When the palette navigates from another tab, we have to wait for the
+  // screen to render before the listener exists. A double rAF is enough
+  // for React 19 to commit + run effects.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent(name));
+    });
+  });
+}
+
 export const PALETTE_ACTIONS: readonly PaletteAction[] = [
-  // ── navigate (6) ──
+  // ── navigate (8) ──
   {
     id: "nav.dashboard",
     group: "navigate",
     label: "go to dashboard",
     shortcut: "⌘1",
+    keywords: ["home", "peers", "overview"],
     run: (ctx) => {
       ctx.setActive("dashboard");
       ctx.closePalette();
     },
   },
   {
-    id: "nav.peers",
+    id: "nav.messages",
     group: "navigate",
-    label: "go to peers",
-    shortcut: "⌘1",
+    label: "go to messages",
+    shortcut: "⌘2",
+    keywords: ["chat", "conversation", "encrypted"],
     run: (ctx) => {
-      // Peers tab removed — peer management lives on the Dashboard.
-      ctx.setActive("dashboard");
+      ctx.setActive("messages");
       ctx.closePalette();
     },
   },
@@ -72,14 +77,9 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     group: "navigate",
     label: "go to routing",
     shortcut: "⌘3",
-    // TBD-PHASE-4-F: routing screen lives in Phase 4 (ROUTE-03). Phase 4
-    // already shipped post-plan-authoring, so setActive('routing') would
-    // resolve cleanly; the marker stays so a future grep audit finds the
-    // navigation surface and a future planner can decide whether to keep
-    // the console.warn safety net or wire setActive directly.
+    keywords: ["routes", "split-default", "kill-switch"],
     run: (ctx) => {
-      // eslint-disable-next-line no-console
-      console.warn("TBD-PHASE-4-F: routing screen lands in Phase 4 (ROUTE-03)");
+      ctx.setActive("routing");
       ctx.closePalette();
     },
   },
@@ -88,6 +88,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     group: "navigate",
     label: "go to gateway",
     shortcut: "⌘4",
+    keywords: ["nat", "egress", "internet"],
     run: (ctx) => {
       ctx.setActive("gateway");
       ctx.closePalette();
@@ -98,6 +99,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     group: "navigate",
     label: "go to logs",
     shortcut: "⌘5",
+    keywords: ["debug", "stream", "trace"],
     run: (ctx) => {
       ctx.setActive("logs");
       ctx.closePalette();
@@ -108,8 +110,31 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     group: "navigate",
     label: "go to settings",
     shortcut: "⌘,",
+    keywords: ["preferences", "config", "toml"],
     run: (ctx) => {
       ctx.setActive("settings");
+      ctx.closePalette();
+    },
+  },
+  {
+    id: "nav.about",
+    group: "navigate",
+    label: "go to about",
+    shortcut: "⌘7",
+    keywords: ["version", "credits", "shortcuts", "build", "repo"],
+    run: (ctx) => {
+      ctx.setActive("about");
+      ctx.closePalette();
+    },
+  },
+  {
+    id: "nav.simple_mode",
+    group: "navigate",
+    label: "switch to simple mode",
+    shortcut: "⌘\\",
+    keywords: ["one-button", "guided", "novice"],
+    run: (ctx) => {
+      ctx.setMode("simple");
       ctx.closePalette();
     },
   },
@@ -121,11 +146,16 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     label: "route on  (turn on split-default routing)",
     keywords: ["split-default", "internet via mesh", "route-on"],
     run: (ctx) => {
-      // TBD-PHASE-4-A: route on requires Phase 4 ROUTE-01
-      // (route.set_split_default RPC). Until then, log + close.
-      // eslint-disable-next-line no-console
-      console.warn("TBD-PHASE-4-A: route on requires ROUTE-01");
       ctx.closePalette();
+      void callDaemon("route.set_split_default", { on: true }).catch(
+        (e: unknown) => {
+          const msg =
+            e !== null && typeof e === "object" && "message" in e
+              ? String((e as { message: unknown }).message ?? "")
+              : String(e);
+          toast.error(`couldn't enable routing: ${msg}`);
+        },
+      );
     },
   },
   {
@@ -134,10 +164,16 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     label: "route off (turn off split-default routing)",
     keywords: ["split-default", "internet via mesh", "route-off"],
     run: (ctx) => {
-      // TBD-PHASE-4-A: route off requires Phase 4 ROUTE-01.
-      // eslint-disable-next-line no-console
-      console.warn("TBD-PHASE-4-A: route off requires ROUTE-01");
       ctx.closePalette();
+      void callDaemon("route.set_split_default", { on: false }).catch(
+        (e: unknown) => {
+          const msg =
+            e !== null && typeof e === "object" && "message" in e
+              ? String((e as { message: unknown }).message ?? "")
+              : String(e);
+          toast.error(`couldn't turn off routing: ${msg}`);
+        },
+      );
     },
   },
   {
@@ -145,10 +181,8 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     group: "routing",
     label: "show routing table",
     keywords: ["routes", "table", "topology"],
-    // TBD-PHASE-4-F: same routing screen marker as nav.routing.
     run: (ctx) => {
-      // eslint-disable-next-line no-console
-      console.warn("TBD-PHASE-4-F: routing table screen lands in Phase 4 (ROUTE-03)");
+      ctx.setActive("routing");
       ctx.closePalette();
     },
   },
@@ -170,9 +204,10 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     label: "add peer nearby",
     keywords: ["pair", "QR", "BLE", "nearby"],
     run: (ctx) => {
-      // TBD-PHASE-4-G: emit the same Tauri event Plan 05-04's tray
-      // emits, so a single listener can route the user to the existing
-      // Phase 2 Nearby panel — Phase 4 PEER-05/06 may extend the flow.
+      // Emit the same Tauri event Plan 05-04's tray emits, so a single
+      // listener can route the user to the existing Phase 2 Nearby
+      // panel. The shell-level `pim://open-add-peer` listener owns the
+      // actual navigation target.
       ctx.setActive("dashboard");
       ctx.closePalette();
       void emit("pim://open-add-peer", {}).catch(() => {});
@@ -182,11 +217,9 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     id: "peers.invite",
     group: "peers",
     label: "invite peer",
-    keywords: ["invite", "pim://", "remote"],
+    keywords: ["invite", "pim://", "remote", "share"],
     run: (ctx) => {
-      // Phase 4 owns the invite flow; for now navigate to peers where
-      // Plan 04-05 mounted the InvitePeerSheet trigger.
-      ctx.setActive("dashboard");
+      ctx.openInvite();
       ctx.closePalette();
     },
   },
@@ -244,6 +277,44 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
       // navigates to Logs where the [ Export debug snapshot ] button lives.
       ctx.setActive("logs");
       ctx.closePalette();
+    },
+  },
+
+  // ── settings (3) ──
+  {
+    id: "settings.filter",
+    group: "settings",
+    label: "filter settings sections",
+    shortcut: "⌘F",
+    keywords: ["search", "find", "filter"],
+    run: (ctx) => {
+      ctx.setActive("settings");
+      ctx.closePalette();
+      dispatchSettingsEvent("pim:settings-focus-search");
+    },
+  },
+  {
+    id: "settings.expand_all",
+    group: "settings",
+    label: "expand all settings sections",
+    shortcut: "⌘↓",
+    keywords: ["open", "unfold", "show"],
+    run: (ctx) => {
+      ctx.setActive("settings");
+      ctx.closePalette();
+      dispatchSettingsEvent("pim:settings-expand-all");
+    },
+  },
+  {
+    id: "settings.collapse_all",
+    group: "settings",
+    label: "collapse all settings sections",
+    shortcut: "⌘↑",
+    keywords: ["close", "fold", "hide"],
+    run: (ctx) => {
+      ctx.setActive("settings");
+      ctx.closePalette();
+      dispatchSettingsEvent("pim:settings-collapse-all");
     },
   },
 ];

@@ -8,7 +8,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { RouteTableResult, Status } from "@/lib/rpc-types";
-import { computeRelayContribution } from "./use-relay-contribution";
+import {
+  computeRelayContribution,
+  formatRoleLabel,
+} from "./use-relay-contribution";
 
 function buildStatus(overrides: Partial<Status> = {}): Status {
   return {
@@ -46,11 +49,21 @@ describe("computeRelayContribution", () => {
   it("reports loading=true when status is null", () => {
     expect(computeRelayContribution(null, null)).toEqual({
       active: false,
+      role: [],
       peersViaMe: 0,
       packetsForwarded: 0,
       bytesForwarded: 0,
       loading: true,
     });
+  });
+
+  it("propagates role array from Status.role", () => {
+    const status = buildStatus({ role: ["client", "relay", "gateway"] });
+    expect(computeRelayContribution(status, null).role).toEqual([
+      "client",
+      "relay",
+      "gateway",
+    ]);
   });
 
   it("derives active=true when role includes relay", () => {
@@ -122,6 +135,17 @@ describe("computeRelayContribution", () => {
   it("returns peersViaMe=0 when route table is null", () => {
     const status = buildStatus();
     expect(computeRelayContribution(status, null).peersViaMe).toBe(0);
+  });
+
+  it("formats role label with capability bitfield", () => {
+    expect(formatRoleLabel([])).toBe("client (0x01)");
+    expect(formatRoleLabel(["client"])).toBe("client (0x01)");
+    expect(formatRoleLabel(["client", "relay"])).toBe("relay + client (0x03)");
+    expect(formatRoleLabel(["client", "relay", "gateway"])).toBe(
+      "gateway + relay + client (0x07)",
+    );
+    // gateway implies relay + client even if the array is short
+    expect(formatRoleLabel(["gateway"])).toBe("gateway + relay + client (0x07)");
   });
 
   it("propagates forwarded counters from Status.stats", () => {

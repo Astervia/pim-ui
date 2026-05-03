@@ -20,13 +20,15 @@
  * `useDaemonState().actions.subscribe`. No new `listen()` is added.
  */
 
-import type { RouteTableResult, Status } from "@/lib/rpc-types";
+import type { NodeRole, RouteTableResult, Status } from "@/lib/rpc-types";
 import { useStatus } from "@/hooks/use-status";
 import { useRouteTable } from "@/hooks/use-route-table";
 
 export interface RelayContribution {
   /** True when `Status.role` includes `"relay"`. */
   active: boolean;
+  /** Full role list from `Status.role` (empty until first handshake). */
+  role: readonly NodeRole[];
   /** Distinct destinations whose next-hop is this node's `node_id`. */
   peersViaMe: number;
   /** Cumulative forwarded packet count (Status.stats.forwarded_packets). */
@@ -35,6 +37,22 @@ export interface RelayContribution {
   bytesForwarded: number;
   /** True until the first status round-trip completes. */
   loading: boolean;
+}
+
+/**
+ * Capability bitfield label for a role set, matching the daemon's
+ * `0x01` (client) / `0x03` (relay+client) / `0x07` (gateway+relay+client)
+ * convention. A gateway node is implicitly also a relay and a client,
+ * so role membership is hierarchical.
+ */
+export function formatRoleLabel(role: readonly NodeRole[]): string {
+  if (role.includes("gateway")) {
+    return "gateway + relay + client (0x07)";
+  }
+  if (role.includes("relay")) {
+    return "relay + client (0x03)";
+  }
+  return "client (0x01)";
 }
 
 /**
@@ -50,6 +68,7 @@ export function computeRelayContribution(
   if (status === null) {
     return {
       active: false,
+      role: [],
       peersViaMe: 0,
       packetsForwarded: 0,
       bytesForwarded: 0,
@@ -70,6 +89,7 @@ export function computeRelayContribution(
 
   return {
     active,
+    role: status.role,
     peersViaMe,
     packetsForwarded: status.stats.forwarded_packets,
     bytesForwarded: status.stats.forwarded_bytes,

@@ -22,7 +22,10 @@
 
 import { CliPanel } from "@/components/brand/cli-panel";
 import { ScanLoader } from "@/components/brand/scan-loader";
-import { useRelayContribution } from "@/hooks/use-relay-contribution";
+import {
+  formatRoleLabel,
+  useRelayContribution,
+} from "@/hooks/use-relay-contribution";
 import { formatBytes, formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +91,7 @@ export function RelayContributionPanel({
   const rows: readonly Row[] = [
     {
       label: "role",
-      value: "relay + client (0x03)",
+      value: formatRoleLabel(contribution.role),
       emphasis: "primary",
     },
     {
